@@ -4,7 +4,7 @@ import { dividirPeriodo, type ConsultaComunica, type IntimacaoImportada } from "
 import { buscarEmJanelas, ErroComunica, type BuscarPagina } from "../server/comunica/busca.ts";
 
 const CONSULTA: ConsultaComunica = { termo: { tipo: "parte", valor: "Banco Bradesco S.A" }, dataInicio: "2026-09-01", dataFim: "2026-09-15" };
-const OP = { diasPorJanela: 7, maxItens: 500, orcamentoMs: 60_000 };
+const OP = { diasPorJanela: 7, maxItens: 500, orcamentoMs: 60_000, esperar: async () => {} };
 
 function item(data: string, n = 0): IntimacaoImportada {
   return { origem: "comunica", comunicaId: `${data}-${n}`, tribunal: "TJSP", orgao: "", dataDisponibilizacao: data, tipoComunicacao: "Intimação", meio: "D", tipoDocumento: "", classe: "", numeroProcesso: "", partes: [], advogados: [], texto: "" };
@@ -71,7 +71,7 @@ test("dia que falha depois de achar resultados vira aviso, não erro", async () 
   const r = await buscarEmJanelas({ ...CONSULTA, dataInicio: "2026-09-14" }, buscar, { ...OP, diasPorJanela: 1 });
   assert.equal(r.itens.length, 2);
   assert.ok(r.truncado);
-  assert.match(r.aviso!, /demorou/);
+  assert.match(r.aviso!, /sobrecarregado/);
 });
 
 test("sem nenhum resultado, o timeout continua sendo erro", async () => {
@@ -84,4 +84,45 @@ test("respeita o máximo de itens", async () => {
   const r = await buscarEmJanelas(CONSULTA, buscar, { ...OP, maxItens: 250 });
   assert.equal(r.itens.length, 250);
   assert.ok(r.truncado);
+});
+
+function ocupado(): ErroComunica {
+  return new ErroComunica("O sistema está muito ocupado", 503, true);
+}
+
+test("repete após esperar quando o Comunica diz que está ocupado", async () => {
+  let chamadas = 0;
+  const esperas: number[] = [];
+  const buscar: BuscarPagina = async (c) => {
+    chamadas++;
+    if (chamadas <= 2) throw ocupado();
+    return { total: 1, itens: [item(c.dataFim)] };
+  };
+  const r = await buscarEmJanelas({ ...CONSULTA, dataInicio: "2026-09-15" }, buscar, { ...OP, esperar: async (ms) => void esperas.push(ms) });
+  assert.equal(r.itens.length, 1);
+  assert.deepEqual(esperas, [3_000, 8_000]);
+});
+
+test("janela que continua ocupada é refeita dia a dia", async () => {
+  const buscar: BuscarPagina = async (c) => {
+    if (c.dataInicio !== c.dataFim) throw ocupado();
+    return { total: 1, itens: [item(c.dataFim)] };
+  };
+  const r = await buscarEmJanelas(CONSULTA, buscar, OP);
+  assert.equal(r.itens.length, 15);
+  assert.equal(r.truncado, false);
+});
+
+test("ocupado até no dia a dia, sem resultados, vira erro claro", async () => {
+  await assert.rejects(buscarEmJanelas(CONSULTA, async () => { throw ocupado(); }, OP), ErroComunica);
+});
+
+test("limite de requisições não multiplica as chamadas dividindo o período", async () => {
+  let chamadas = 0;
+  const limite = async () => {
+    chamadas++;
+    throw new ErroComunica("limite", 429, true);
+  };
+  await assert.rejects(buscarEmJanelas(CONSULTA, limite, OP), ErroComunica);
+  assert.equal(chamadas, 3, "uma chamada e duas repetições");
 });
