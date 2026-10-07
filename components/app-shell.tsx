@@ -1,10 +1,14 @@
 "use client";
 
 import clsx from "clsx";
-import { Database, FileSearch, Gavel, LayoutDashboard, ListChecks, Menu, Users, X } from "lucide-react";
+import { Database, FileSearch, Gavel, History, LayoutDashboard, ListChecks, Menu, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
+import { MenuUsuario } from "@/components/auth/menu-usuario";
+import { useToast } from "@/components/toast";
+import { Button } from "@/components/ui";
 import { useStore } from "@/lib/store";
 
 const NAV = [
@@ -61,6 +65,36 @@ function Marca() {
   );
 }
 
+/** Oferece trazer para a conta os dados que a Versão 1 guardava só no navegador. */
+function AvisoDadosLegados() {
+  const { dadosLegados, importarDadosLegados, descartarDadosLegados } = useStore();
+  const { toast } = useToast();
+  if (!dadosLegados) return null;
+  return (
+    <div className="mb-5 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900 sm:flex-row sm:items-center">
+      <History className="hidden h-5 w-5 shrink-0 text-brand-600 sm:block" aria-hidden />
+      <p className="flex-1">
+        Encontramos <strong>{dadosLegados.intimacoes} intimação(ões)</strong> e <strong>{dadosLegados.termos} cliente(s)</strong> salvos neste navegador pela versão anterior.
+        Deseja trazê-los para a sua conta?
+      </p>
+      <div className="flex gap-2">
+        <Button variant="ghost" size="sm" onClick={descartarDadosLegados}>
+          Descartar
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            const r = importarDadosLegados();
+            toast("Dados importados para a sua conta", { descricao: `${r.intimacoes} intimação(ões) e ${r.termos} cliente(s).` });
+          }}
+        >
+          Importar para minha conta
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const pathname = usePathname();
@@ -74,15 +108,25 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
         <Marca />
         <Navegacao />
-        <p className="px-6 text-[11px] leading-relaxed text-slate-500">Dados salvos apenas neste navegador (localStorage).</p>
+        <div className="space-y-2 px-3">
+          <div className="px-3">
+            <IndicadorSincronizacao escuro />
+          </div>
+          <div className="border-t border-white/10 pt-2">
+            <MenuUsuario />
+          </div>
+        </div>
       </aside>
 
       {/* Barra superior (mobile) */}
       <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
         <Marca />
-        <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <MenuUsuario compacto />
+          <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       {menuAberto && (
@@ -96,6 +140,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
             <Navegacao onNavigate={() => setMenuAberto(false)} />
+            <div className="px-6">
+              <IndicadorSincronizacao escuro />
+            </div>
           </div>
         </div>
       )}
@@ -107,6 +154,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {erroPersistencia}
             </div>
           )}
+          <AvisoDadosLegados />
           {children}
         </div>
       </main>

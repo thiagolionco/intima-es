@@ -9,6 +9,8 @@ import {
   type IntimacaoImportada,
 } from "@/lib/comunica";
 import type { TipoTermo } from "@/lib/types";
+import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
+import { container } from "@/server/container";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,9 @@ const TIPOS: TipoTermo[] = ["parte", "advogado", "oab", "processo"];
  * bloqueios de CORS no navegador e para paginar os resultados de uma vez.
  */
 export async function GET(req: NextRequest) {
+  if (!(await container().sessoes.validar(req.cookies.get(NOME_COOKIE_SESSAO)?.value))) {
+    return NextResponse.json({ erro: "Sua sessão expirou. Entre novamente." }, { status: 401 });
+  }
   const q = req.nextUrl.searchParams;
   const tipo = q.get("tipo") as TipoTermo;
   if (!TIPOS.includes(tipo)) {

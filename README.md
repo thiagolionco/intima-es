@@ -4,6 +4,10 @@ Aplicação web em Next.js 14 para acompanhar as intimações publicadas no
 [Comunica PJe](https://comunica.pje.jus.br/) (Diário de Justiça Eletrônico Nacional)
 para uma carteira de clientes.
 
+**Versão 2:** contas de usuário com autenticação de nível corporativo, espaço de trabalho
+isolado por usuário no servidor, e-mails transacionais e uma central de exportação.
+Veja [Autenticação e contas](#autenticação-e-contas-versão-2).
+
 ## Requisitos
 
 - Node.js 18.18 ou superior (para rodar os testes automatizados: Node 22.6+)
@@ -23,8 +27,9 @@ npm run build
 npm start
 ```
 
-Não é preciso nenhuma variável de ambiente. Opcionalmente, copie `.env.example`
-para `.env.local` para trocar a URL da API do Comunica.
+Não é preciso nenhuma variável de ambiente para testar: os e-mails vão para uma caixa de
+saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produção, copie
+`.env.example` para `.env.local` e configure `APP_URL` e o envio de e-mail (SMTP ou Resend).
 
 ## Funcionalidades
 
@@ -38,7 +43,89 @@ para `.env.local` para trocar a URL da API do Comunica.
 | **Clientes monitorados** (`/clientes`) | Campo configurável com o que deve ser pesquisado: nome da parte, nome do advogado, número da OAB + UF ou número do processo, com filtro opcional por tribunal. |
 | **Dados e backup** (`/dados`) | Exportar CSV, backup e restauração em JSON, dados de demonstração e limpeza total. |
 
-Os dados ficam no `localStorage` do navegador (chaves `controle-intimacoes:*`).
+Os dados de cada usuário ficam no servidor, em `DATA_DIR/espacos/<id-do-usuário>.json`.
+Na primeira vez que você entrar num navegador que tinha dados da Versão 1 (localStorage),
+a aplicação oferece importá-los para a sua conta.
+
+## Autenticação e contas (Versão 2)
+
+| Recurso | Detalhes |
+| --- | --- |
+| **Cadastro em 3 etapas** (`/criar-conta`) | Identificação → senha (medidor de força, checklist, gerador de senha forte) → revisão e consentimento LGPD. |
+| **Confirmação de e-mail** | Link de uso único válido por 24 h, reenvio com contagem regressiva. Sem confirmar, não entra. |
+| **Login em etapas** (`/entrar`) | E-mail → senha (aviso de Caps Lock, "manter conectado por 30 dias") → código de 6 dígitos quando há 2FA. |
+| **Verificação em duas etapas** | TOTP (Google/Microsoft Authenticator, Authy, 1Password) com QR code, 10 códigos de recuperação, proteção contra reutilização de código. |
+| **Esqueci a senha** | Link de 30 min; ao redefinir, todas as sessões são encerradas e o titular recebe aviso. |
+| **Minha conta** (`/conta`) | Perfil; placar de segurança; troca de senha; dispositivos conectados com encerramento remoto; registro de atividade com filtros; exportação dos dados (LGPD) e exclusão da conta. |
+| **Espaço próprio** | Intimações e clientes de cada conta ficam isolados no servidor; o usuário vem sempre do cookie de sessão, nunca do navegador. Gravação automática com controle de concorrência entre abas. |
+| **Central de exportação** | Modal com escopo (resultado filtrado, selecionadas, acervo), formato (Excel .xlsx, CSV, PDF/impressão, JSON), escolha e ordem das colunas, presets, formato de data, separador, nome do arquivo, pré-visualização ao vivo e "copiar como tabela". |
+
+### Segurança
+
+- Senhas com **scrypt** (sal aleatório, parâmetros versionados); política de senha única no navegador e no servidor.
+- Sessões com token aleatório de 256 bits em cookie **HttpOnly + SameSite=Lax** (`__Host-` e `Secure` em produção); no servidor só fica o **hash** do token. Expiração por inatividade (8 h, ou 30 dias com "manter conectado") e absoluta.
+- **Bloqueio** de 15 min após 5 senhas erradas, com aviso por e-mail; **limite de taxa** por IP e por e-mail em login, cadastro, reenvio e recuperação.
+- Respostas que **não revelam** se um e-mail está cadastrado (cadastro, login e recuperação), inclusive no tempo de resposta.
+- Tokens de e-mail de **uso único**, guardados como hash, enviados no fragmento da URL (`#token=`), que não vai para logs nem para o cabeçalho Referer.
+- **CSRF**: toda requisição que altera dados precisa vir da mesma origem. Cabeçalhos de segurança (X-Frame-Options, nosniff, Referrer-Policy, HSTS em produção).
+- **Auditoria** de logins, falhas, bloqueios, trocas de senha, 2FA e sessões; alerta por e-mail em acesso de dispositivo novo.
+
+### Arquitetura (SOLID)
+
+```
+server/
+  core/            erros de aplicação, relógio, utilitários de criptografia
+  auth/
+    model.ts       entidades (Usuario, Sessao, Token…) — sem dependência de infraestrutura
+    ports.ts       interfaces: repositórios, HashDeSenha, LimitadorDeTaxa, SegundoFator, NotificacoesDeConta
+    services/      um serviço por responsabilidade: Cadastro, Autenticacao, Sessao,
+                   RecuperacaoSenha, DoisFatores, Conta
+  workspace/       espaço de trabalho por usuário (repositório + serviço)
+  infra/           implementações: armazenamento em arquivo/memória, scrypt, TOTP,
+                   limitador em memória, e-mail (caixa local, SMTP, Resend) e templates
+  http/rota.ts     adaptador HTTP: CSRF, sessão, leitura de JSON e tradução de erros
+  container.ts     raiz de composição — único lugar que conhece as classes concretas
+app/api/...        rotas finas: leem a requisição, chamam um serviço, devolvem JSON
+lib/exportacao/    colunas, formatos (registro aberto para novos formatos) e gerador de ZIP/XLSX
+```
+
+- **S**: cada serviço tem uma responsabilidade; templates de e-mail são separados do transporte.
+- **O**: novos formatos de exportação, colunas ou provedores de e-mail entram por registro, sem alterar quem os usa.
+- **L**: qualquer `ArmazenamentoDocumentos` (arquivo ou memória) ou `EnviadorDeEmail` serve no lugar do outro; os testes rodam o sistema inteiro em memória.
+- **I**: cada serviço declara com `Pick<>` só as dependências que usa.
+- **D**: serviços dependem de interfaces; `server/container.ts` injeta as implementações. Trocar o banco em arquivo por Postgres, ou o limitador por Redis, é escrever uma classe nova e registrá-la lá.
+
+> O armazenamento em arquivo atende a uma instalação em um servidor ou máquina. Em
+> hospedagens serverless (ex.: Vercel), onde o disco não é persistente, implemente os
+> repositórios com um banco de dados.
+
+### Configurar o envio real de e-mails
+
+Em `.env.local`:
+
+```bash
+APP_URL=http://localhost:3000
+EMAIL_PROVIDER=smtp
+EMAIL_FROM="Controle de Intimações <voce@gmail.com>"
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=voce@gmail.com
+SMTP_PASSWORD=sua-senha-de-app   # Gmail: Conta Google › Segurança › Senhas de app
+```
+
+Ou, com Resend: `EMAIL_PROVIDER=resend` e `RESEND_API_KEY=...`.
+
+### Roteiro de teste da Versão 2
+
+1. `npm run dev` e abra http://localhost:3000 — você cai em **Entrar**.
+2. **Criar uma conta**: percorra as 3 etapas (teste o "Gerar senha forte" e a validação).
+3. Na tela "Confirme seu e-mail", clique em **Abrir caixa de saída** e depois no botão do e-mail. O link também aparece no terminal.
+4. Entre. Tente uma senha errada antes para ver a mensagem e, depois, o registro em **Minha conta › Atividade**.
+5. Em **Dados e backup › Carregar exemplo**, recarregue a página: os dados continuam (estão no servidor).
+6. Em **Intimações › Exportar**, experimente formatos, presets, ordem das colunas e a pré-visualização; exporte em Excel e gere o PDF.
+7. Em **Minha conta › Segurança**, ative a verificação em duas etapas com o celular, guarde os códigos, saia e entre de novo usando o código (ou um código de recuperação).
+8. Abra uma janela anônima, crie outra conta e confirme que ela começa vazia (espaço isolado). Na primeira janela, veja as duas sessões em **Dispositivos** e encerre a outra.
+9. Em **Privacidade e dados**, baixe seus dados (JSON) e, se quiser, exclua a conta.
 
 ## Integração com o Comunica PJe
 
@@ -67,7 +154,7 @@ avisa para aguardar. A API pode recusar acessos vindos de fora do Brasil.
 ## Testes automatizados
 
 ```bash
-npm test        # normalização da API, filtros, CSV e validação (Node 22.6+)
+npm test        # autenticação, 2FA, sessões, isolamento, exportação, API do Comunica, filtros (Node 22.6+)
 npm run typecheck
 npm run lint
 ```
@@ -75,8 +162,12 @@ npm run lint
 ## Estrutura
 
 ```
-app/                  páginas (App Router) e app/api/comunica/route.ts
-components/           UI (cards, gráficos SVG, seletor de datas, modais, toasts, formulário)
-lib/                  tipos, store com localStorage, integração Comunica, filtros, CSV, validação
+app/(auth)/           telas públicas: entrar, criar conta, confirmar e-mail, recuperar senha
+app/(app)/            telas internas (exigem sessão): painel, intimações, Comunica, clientes, dados, conta
+app/api/              rotas: auth, conta, espaço de trabalho, Comunica e caixa de saída de dev
+middleware.ts         barra o acesso sem cookie de sessão
+server/               domínio e infraestrutura de autenticação (ver "Arquitetura")
+components/           UI (auth, conta, exportação, cards, gráficos, modais, toasts, formulário)
+lib/                  tipos, store sincronizada com o servidor, sessão no navegador, exportação, Comunica
 tests/                testes com node:test
 ```

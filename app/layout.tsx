@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
 import { ToastProvider } from "@/components/toast";
-import { StoreProvider } from "@/lib/store";
+import { SessaoProvider } from "@/lib/auth/sessao";
 
 export const metadata: Metadata = {
   title: { default: "Controle de Intimações", template: "%s · Controle de Intimações" },
@@ -17,11 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body>
-        <StoreProvider>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-          </ToastProvider>
-        </StoreProvider>
+        <ToastProvider>
+          <SessaoProvider>{children}</SessaoProvider>
+        </ToastProvider>
       </body>
     </html>
   );
