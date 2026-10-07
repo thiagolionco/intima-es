@@ -1,0 +1,26 @@
+# Configuração para o Fly.io. Região gru = São Paulo: o Comunica PJe recusa acessos de fora do Brasil.
+app = "controle-intimacoes"
+primary_region = "gru"
+
+[build]
+
+[env]
+  DATA_DIR = "/data"
+  # Troque pelo endereço final do app (usado nos links dos e-mails).
+  APP_URL = "https://controle-intimacoes.fly.dev"
+
+[[mounts]]
+  source = "dados"
+  destination = "/data"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Desliga a máquina quando ninguém está usando e liga de novo no próximo acesso (economiza).
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

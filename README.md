@@ -99,6 +99,22 @@ lib/exportacao/    colunas, formatos (registro aberto para novos formatos) e ger
 > hospedagens serverless (ex.: Vercel), onde o disco não é persistente, implemente os
 > repositórios com um banco de dados.
 
+### Hospedar na internet (Fly.io, São Paulo)
+
+O Comunica PJe recusa chamadas vindas de fora do Brasil, então o servidor precisa estar
+no Brasil. O repositório já traz um `Dockerfile` e um `fly.toml` com a região `gru`
+(São Paulo), um volume em `/data` para os dados e desligamento automático quando ninguém
+está usando.
+
+```bash
+fly launch --no-deploy --copy-config   # cria o app (ajuste o nome em fly.toml se já existir)
+fly secrets set EMAIL_PROVIDER=smtp SMTP_HOST=... SMTP_USER=... SMTP_PASSWORD=... EMAIL_FROM="..."
+fly deploy
+```
+
+Ajuste `APP_URL` em `fly.toml` para o endereço final. Mantenha uma única máquina: os
+dados ficam no volume dela.
+
 ### Configurar o envio real de e-mails
 
 Em `.env.local`:
