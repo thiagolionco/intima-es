@@ -1,26 +1,32 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
   COMUNICA_API_URL,
-  COMUNICA_ITENS_POR_PAGINA,
   interpretarResposta,
   montarParametros,
   validarConsulta,
   type ConsultaComunica,
-  type IntimacaoImportada,
 } from "@/lib/comunica";
 import type { TipoTermo } from "@/lib/types";
 import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
+import { buscarEmJanelas, ErroComunica, type BuscarPagina } from "@/server/comunica/busca";
 import { container } from "@/server/container";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 150;
 
-const MAX_PAGINAS = 5;
-const TIMEOUT_MS = 20_000;
+/** Máximo de comunicações devolvidas por busca. */
+const MAX_ITENS = 500;
+/** Tempo limite de cada chamada ao Comunica. Buscas por nome de grandes litigantes são lentas. */
+const TIMEOUT_MS = 40_000;
+/** Tempo total da busca; depois disso devolvemos o que já foi encontrado. */
+const ORCAMENTO_MS = 100_000;
+/** O período é consultado em janelas curtas, que o Comunica responde bem mais rápido. */
+const DIAS_POR_JANELA = 7;
 const TIPOS: TipoTermo[] = ["parte", "advogado", "oab", "processo"];
 
 /**
  * Proxy para a API pública do Comunica PJe. A chamada é feita no servidor para evitar
- * bloqueios de CORS no navegador e para paginar os resultados de uma vez.
+ * bloqueios de CORS no navegador e para paginar os resultados de uma vez (ver buscarEmJanelas).
  */
 export async function GET(req: NextRequest) {
   if (!(await container().sessoes.validar(req.cookies.get(NOME_COOKIE_SESSAO)?.value))) {
@@ -45,49 +51,36 @@ export async function GET(req: NextRequest) {
   if (invalido) return NextResponse.json({ erro: invalido }, { status: 400 });
 
   const base = process.env.COMUNICA_API_URL || COMUNICA_API_URL;
-  const itens: IntimacaoImportada[] = [];
-  let total = 0;
+  const buscarPagina: BuscarPagina = async (c) => {
+    const resp = await fetch(`${base}?${montarParametros(c).toString()}`, {
+      headers: { Accept: "application/json", "User-Agent": "ControleIntimacoes/2.0" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (resp.status === 429) {
+      throw new ErroComunica("O Comunica PJe limitou o número de consultas. Aguarde um minuto e tente novamente.", 429);
+    }
+    if (!resp.ok) {
+      const corpo = await resp.text().catch(() => "");
+      throw new ErroComunica(`O Comunica PJe respondeu com erro ${resp.status}. ${corpo.slice(0, 200)}`.trim(), 502);
+    }
+    return interpretarResposta(await resp.json());
+  };
 
   try {
-    for (let pagina = 1; pagina <= MAX_PAGINAS; pagina++) {
-      const url = `${base}?${montarParametros({ ...consulta, pagina }).toString()}`;
-      const resp = await fetch(url, {
-        headers: { Accept: "application/json", "User-Agent": "ControleIntimacoes/1.0" },
-        cache: "no-store",
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
-
-      if (resp.status === 429) {
-        return NextResponse.json(
-          { erro: "O Comunica PJe limitou o número de consultas. Aguarde um minuto e tente novamente.", itens, total },
-          { status: 429 },
-        );
-      }
-      if (!resp.ok) {
-        const corpo = await resp.text().catch(() => "");
-        return NextResponse.json(
-          { erro: `O Comunica PJe respondeu com erro ${resp.status}.`, detalhe: corpo.slice(0, 300) },
-          { status: 502 },
-        );
-      }
-
-      const { total: t, itens: pagItens } = interpretarResposta(await resp.json());
-      total = t;
-      itens.push(...pagItens);
-      if (pagItens.length < COMUNICA_ITENS_POR_PAGINA || itens.length >= total) break;
-    }
+    const r = await buscarEmJanelas(consulta, buscarPagina, { diasPorJanela: DIAS_POR_JANELA, maxItens: MAX_ITENS, orcamentoMs: ORCAMENTO_MS });
+    return NextResponse.json(r);
   } catch (e) {
+    if (e instanceof ErroComunica) return NextResponse.json({ erro: e.message }, { status: e.status });
     const timeout = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
     return NextResponse.json(
       {
         erro: timeout
-          ? "O Comunica PJe demorou demais para responder. Tente um período menor."
+          ? "O Comunica PJe não respondeu a tempo, mesmo consultando dia a dia. Ele pode estar instável agora: tente novamente em alguns minutos ou filtre por tribunal."
           : "Não foi possível conectar ao Comunica PJe. Verifique sua conexão com a internet.",
         detalhe: e instanceof Error ? e.message : String(e),
       },
       { status: 502 },
     );
   }
-
-  return NextResponse.json({ total, itens, truncado: itens.length < total });
 }
