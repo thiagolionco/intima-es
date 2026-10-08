@@ -31,12 +31,10 @@ const config: Config = {
           to: { transform: "translateY(0)", opacity: "1" },
         },
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
-        girar: { to: { transform: "rotate(360deg)" } },
       },
       animation: {
         "slide-in": "slide-in 0.2s ease-out",
         "fade-in": "fade-in 0.15s ease-out",
-        "girar-lento": "girar 60s linear infinite",
       },
     },
   },
