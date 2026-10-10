@@ -8,21 +8,52 @@ para uma carteira de clientes.
 isolado por usuário no servidor, e-mails transacionais e uma central de exportação.
 Veja [Autenticação e contas](#autenticação-e-contas-versão-2).
 
+**Versão 4 (Sentinela), em construção:** o app está sendo transformado numa vigília que
+avisa, em fases com aprovação entre elas. Roteiro, decisões e perguntas em aberto em
+[`docs/`](docs/README.md).
+
 ## Requisitos
 
-- Node.js 18.18 ou superior (para rodar os testes automatizados: Node 22.6+)
+- Node.js 22.6 ou superior (o arquivo `.nvmrc` fixa a versão 22)
 - npm
+- git
 
-## Como executar
+## Como rodar
+
+### No Windows, do zero
+
+1. Instale o **Node.js 22 ou superior** em https://nodejs.org (versão LTS) e o **Git** em
+   https://git-scm.com. Aceite as opções padrão dos instaladores.
+2. Abra o **PowerShell** e baixe o projeto:
+
+   ```powershell
+   cd $HOME
+   git clone https://github.com/thiagolionco/intima-es.git
+   cd intima-es
+   ```
+
+3. Se você já usava o app numa pasta antiga, copie a pasta de dados para cá
+   (contas, sessões e intimações ficam nela):
+
+   ```powershell
+   Copy-Item -Recurse ..\projetointimações-v2\.data .\.data
+   ```
+
+4. Instale as dependências e inicie:
+
+   ```powershell
+   npm ci
+   npm run dev
+   ```
+
+5. Abra http://localhost:3000 no navegador. Para parar, volte ao PowerShell e tecle `Ctrl+C`.
+
+Para pegar as novidades depois: `git pull` e `npm ci` dentro da pasta `intima-es`.
+
+### Produção
 
 ```bash
-npm install
-npm run dev          # http://localhost:3000
-```
-
-Para produção:
-
-```bash
+npm ci
 npm run build
 npm start
 ```
@@ -30,6 +61,8 @@ npm start
 Não é preciso nenhuma variável de ambiente para testar: os e-mails vão para uma caixa de
 saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produção, copie
 `.env.example` para `.env.local` e configure `APP_URL` e o envio de e-mail (SMTP ou Resend).
+
+> A pasta `.data/` guarda dados reais e **nunca** vai para o git. Faça cópia de segurança dela.
 
 ## Funcionalidades
 
@@ -167,13 +200,18 @@ avisa para aguardar. A API pode recusar acessos vindos de fora do Brasil.
 8. Em **Buscar no Comunica**, escolha o cliente, um período curto e clique em **Buscar intimações**; importe os resultados e repita a busca para ver a marcação "Já no acervo".
 9. Em **Dados e backup**, exporte o JSON, apague tudo e restaure o backup.
 
-## Testes automatizados
+## Testes automatizados e CI
 
 ```bash
-npm test        # autenticação, 2FA, sessões, isolamento, exportação, API do Comunica, filtros (Node 22.6+)
+npm test        # autenticação, 2FA, sessões, isolamento, exportação, API do Comunica, filtros
 npm run typecheck
 npm run lint
+npm run build
 ```
+
+O GitHub Actions (`.github/workflows/ci.yml`) roda esses quatro passos em todo PR e no
+`main`. A auditoria de dependências (`npm audit`) roda à parte e, por enquanto, só avisa:
+ver [`docs/decisoes/0003`](docs/decisoes/0003-auditoria-de-dependencias.md).
 
 ## Estrutura
 
@@ -186,4 +224,6 @@ server/               domínio e infraestrutura de autenticação (ver "Arquitet
 components/           UI (auth, conta, exportação, cards, gráficos, modais, toasts, formulário)
 lib/                  tipos, store sincronizada com o servidor, sessão no navegador, exportação, Comunica
 tests/                testes com node:test
+docs/                 decisões, fontes de dados e segurança
+.github/workflows/    CI
 ```
