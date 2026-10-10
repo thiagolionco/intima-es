@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791654969474,
+      "tag": "0000_identidade_e_escritorios",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791654970685,
+      "tag": "0001_isolamento_por_escritorio",
+      "breakpoints": true
+    }
+  ]
+}

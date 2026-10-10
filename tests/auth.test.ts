@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { avaliarSenha } from "../lib/auth/politica-senha.ts";
 import type { Usuario } from "../server/auth/model.ts";
@@ -17,17 +17,55 @@ import { HashScrypt } from "../server/infra/hash-scrypt.ts";
 import { LimitadorEmMemoria } from "../server/infra/limitador.ts";
 import { AuditoriaDocumentos, DesafioRepositoryDocumentos, SessaoRepositoryDocumentos, TokenRepositoryDocumentos, UsuarioRepositoryDocumentos } from "../server/infra/repositorios.ts";
 import { base32Decodificar, hotp, Totp } from "../server/infra/totp.ts";
-import { EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "../server/workspace/espaco-trabalho.ts";
+import {
+  AuditoriaPostgres,
+  DesafioRepositoryPostgres,
+  EspacoTrabalhoRepositoryPostgres,
+  SessaoRepositoryPostgres,
+  TokenRepositoryPostgres,
+  UsuarioRepositoryPostgres,
+} from "../server/infra/postgres/repositorios.ts";
+import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "../server/workspace/espaco-trabalho.ts";
+import { type BancoDeTeste, criarBancoDeTeste, URL_TESTE } from "./apoio/postgres.ts";
 
 const SENHA = "Tribunal#Seguro2026";
 const CTX = { ip: "10.0.0.1", userAgent: "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0" };
 
-/** Monta o sistema inteiro em memória, com relógio controlável e notificações capturadas. */
-function montar() {
+type Backend = "memória" | "postgres";
+/** A suíte roda sobre os documentos em memória e, com TEST_DATABASE_URL, também sobre o Postgres. */
+const BACKENDS: Backend[] = URL_TESTE ? ["memória", "postgres"] : ["memória"];
+let banco: BancoDeTeste | undefined;
+
+function repositorios(backend: Backend, clock: { agora: () => Date }) {
+  if (backend === "postgres") {
+    const db = banco!.db;
+    return {
+      usuarios: new UsuarioRepositoryPostgres(db),
+      sessoes: new SessaoRepositoryPostgres(db, clock),
+      tokens: new TokenRepositoryPostgres(db, clock),
+      desafios: new DesafioRepositoryPostgres(db, clock),
+      auditoria: new AuditoriaPostgres(db, clock),
+      espacos: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+    };
+  }
+  const db = new ArmazenamentoEmMemoria();
+  return {
+    usuarios: new UsuarioRepositoryDocumentos(db),
+    sessoes: new SessaoRepositoryDocumentos(db, clock),
+    tokens: new TokenRepositoryDocumentos(db, clock),
+    desafios: new DesafioRepositoryDocumentos(db, clock),
+    auditoria: new AuditoriaDocumentos(db, clock),
+    espacos: new EspacoTrabalhoRepositoryDocumentos(db, clock) as EspacoTrabalhoRepository,
+  };
+}
+
+/** Monta o sistema inteiro, com relógio controlável e notificações capturadas. */
+async function montar(backend: Backend) {
+  if (backend === "postgres") await banco!.limpar();
   let agora = new Date("2026-10-07T12:00:00Z").getTime();
   const clock = { agora: () => new Date(agora) };
   const avancar = (ms: number) => (agora += ms);
-  const db = new ArmazenamentoEmMemoria();
+  const { espacos: espacosRepo, ...repos } = repositorios(backend, clock);
   const enviados: { tipo: string; para: string; link?: string }[] = [];
   const notificacoes: NotificacoesDeConta = {
     confirmarEmail: async (u, link) => void enviados.push({ tipo: "confirmar", para: u.email, link }),
@@ -40,11 +78,7 @@ function montar() {
   };
   const totp = new Totp(clock);
   const deps: DependenciasAuth = {
-    usuarios: new UsuarioRepositoryDocumentos(db),
-    sessoes: new SessaoRepositoryDocumentos(db, clock),
-    tokens: new TokenRepositoryDocumentos(db, clock),
-    desafios: new DesafioRepositoryDocumentos(db, clock),
-    auditoria: new AuditoriaDocumentos(db, clock),
+    ...repos,
     hash: new HashScrypt(2 ** 10),
     limitador: new LimitadorEmMemoria(clock),
     segundoFator: totp,
@@ -59,7 +93,6 @@ function montar() {
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
     emissor2fa: "Teste",
   };
-  const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
   return {
     deps,
@@ -77,7 +110,7 @@ function montar() {
   };
 }
 
-async function contaConfirmada(s: ReturnType<typeof montar>, email = "ana@escritorio.com.br", nome = "Ana Souza") {
+async function contaConfirmada(s: Awaited<ReturnType<typeof montar>>, email = "ana@escritorio.com.br", nome = "Ana Souza") {
   await s.cadastro.cadastrar({ nome, email, senha: SENHA, aceitouTermos: true }, CTX);
   await s.cadastro.confirmarEmail(s.token("confirmar"), CTX);
   return (await s.deps.usuarios.porEmail(email)) as Usuario;
@@ -105,136 +138,6 @@ test("hash scrypt verifica a senha certa e recusa a errada", async () => {
   assert.notEqual(await h.gerar(SENHA), hash, "sal aleatório");
 });
 
-test("cadastro → confirmação de e-mail → login", async () => {
-  const s = montar();
-  await s.cadastro.cadastrar({ nome: "Ana Souza", email: " Ana@Escritorio.com.br ", senha: SENHA, aceitouTermos: true }, CTX);
-  assert.equal(s.enviados[0].tipo, "confirmar");
-  assert.equal(s.enviados[0].para, "ana@escritorio.com.br");
-
-  await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX), "email_nao_confirmado");
-  await s.cadastro.confirmarEmail(s.token("confirmar"), CTX);
-  const r = await s.auth.entrar({ email: "ANA@escritorio.com.br", senha: SENHA }, CTX);
-  assert.equal(r.tipo, "sessao");
-  if (r.tipo !== "sessao") return;
-  assert.notEqual(r.sessao.id, r.token, "guardamos só o hash do token");
-  const valida = await s.sessoes.validar(r.token);
-  assert.equal(valida?.usuario.email, "ana@escritorio.com.br");
-});
-
-test("link de confirmação é de uso único e expira em 24 h", async () => {
-  const s = montar();
-  await s.cadastro.cadastrar({ nome: "Ana Souza", email: "ana@x.com.br", senha: SENHA, aceitouTermos: true }, CTX);
-  const token = s.token("confirmar");
-  s.avancar(DIA + MINUTO);
-  await rejeita(s.cadastro.confirmarEmail(token, CTX), "token_invalido");
-
-  await s.cadastro.reenviarConfirmacao("ana@x.com.br", CTX);
-  const novo = s.token("confirmar");
-  await s.cadastro.confirmarEmail(novo, CTX);
-  await rejeita(s.cadastro.confirmarEmail(novo, CTX), "token_invalido");
-});
-
-test("cadastro com e-mail existente não revela a conta e avisa o titular", async () => {
-  const s = montar();
-  await contaConfirmada(s);
-  const r = await s.cadastro.cadastrar({ nome: "Invasor Teste", email: "ana@escritorio.com.br", senha: "Outra#Chave2026x", aceitouTermos: true }, CTX);
-  assert.deepEqual(r, { email: "ana@escritorio.com.br" });
-  assert.equal(s.enviados.at(-1)?.tipo, "ja_existe");
-  const ok = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX);
-  assert.equal(ok.tipo, "sessao", "a senha original continua valendo");
-});
-
-test("mesma mensagem para e-mail inexistente e senha errada", async () => {
-  const s = montar();
-  await contaConfirmada(s);
-  const msgs: string[] = [];
-  for (const email of ["nao@existe.com", "ana@escritorio.com.br"]) {
-    try {
-      await s.auth.entrar({ email, senha: "Errada#123456" }, CTX);
-    } catch (e) {
-      msgs.push((e as AppError).codigo + (e as AppError).message);
-    }
-  }
-  assert.equal(msgs[0], msgs[1]);
-});
-
-test(`bloqueio após ${MAX_TENTATIVAS} senhas erradas, com aviso por e-mail`, async () => {
-  const s = montar();
-  await contaConfirmada(s);
-  for (let i = 0; i < MAX_TENTATIVAS; i++) await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: "Errada#123456" }, CTX), "credenciais_invalidas");
-  await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX), "conta_bloqueada");
-  assert.equal(s.enviados.at(-1)?.tipo, "bloqueada");
-  s.avancar(16 * MINUTO);
-  assert.equal((await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX)).tipo, "sessao");
-});
-
-test("limitador de taxa barra rajadas por IP", async () => {
-  const s = montar();
-  const outro = { ...CTX, ip: "203.0.113.9" };
-  for (let i = 0; i < 30; i++) await s.auth.entrar({ email: `x${i}@y.com`, senha: "Qualquer#123456" }, outro).catch(() => undefined);
-  await rejeita(s.auth.entrar({ email: "z@y.com", senha: "Qualquer#123456" }, outro), "muitas_tentativas");
-});
-
-test("sessão expira por inatividade e respeita 'manter conectado'", async () => {
-  const s = montar();
-  await contaConfirmada(s);
-  const curta = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX);
-  const longa = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA, lembrar: true }, CTX);
-  assert.ok(curta.tipo === "sessao" && longa.tipo === "sessao");
-  s.avancar(9 * HORA);
-  assert.equal(await s.sessoes.validar(curta.token), null);
-  assert.ok(await s.sessoes.validar(longa.token));
-});
-
-test("encerrar outras sessões mantém só a atual", async () => {
-  const s = montar();
-  const u = await contaConfirmada(s);
-  const a = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  const b = await s.auth.entrar({ email: u.email, senha: SENHA }, { ...CTX, userAgent: "iPhone Safari" });
-  assert.ok(a.tipo === "sessao" && b.tipo === "sessao");
-  assert.equal(s.enviados.filter((e) => e.tipo === "novo_acesso").length, 1, "alerta de novo dispositivo");
-  const lista = await s.sessoes.listar(u.id, a.sessao.id);
-  assert.equal(lista.length, 2);
-  assert.ok(lista[0].atual);
-  assert.equal(await s.sessoes.encerrarOutras(u.id, a.sessao.id, CTX), 1);
-  assert.ok(await s.sessoes.validar(a.token));
-  assert.equal(await s.sessoes.validar(b.token), null);
-});
-
-test("2FA: ativação, login com código, bloqueio de reutilização e código de recuperação", async () => {
-  const s = montar();
-  const u = await contaConfirmada(s);
-  const { segredo, uri } = await s.doisFatores.iniciar(u.id);
-  assert.match(uri, /^otpauth:\/\/totp\/Teste:ana%40escritorio\.com\.br\?secret=/);
-  await rejeita(s.doisFatores.ativar(u.id, "000000", CTX), "codigo_invalido");
-  const { codigosRecuperacao } = await s.doisFatores.ativar(u.id, s.totp.codigoAtual(segredo), CTX);
-  assert.equal(codigosRecuperacao.length, 10);
-
-  s.avancar(31_000);
-  const r = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  assert.equal(r.tipo, "segundo_fator");
-  if (r.tipo !== "segundo_fator") return;
-  await rejeita(s.auth.confirmarSegundoFator({ desafio: r.desafio, codigo: "123456" }, CTX), "codigo_invalido");
-  const codigo = s.totp.codigoAtual(segredo);
-  const ok = await s.auth.confirmarSegundoFator({ desafio: r.desafio, codigo }, CTX);
-  assert.ok(await s.sessoes.validar(ok.token));
-
-  // O mesmo código não pode ser usado de novo (proteção contra replay).
-  const r2 = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  assert.ok(r2.tipo === "segundo_fator");
-  if (r2.tipo !== "segundo_fator") return;
-  await rejeita(s.auth.confirmarSegundoFator({ desafio: r2.desafio, codigo }, CTX), "codigo_invalido");
-
-  // Código de recuperação vale uma única vez.
-  const rec = codigosRecuperacao[0].toLowerCase().replace("-", " ");
-  await s.auth.confirmarSegundoFator({ desafio: r2.desafio, codigo: rec, recuperacao: true }, CTX);
-  const r3 = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  assert.ok(r3.tipo === "segundo_fator");
-  if (r3.tipo !== "segundo_fator") return;
-  await rejeita(s.auth.confirmarSegundoFator({ desafio: r3.desafio, codigo: codigosRecuperacao[0], recuperacao: true }, CTX), "codigo_invalido");
-  assert.equal((await s.deps.usuarios.porId(u.id))?.codigosRecuperacao.length, 9);
-});
-
 test("TOTP segue o vetor de teste da RFC 6238", () => {
   // Segredo "12345678901234567890" em base32; T = 59 s → 94287082 (8 dígitos) → 287082 (6).
   const segredo = base32Decodificar("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ");
@@ -242,66 +145,209 @@ test("TOTP segue o vetor de teste da RFC 6238", () => {
   assert.equal(hotp(segredo, 1), "287082");
 });
 
-test("redefinição de senha: token de uso único, encerra sessões e desbloqueia", async () => {
-  const s = montar();
-  const u = await contaConfirmada(s);
-  const sessao = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  assert.ok(sessao.tipo === "sessao");
+for (const backend of BACKENDS) {
+  describe(backend, () => {
+    if (backend === "postgres") {
+      before(async () => {
+        banco = await criarBancoDeTeste();
+      });
+      after(async () => {
+        await banco?.encerrar();
+      });
+    }
 
-  await s.recuperacao.solicitar("nao@existe.com", CTX); // silencioso
-  await s.recuperacao.solicitar(u.email, CTX);
-  const token = s.token("redefinir");
-  assert.deepEqual(await s.recuperacao.verificarToken(token), { email: u.email });
-  await rejeita(s.recuperacao.redefinir(token, "fraca", CTX), "senha_fraca");
-  assert.ok(await s.recuperacao.verificarToken(token), "senha fraca não consome o link");
+    test("cadastro → confirmação de e-mail → login", async () => {
+      const s = await montar(backend);
+      await s.cadastro.cadastrar({ nome: "Ana Souza", email: " Ana@Escritorio.com.br ", senha: SENHA, aceitouTermos: true }, CTX);
+      assert.equal(s.enviados[0].tipo, "confirmar");
+      assert.equal(s.enviados[0].para, "ana@escritorio.com.br");
 
-  const NOVA = "Prazo&Processual2027";
-  await s.recuperacao.redefinir(token, NOVA, CTX);
-  await rejeita(s.recuperacao.redefinir(token, NOVA, CTX), "token_invalido");
-  assert.equal(await s.sessoes.validar(sessao.token), null, "sessões antigas encerradas");
-  await rejeita(s.auth.entrar({ email: u.email, senha: SENHA }, CTX), "credenciais_invalidas");
-  assert.equal((await s.auth.entrar({ email: u.email, senha: NOVA }, CTX)).tipo, "sessao");
-});
+      await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX), "email_nao_confirmado");
+      await s.cadastro.confirmarEmail(s.token("confirmar"), CTX);
+      const r = await s.auth.entrar({ email: "ANA@escritorio.com.br", senha: SENHA }, CTX);
+      assert.equal(r.tipo, "sessao");
+      if (r.tipo !== "sessao") return;
+      assert.notEqual(r.sessao.id, r.token, "guardamos só o hash do token");
+      const valida = await s.sessoes.validar(r.token);
+      assert.equal(valida?.usuario.email, "ana@escritorio.com.br");
+    });
 
-test("alterar senha exige a atual e encerra as outras sessões", async () => {
-  const s = montar();
-  const u = await contaConfirmada(s);
-  const a = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  const b = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
-  assert.ok(a.tipo === "sessao" && b.tipo === "sessao");
-  await rejeita(s.conta.alterarSenha(a.sessao, "errada", "Nova#Chave2026xy", CTX), "senha_atual_incorreta");
-  const r = await s.conta.alterarSenha(a.sessao, SENHA, "Nova#Chave2026xy", CTX);
-  assert.equal(r.sessoesEncerradas, 1);
-  assert.ok(await s.sessoes.validar(a.token));
-  assert.equal(await s.sessoes.validar(b.token), null);
-});
+    test("link de confirmação é de uso único e expira em 24 h", async () => {
+      const s = await montar(backend);
+      await s.cadastro.cadastrar({ nome: "Ana Souza", email: "ana@x.com.br", senha: SENHA, aceitouTermos: true }, CTX);
+      const token = s.token("confirmar");
+      s.avancar(DIA + MINUTO);
+      await rejeita(s.cadastro.confirmarEmail(token, CTX), "token_invalido");
 
-test("cada usuário tem seu próprio espaço de trabalho", async () => {
-  const s = montar();
-  const ana = await contaConfirmada(s);
-  const beto = await contaConfirmada(s, "beto@outro.com.br", "Beto Lima");
-  const intimacao = { id: "i1", cliente: "Construtora Alfa" };
-  await s.espacos.salvar(ana.id, { intimacoes: [intimacao], termos: [], revisao: 0 });
-  assert.equal((await s.espacos.carregar(ana.id)).intimacoes.length, 1);
-  assert.equal((await s.espacos.carregar(beto.id)).intimacoes.length, 0, "Beto não enxerga os dados da Ana");
+      await s.cadastro.reenviarConfirmacao("ana@x.com.br", CTX);
+      const novo = s.token("confirmar");
+      await s.cadastro.confirmarEmail(novo, CTX);
+      await rejeita(s.cadastro.confirmarEmail(novo, CTX), "token_invalido");
+    });
 
-  // Concorrência: gravar sobre uma revisão antiga é recusado.
-  await rejeita(s.espacos.salvar(ana.id, { intimacoes: [], termos: [], revisao: 0 }), "conflito");
-  await rejeita(s.espacos.salvar(ana.id, { intimacoes: [{ semId: true }], termos: [], revisao: 1 }), "dados_invalidos");
-});
+    test("cadastro com e-mail existente não revela a conta e avisa o titular", async () => {
+      const s = await montar(backend);
+      await contaConfirmada(s);
+      const r = await s.cadastro.cadastrar({ nome: "Invasor Teste", email: "ana@escritorio.com.br", senha: "Outra#Chave2026x", aceitouTermos: true }, CTX);
+      assert.deepEqual(r, { email: "ana@escritorio.com.br" });
+      assert.equal(s.enviados.at(-1)?.tipo, "ja_existe");
+      const ok = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX);
+      assert.equal(ok.tipo, "sessao", "a senha original continua valendo");
+    });
 
-test("exportação LGPD não inclui segredos e exclusão apaga tudo", async () => {
-  const s = montar();
-  const u = await contaConfirmada(s);
-  await s.espacos.salvar(u.id, { intimacoes: [{ id: "i1" }], termos: [], revisao: 0 });
-  const dados = await s.conta.exportar(u.id, CTX);
-  const json = JSON.stringify(dados);
-  assert.ok(!json.includes("scrypt$"), "sem hash de senha");
-  assert.equal(dados.intimacoes.length, 1);
+    test("mesma mensagem para e-mail inexistente e senha errada", async () => {
+      const s = await montar(backend);
+      await contaConfirmada(s);
+      const msgs: string[] = [];
+      for (const email of ["nao@existe.com", "ana@escritorio.com.br"]) {
+        try {
+          await s.auth.entrar({ email, senha: "Errada#123456" }, CTX);
+        } catch (e) {
+          msgs.push((e as AppError).codigo + (e as AppError).message);
+        }
+      }
+      assert.equal(msgs[0], msgs[1]);
+    });
 
-  await rejeita(s.conta.excluir(u.id, SENHA, "outro@email.com"), "dados_invalidos");
-  await s.conta.excluir(u.id, SENHA, u.email);
-  assert.equal(await s.deps.usuarios.porId(u.id), null);
-  assert.equal((await s.espacos.carregar(u.id)).intimacoes.length, 0);
-  assert.equal((await s.deps.auditoria.doUsuario(u.id)).length, 0);
-});
+    test(`bloqueio após ${MAX_TENTATIVAS} senhas erradas, com aviso por e-mail`, async () => {
+      const s = await montar(backend);
+      await contaConfirmada(s);
+      for (let i = 0; i < MAX_TENTATIVAS; i++) await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: "Errada#123456" }, CTX), "credenciais_invalidas");
+      await rejeita(s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX), "conta_bloqueada");
+      assert.equal(s.enviados.at(-1)?.tipo, "bloqueada");
+      s.avancar(16 * MINUTO);
+      assert.equal((await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX)).tipo, "sessao");
+    });
+
+    test("limitador de taxa barra rajadas por IP", async () => {
+      const s = await montar(backend);
+      const outro = { ...CTX, ip: "203.0.113.9" };
+      for (let i = 0; i < 30; i++) await s.auth.entrar({ email: `x${i}@y.com`, senha: "Qualquer#123456" }, outro).catch(() => undefined);
+      await rejeita(s.auth.entrar({ email: "z@y.com", senha: "Qualquer#123456" }, outro), "muitas_tentativas");
+    });
+
+    test("sessão expira por inatividade e respeita 'manter conectado'", async () => {
+      const s = await montar(backend);
+      await contaConfirmada(s);
+      const curta = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA }, CTX);
+      const longa = await s.auth.entrar({ email: "ana@escritorio.com.br", senha: SENHA, lembrar: true }, CTX);
+      assert.ok(curta.tipo === "sessao" && longa.tipo === "sessao");
+      s.avancar(9 * HORA);
+      assert.equal(await s.sessoes.validar(curta.token), null);
+      assert.ok(await s.sessoes.validar(longa.token));
+    });
+
+    test("encerrar outras sessões mantém só a atual", async () => {
+      const s = await montar(backend);
+      const u = await contaConfirmada(s);
+      const a = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      const b = await s.auth.entrar({ email: u.email, senha: SENHA }, { ...CTX, userAgent: "iPhone Safari" });
+      assert.ok(a.tipo === "sessao" && b.tipo === "sessao");
+      assert.equal(s.enviados.filter((e) => e.tipo === "novo_acesso").length, 1, "alerta de novo dispositivo");
+      const lista = await s.sessoes.listar(u.id, a.sessao.id);
+      assert.equal(lista.length, 2);
+      assert.ok(lista[0].atual);
+      assert.equal(await s.sessoes.encerrarOutras(u.id, a.sessao.id, CTX), 1);
+      assert.ok(await s.sessoes.validar(a.token));
+      assert.equal(await s.sessoes.validar(b.token), null);
+    });
+
+    test("2FA: ativação, login com código, bloqueio de reutilização e código de recuperação", async () => {
+      const s = await montar(backend);
+      const u = await contaConfirmada(s);
+      const { segredo, uri } = await s.doisFatores.iniciar(u.id);
+      assert.match(uri, /^otpauth:\/\/totp\/Teste:ana%40escritorio\.com\.br\?secret=/);
+      await rejeita(s.doisFatores.ativar(u.id, "000000", CTX), "codigo_invalido");
+      const { codigosRecuperacao } = await s.doisFatores.ativar(u.id, s.totp.codigoAtual(segredo), CTX);
+      assert.equal(codigosRecuperacao.length, 10);
+
+      s.avancar(31_000);
+      const r = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      assert.equal(r.tipo, "segundo_fator");
+      if (r.tipo !== "segundo_fator") return;
+      await rejeita(s.auth.confirmarSegundoFator({ desafio: r.desafio, codigo: "123456" }, CTX), "codigo_invalido");
+      const codigo = s.totp.codigoAtual(segredo);
+      const ok = await s.auth.confirmarSegundoFator({ desafio: r.desafio, codigo }, CTX);
+      assert.ok(await s.sessoes.validar(ok.token));
+
+      // O mesmo código não pode ser usado de novo (proteção contra replay).
+      const r2 = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      assert.ok(r2.tipo === "segundo_fator");
+      if (r2.tipo !== "segundo_fator") return;
+      await rejeita(s.auth.confirmarSegundoFator({ desafio: r2.desafio, codigo }, CTX), "codigo_invalido");
+
+      // Código de recuperação vale uma única vez.
+      const rec = codigosRecuperacao[0].toLowerCase().replace("-", " ");
+      await s.auth.confirmarSegundoFator({ desafio: r2.desafio, codigo: rec, recuperacao: true }, CTX);
+      const r3 = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      assert.ok(r3.tipo === "segundo_fator");
+      if (r3.tipo !== "segundo_fator") return;
+      await rejeita(s.auth.confirmarSegundoFator({ desafio: r3.desafio, codigo: codigosRecuperacao[0], recuperacao: true }, CTX), "codigo_invalido");
+      assert.equal((await s.deps.usuarios.porId(u.id))?.codigosRecuperacao.length, 9);
+    });
+
+    test("redefinição de senha: token de uso único, encerra sessões e desbloqueia", async () => {
+      const s = await montar(backend);
+      const u = await contaConfirmada(s);
+      const sessao = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      assert.ok(sessao.tipo === "sessao");
+
+      await s.recuperacao.solicitar("nao@existe.com", CTX); // silencioso
+      await s.recuperacao.solicitar(u.email, CTX);
+      const token = s.token("redefinir");
+      assert.deepEqual(await s.recuperacao.verificarToken(token), { email: u.email });
+      await rejeita(s.recuperacao.redefinir(token, "fraca", CTX), "senha_fraca");
+      assert.ok(await s.recuperacao.verificarToken(token), "senha fraca não consome o link");
+
+      const NOVA = "Prazo&Processual2027";
+      await s.recuperacao.redefinir(token, NOVA, CTX);
+      await rejeita(s.recuperacao.redefinir(token, NOVA, CTX), "token_invalido");
+      assert.equal(await s.sessoes.validar(sessao.token), null, "sessões antigas encerradas");
+      await rejeita(s.auth.entrar({ email: u.email, senha: SENHA }, CTX), "credenciais_invalidas");
+      assert.equal((await s.auth.entrar({ email: u.email, senha: NOVA }, CTX)).tipo, "sessao");
+    });
+
+    test("alterar senha exige a atual e encerra as outras sessões", async () => {
+      const s = await montar(backend);
+      const u = await contaConfirmada(s);
+      const a = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      const b = await s.auth.entrar({ email: u.email, senha: SENHA }, CTX);
+      assert.ok(a.tipo === "sessao" && b.tipo === "sessao");
+      await rejeita(s.conta.alterarSenha(a.sessao, "errada", "Nova#Chave2026xy", CTX), "senha_atual_incorreta");
+      const r = await s.conta.alterarSenha(a.sessao, SENHA, "Nova#Chave2026xy", CTX);
+      assert.equal(r.sessoesEncerradas, 1);
+      assert.ok(await s.sessoes.validar(a.token));
+      assert.equal(await s.sessoes.validar(b.token), null);
+    });
+
+    test("cada usuário tem seu próprio espaço de trabalho", async () => {
+      const s = await montar(backend);
+      const ana = await contaConfirmada(s);
+      const beto = await contaConfirmada(s, "beto@outro.com.br", "Beto Lima");
+      const intimacao = { id: "i1", cliente: "Construtora Alfa" };
+      await s.espacos.salvar(ana.id, { intimacoes: [intimacao], termos: [], revisao: 0 });
+      assert.equal((await s.espacos.carregar(ana.id)).intimacoes.length, 1);
+      assert.equal((await s.espacos.carregar(beto.id)).intimacoes.length, 0, "Beto não enxerga os dados da Ana");
+
+      // Concorrência: gravar sobre uma revisão antiga é recusado.
+      await rejeita(s.espacos.salvar(ana.id, { intimacoes: [], termos: [], revisao: 0 }), "conflito");
+      await rejeita(s.espacos.salvar(ana.id, { intimacoes: [{ semId: true }], termos: [], revisao: 1 }), "dados_invalidos");
+    });
+
+    test("exportação LGPD não inclui segredos e exclusão apaga tudo", async () => {
+      const s = await montar(backend);
+      const u = await contaConfirmada(s);
+      await s.espacos.salvar(u.id, { intimacoes: [{ id: "i1" }], termos: [], revisao: 0 });
+      const dados = await s.conta.exportar(u.id, CTX);
+      const json = JSON.stringify(dados);
+      assert.ok(!json.includes("scrypt$"), "sem hash de senha");
+      assert.equal(dados.intimacoes.length, 1);
+
+      await rejeita(s.conta.excluir(u.id, SENHA, "outro@email.com"), "dados_invalidos");
+      await s.conta.excluir(u.id, SENHA, u.email);
+      assert.equal(await s.deps.usuarios.porId(u.id), null);
+      assert.equal((await s.espacos.carregar(u.id)).intimacoes.length, 0);
+      assert.equal((await s.deps.auditoria.doUsuario(u.id)).length, 0);
+    });
+  });
+}

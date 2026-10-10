@@ -21,8 +21,17 @@ import {
   TokenRepositoryDocumentos,
   UsuarioRepositoryDocumentos,
 } from "./infra/repositorios.ts";
+import { conectar } from "./infra/postgres/conexao.ts";
+import {
+  AuditoriaPostgres,
+  DesafioRepositoryPostgres,
+  EspacoTrabalhoRepositoryPostgres,
+  SessaoRepositoryPostgres,
+  TokenRepositoryPostgres,
+  UsuarioRepositoryPostgres,
+} from "./infra/postgres/repositorios.ts";
 import { Totp } from "./infra/totp.ts";
-import { EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
+import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 
 /** Origem da requisição atual, usada nos links dos e-mails quando APP_URL não está definida. */
 export const origemDaRequisicao = new AsyncLocalStorage<string>();
@@ -60,6 +69,34 @@ function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): Enviador
   return caixa;
 }
 
+/** Repositórios no PostgreSQL (com DATABASE_URL) ou em arquivos JSON (sem ela). */
+function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquivo) {
+  const clock = relogioDoSistema;
+  if (config.urlBanco) {
+    const { db } = conectar(config.urlBanco);
+    return {
+      repositorios: {
+        usuarios: new UsuarioRepositoryPostgres(db),
+        sessoes: new SessaoRepositoryPostgres(db, clock),
+        tokens: new TokenRepositoryPostgres(db, clock),
+        desafios: new DesafioRepositoryPostgres(db, clock),
+        auditoria: new AuditoriaPostgres(db, clock),
+      },
+      espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+    };
+  }
+  return {
+    repositorios: {
+      usuarios: new UsuarioRepositoryDocumentos(arquivos),
+      sessoes: new SessaoRepositoryDocumentos(arquivos, clock),
+      tokens: new TokenRepositoryDocumentos(arquivos, clock),
+      desafios: new DesafioRepositoryDocumentos(arquivos, clock),
+      auditoria: new AuditoriaDocumentos(arquivos, clock),
+    },
+    espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
+  };
+}
+
 /**
  * Raiz de composição: o único lugar que conhece as implementações concretas.
  * Os serviços recebem apenas interfaces.
@@ -67,15 +104,13 @@ function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): Enviador
 function montar() {
   const config = lerConfiguracao();
   const clock = relogioDoSistema;
-  const db = new ArmazenamentoEmArquivo(config.diretorioDados);
-  const caixaDeSaida = new CaixaDeSaidaLocal(db, clock);
+  const arquivos = new ArmazenamentoEmArquivo(config.diretorioDados);
+  // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
+  const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
+  const { repositorios, espacosRepo } = criarRepositorios(config, arquivos);
 
   const deps: DependenciasAuth = {
-    usuarios: new UsuarioRepositoryDocumentos(db),
-    sessoes: new SessaoRepositoryDocumentos(db, clock),
-    tokens: new TokenRepositoryDocumentos(db, clock),
-    desafios: new DesafioRepositoryDocumentos(db, clock),
-    auditoria: new AuditoriaDocumentos(db, clock),
+    ...repositorios,
     hash: new HashScrypt(),
     limitador: new LimitadorEmMemoria(clock),
     segundoFator: new Totp(clock),
@@ -85,7 +120,6 @@ function montar() {
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
     emissor2fa: config.emissor2fa,
   };
-  const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
 
   return {
