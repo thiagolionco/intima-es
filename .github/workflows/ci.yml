@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Typecheck, lint, testes e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  auditoria:
+    name: Auditoria de dependências (aviso)
+    runs-on: ubuntu-latest
+    # Não bloqueia enquanto o Next 14 tiver falhas conhecidas sem correção na linha 14.
+    # Ver docs/decisoes/0003-auditoria-de-dependencias.md. Volta a bloquear após a troca para o Next 15.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm audit --omit=dev --audit-level=high
