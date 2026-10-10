@@ -64,6 +64,20 @@ saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produç
 
 > A pasta `.data/` guarda dados reais e **nunca** vai para o git. Faça cópia de segurança dela.
 
+### Banco de dados (PostgreSQL)
+
+Sem configuração, os dados ficam em arquivos na pasta `.data/`. Para usar o PostgreSQL
+(por exemplo, o Supabase em São Paulo), defina `DATABASE_URL` em `.env.local` e rode:
+
+```bash
+npm run db:migrar     # cria as tabelas e o isolamento por escritório
+npm run db:importar   # opcional: copia os dados de .data/ para o banco
+```
+
+Cada conta é dona do próprio escritório, e o banco (não só o código) impede que um
+escritório veja os dados de outro. Detalhes em
+[`docs/decisoes/0006`](docs/decisoes/0006-postgres-e-rls.md).
+
 ## Funcionalidades
 
 | Página | O que faz |
@@ -204,13 +218,17 @@ avisa para aguardar. A API pode recusar acessos vindos de fora do Brasil.
 
 ```bash
 npm test        # autenticação, 2FA, sessões, isolamento, exportação, API do Comunica, filtros
+TEST_DATABASE_URL=postgres://postgres@localhost:5432/postgres npm test   # inclui o Postgres
 npm run typecheck
 npm run lint
 npm run build
 ```
 
+Com `TEST_DATABASE_URL`, a suíte também roda contra o Postgres (cada arquivo de teste cria e
+apaga o próprio banco), incluindo o teste de vazamento entre escritórios.
+
 O GitHub Actions (`.github/workflows/ci.yml`) roda esses quatro passos em todo PR e no
-`main`, mais a auditoria de dependências (`npm audit`), que bloqueia o merge quando há
+`main`, com um Postgres 16 de teste, mais a auditoria de dependências (`npm audit`), que bloqueia o merge quando há
 falha alta ou crítica: ver [`docs/decisoes/0005`](docs/decisoes/0005-next-15.md).
 
 ## Estrutura
@@ -225,5 +243,7 @@ components/           UI (auth, conta, exportação, cards, gráficos, modais, t
 lib/                  tipos, store sincronizada com o servidor, sessão no navegador, exportação, Comunica
 tests/                testes com node:test
 docs/                 decisões, fontes de dados e segurança
+drizzle/              migrações do PostgreSQL (geradas a partir de server/infra/postgres/schema.ts)
+scripts/              migrar o banco e importar os dados de .data/
 .github/workflows/    CI
 ```
