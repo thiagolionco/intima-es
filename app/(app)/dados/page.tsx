@@ -5,8 +5,9 @@ import { useRef, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, PageHeader, Spinner } from "@/components/ui";
-import { baixarCSV, intimacoesParaCSV } from "@/lib/csv";
+import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { gerarDadosDemo } from "@/lib/demo";
+import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { useStore } from "@/lib/store";
 import type { Intimacao, TermoMonitorado } from "@/lib/types";
 import { hojeISO } from "@/lib/utils";
@@ -36,6 +37,7 @@ export default function DadosPage() {
   const { toast } = useToast();
   const arquivo = useRef<HTMLInputElement>(null);
   const [confirmar, setConfirmar] = useState<"limpar" | "demo" | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   if (!ready) return <Spinner />;
 
@@ -70,28 +72,20 @@ export default function DadosPage() {
 
   return (
     <>
-      <PageHeader title="Dados e backup" description="Nesta versão os dados ficam salvos somente no localStorage deste navegador." />
+      <PageHeader title="Dados e backup" description="Seus dados ficam guardados no servidor, isolados na sua conta, e acompanham você em qualquer navegador." />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Bloco icone={<HardDrive className="h-5 w-5" />} titulo="Armazenamento local" descricao={`${intimacoes.length} intimação(ões) e ${termos.length} cliente(s), ocupando cerca de ${(bytes / 1024).toFixed(1)} KB.`}>
-          <p className="text-xs text-slate-500">Limpar os dados do navegador apaga tudo. Faça backups periódicos.</p>
+        <Bloco icone={<HardDrive className="h-5 w-5" />} titulo="Seu espaço de trabalho" descricao={`${intimacoes.length} intimação(ões) e ${termos.length} cliente(s), ocupando cerca de ${(bytes / 1024).toFixed(1)} KB.`}>
+          <IndicadorSincronizacao />
         </Bloco>
 
-        <Bloco icone={<FileSpreadsheet className="h-5 w-5" />} titulo="Exportar CSV" descricao="Todas as intimações, prontas para abrir no Excel ou Google Planilhas.">
-          <Button
-            variant="secondary"
-            icon={<Download className="h-4 w-4" />}
-            disabled={!intimacoes.length}
-            onClick={() => {
-              baixarCSV(intimacoesParaCSV(intimacoes), `intimacoes-${hojeISO()}.csv`);
-              toast("CSV exportado");
-            }}
-          >
-            Baixar CSV
+        <Bloco icone={<FileSpreadsheet className="h-5 w-5" />} titulo="Exportar intimações" descricao="Excel, CSV, PDF ou JSON, com escolha de colunas, ordem e formatação.">
+          <Button variant="secondary" icon={<Download className="h-4 w-4" />} disabled={!intimacoes.length} onClick={() => setExportando(true)}>
+            Abrir exportação
           </Button>
         </Bloco>
 
-        <Bloco icone={<FileJson className="h-5 w-5" />} titulo="Backup completo (JSON)" descricao="Salva intimações e clientes para restaurar depois ou levar para outro navegador.">
+        <Bloco icone={<FileJson className="h-5 w-5" />} titulo="Backup completo (JSON)" descricao="Salva intimações e clientes para restaurar depois ou levar para outra conta.">
           <Button variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportarJSON}>
             Exportar backup
           </Button>
@@ -111,6 +105,8 @@ export default function DadosPage() {
         </Bloco>
       </div>
 
+      <DialogoExportacao aberto={exportando} onFechar={() => setExportando(false)} conjuntos={[{ id: "todas", rotulo: "Acervo completo", descricao: "Todas as intimações da conta", itens: intimacoes }]} />
+
       <ConfirmDialog
         open={confirmar === "demo"}
         onClose={() => setConfirmar(null)}
@@ -127,7 +123,7 @@ export default function DadosPage() {
         open={confirmar === "limpar"}
         onClose={() => setConfirmar(null)}
         title="Apagar todos os dados?"
-        description="Todas as intimações e clientes deste navegador serão apagados. Considere exportar um backup antes."
+        description="Todas as intimações e clientes da sua conta serão apagados. Considere exportar um backup antes."
         confirmLabel="Apagar tudo"
         onConfirm={() => {
           substituirTudo([], []);

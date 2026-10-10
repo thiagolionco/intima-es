@@ -13,7 +13,7 @@ import { useStore } from "@/lib/store";
 import type { TermoMonitorado, TipoTermo } from "@/lib/types";
 import { addDays, formatDate, hojeISO, resumo, TIPO_TERMO_LABEL, UFS } from "@/lib/utils";
 
-type EstadoBusca = { estado: "aguardando" | "buscando" | "ok" | "erro"; total?: number; truncado?: boolean; erro?: string };
+type EstadoBusca = { estado: "aguardando" | "buscando" | "ok" | "erro"; total?: number; truncado?: boolean; aviso?: string; erro?: string };
 interface Achado {
   chave: string;
   cliente: string;
@@ -107,7 +107,7 @@ function BuscaComunica() {
           vistos.add(chave);
           encontrados.push({ chave, cliente: t.apelido, item });
         }
-        setProgresso((p) => ({ ...p, [t.id]: { estado: "ok", total: json.itens.length, truncado: json.truncado } }));
+        setProgresso((p) => ({ ...p, [t.id]: { estado: "ok", total: json.itens.length, truncado: json.truncado, aviso: json.aviso } }));
         setAchados([...encontrados]);
       } catch (e) {
         if (ctrl.signal.aborted) break;
@@ -278,8 +278,8 @@ function BuscaComunica() {
                     <p className="font-medium text-slate-800">{t.apelido}</p>
                     <p className={clsx("text-xs", p.estado === "erro" ? "text-red-600" : "text-slate-500")}>
                       {p.estado === "aguardando" && "Na fila"}
-                      {p.estado === "buscando" && "Consultando o Comunica PJe…"}
-                      {p.estado === "ok" && `${p.total} comunicação(ões) encontrada(s)${p.truncado ? " — resultado limitado; reduza o período para ver todas" : ""}`}
+                      {p.estado === "buscando" && "Consultando o Comunica PJe… nomes com muitas publicações podem levar até um ou dois minutos."}
+                      {p.estado === "ok" && `${p.total} comunicação(ões) encontrada(s)${p.truncado ? ` — ${p.aviso ?? "resultado limitado; reduza o período para ver todas"}` : ""}`}
                       {p.estado === "erro" && p.erro}
                     </p>
                   </div>

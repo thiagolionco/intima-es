@@ -3,36 +3,56 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Intimacao, TermoMonitorado } from "./types";
 import { chaveDeduplicacao, type IntimacaoImportada } from "./comunica";
+import { api, ErroApi } from "./auth/api";
 import { uid } from "./utils";
 
-const CHAVE_INTIMACOES = "controle-intimacoes:intimacoes:v1";
-const CHAVE_TERMOS = "controle-intimacoes:termos:v1";
+/** Chaves usadas pela Versão 1, quando os dados ficavam só no navegador. */
+const CHAVE_V1_INTIMACOES = "controle-intimacoes:intimacoes:v1";
+const CHAVE_V1_TERMOS = "controle-intimacoes:termos:v1";
 
-function ler<T>(chave: string, padrao: T): T {
+interface Instantaneo {
+  intimacoes: Intimacao[];
+  termos: TermoMonitorado[];
+  revisao: number;
+}
+
+/**
+ * Onde o espaço de trabalho é persistido. A store depende só desta interface; a implementação
+ * padrão conversa com a API, e os testes ou um modo offline podem fornecer outra.
+ */
+export interface RepositorioEspaco {
+  carregar(): Promise<Instantaneo>;
+  salvar(dados: Instantaneo): Promise<{ revisao: number }>;
+}
+
+export const repositorioApi: RepositorioEspaco = {
+  carregar: () => api<Instantaneo>("/api/espaco"),
+  salvar: (dados) => api<{ revisao: number }>("/api/espaco", { method: "PUT", body: dados }),
+};
+
+function lerV1(): { intimacoes: Intimacao[]; termos: TermoMonitorado[] } | null {
   try {
-    const bruto = window.localStorage.getItem(chave);
-    return bruto ? (JSON.parse(bruto) as T) : padrao;
+    const i = JSON.parse(window.localStorage.getItem(CHAVE_V1_INTIMACOES) || "[]") as Intimacao[];
+    const t = JSON.parse(window.localStorage.getItem(CHAVE_V1_TERMOS) || "[]") as TermoMonitorado[];
+    return Array.isArray(i) && Array.isArray(t) && (i.length || t.length) ? { intimacoes: i, termos: t } : null;
   } catch {
-    return padrao;
+    return null;
   }
 }
 
-function gravar(chave: string, valor: unknown): string | null {
-  try {
-    window.localStorage.setItem(chave, JSON.stringify(valor));
-    return null;
-  } catch (e) {
-    return e instanceof Error && e.name === "QuotaExceededError"
-      ? "O armazenamento local do navegador está cheio. Exporte e exclua intimações antigas."
-      : "Não foi possível salvar os dados no navegador.";
-  }
-}
+export type EstadoSincronizacao = "carregando" | "salvo" | "pendente" | "salvando" | "erro";
 
 export type NovaIntimacao = Omit<Intimacao, "id" | "createdAt" | "updatedAt">;
 
 interface StoreValue {
   ready: boolean;
   erroPersistencia: string | null;
+  sincronizacao: EstadoSincronizacao;
+  ultimaGravacao: Date | null;
+  /** Dados da Versão 1 encontrados neste navegador, que podem ser trazidos para a conta. */
+  dadosLegados: { intimacoes: number; termos: number } | null;
+  importarDadosLegados: () => { intimacoes: number; termos: number };
+  descartarDadosLegados: () => void;
   intimacoes: Intimacao[];
   termos: TermoMonitorado[];
   adicionarIntimacao: (dados: NovaIntimacao) => Intimacao;
@@ -49,36 +69,119 @@ interface StoreValue {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+const ESPERA_GRAVACAO_MS = 700;
+
+/**
+ * Estado do espaço de trabalho do usuário logado. Carrega da API ao montar e grava as
+ * alterações em segundo plano (com agrupamento e controle de concorrência por revisão).
+ */
+export function StoreProvider({ children, repositorio = repositorioApi, onConflito }: { children: ReactNode; repositorio?: RepositorioEspaco; onConflito?: () => void }) {
   const [ready, setReady] = useState(false);
   const [intimacoes, setIntimacoes] = useState<Intimacao[]>([]);
   const [termos, setTermos] = useState<TermoMonitorado[]>([]);
   const [erroPersistencia, setErro] = useState<string | null>(null);
-  const carregado = useRef(false);
+  const [sincronizacao, setSincronizacao] = useState<EstadoSincronizacao>("carregando");
+  const [ultimaGravacao, setUltimaGravacao] = useState<Date | null>(null);
+  const [legado, setLegado] = useState<ReturnType<typeof lerV1>>(null);
 
-  // Carrega do localStorage apenas no cliente, evitando divergência de hidratação.
+  const revisao = useRef(0);
+  const ignorarProxima = useRef(true);
+  const atual = useRef<{ intimacoes: Intimacao[]; termos: TermoMonitorado[] }>({ intimacoes: [], termos: [] });
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const emVoo = useRef(false);
+  const pendente = useRef(false);
+
+  const carregar = useCallback(async () => {
+    try {
+      const dados = await repositorio.carregar();
+      revisao.current = dados.revisao;
+      ignorarProxima.current = true;
+      setIntimacoes(dados.intimacoes);
+      setTermos(dados.termos);
+      setErro(null);
+      setSincronizacao("salvo");
+      setReady(true);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível carregar seus dados.");
+      setSincronizacao("erro");
+    }
+  }, [repositorio]);
+
   useEffect(() => {
-    setIntimacoes(ler<Intimacao[]>(CHAVE_INTIMACOES, []));
-    setTermos(ler<TermoMonitorado[]>(CHAVE_TERMOS, []));
-    carregado.current = true;
-    setReady(true);
+    carregar();
+    setLegado(lerV1());
+  }, [carregar]);
 
-    // Mantém várias abas sincronizadas.
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === CHAVE_INTIMACOES) setIntimacoes(ler(CHAVE_INTIMACOES, []));
-      if (e.key === CHAVE_TERMOS) setTermos(ler(CHAVE_TERMOS, []));
+  const gravar = useCallback(async () => {
+    if (emVoo.current) {
+      pendente.current = true;
+      return;
+    }
+    emVoo.current = true;
+    pendente.current = false;
+    setSincronizacao("salvando");
+    try {
+      const { revisao: nova } = await repositorio.salvar({ ...atual.current, revisao: revisao.current });
+      revisao.current = nova;
+      setErro(null);
+      setUltimaGravacao(new Date());
+      setSincronizacao(pendente.current ? "pendente" : "salvo");
+    } catch (e) {
+      if (e instanceof ErroApi && e.codigo === "conflito") {
+        // Outra aba/dispositivo gravou antes: trazemos a versão mais recente do servidor.
+        pendente.current = false;
+        await carregar();
+        onConflito?.();
+      } else {
+        setErro(e instanceof Error ? e.message : "Não foi possível salvar seus dados.");
+        setSincronizacao("erro");
+      }
+    } finally {
+      emVoo.current = false;
+      if (pendente.current) gravar();
+    }
+  }, [repositorio, carregar, onConflito]);
+
+  useEffect(() => {
+    atual.current = { intimacoes, termos };
+    if (!ready) return;
+    if (ignorarProxima.current) {
+      ignorarProxima.current = false;
+      return;
+    }
+    setSincronizacao("pendente");
+    clearTimeout(timer.current);
+    timer.current = setTimeout(gravar, ESPERA_GRAVACAO_MS);
+  }, [intimacoes, termos, ready, gravar]);
+
+  // Ao voltar para a aba, traz o que foi alterado em outra aba ou dispositivo.
+  useEffect(() => {
+    const aoVoltar = () => {
+      if (document.visibilityState === "visible" && sincronizacao === "salvo" && !emVoo.current) carregar();
     };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => document.removeEventListener("visibilitychange", aoVoltar);
+  }, [sincronizacao, carregar]);
+
+  // Avisa antes de fechar a aba com alterações ainda não gravadas.
+  useEffect(() => {
+    const antesDeSair = (e: BeforeUnloadEvent) => {
+      if (sincronizacao === "pendente" || sincronizacao === "salvando") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", antesDeSair);
+    return () => window.removeEventListener("beforeunload", antesDeSair);
+  }, [sincronizacao]);
+
+  const descartarDadosLegados = useCallback(() => {
+    try {
+      window.localStorage.removeItem(CHAVE_V1_INTIMACOES);
+      window.localStorage.removeItem(CHAVE_V1_TERMOS);
+    } catch {}
+    setLegado(null);
   }, []);
-
-  useEffect(() => {
-    if (carregado.current) setErro(gravar(CHAVE_INTIMACOES, intimacoes));
-  }, [intimacoes]);
-
-  useEffect(() => {
-    if (carregado.current) gravar(CHAVE_TERMOS, termos);
-  }, [termos]);
 
   const adicionarIntimacao = useCallback((dados: NovaIntimacao) => {
     const agora = new Date().toISOString();
@@ -130,6 +233,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (novosTermos) setTermos(novosTermos);
   }, []);
 
+  const importarDadosLegados = useCallback(() => {
+    const dados = legado ?? { intimacoes: [], termos: [] };
+    const ids = new Set(atual.current.intimacoes.map((i) => i.id));
+    const chaves = new Set(atual.current.intimacoes.map(chaveDeduplicacao));
+    const novas = dados.intimacoes.filter((i) => !ids.has(i.id) && !(i.origem === "comunica" && chaves.has(chaveDeduplicacao(i))));
+    const idsTermos = new Set(atual.current.termos.map((t) => t.id));
+    const novosTermos = dados.termos.filter((t) => !idsTermos.has(t.id));
+    setIntimacoes((l) => [...novas, ...l]);
+    setTermos((l) => [...l, ...novosTermos]);
+    descartarDadosLegados();
+    return { intimacoes: novas.length, termos: novosTermos.length };
+  }, [legado, descartarDadosLegados]);
+
   const adicionarTermo = useCallback((t: Omit<TermoMonitorado, "id" | "createdAt">) => {
     setTermos((l) => [...l, { ...t, id: uid(), createdAt: new Date().toISOString() }]);
   }, []);
@@ -146,6 +262,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       ready,
       erroPersistencia,
+      sincronizacao,
+      ultimaGravacao,
+      dadosLegados: legado ? { intimacoes: legado.intimacoes.length, termos: legado.termos.length } : null,
+      importarDadosLegados,
+      descartarDadosLegados,
       intimacoes,
       termos,
       adicionarIntimacao,
@@ -159,7 +280,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       atualizarTermo,
       excluirTermo,
     }),
-    [ready, erroPersistencia, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -6,10 +6,14 @@ import { Button } from "./ui";
 
 export function Modal({ open, onClose, title, children, footer }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode }) {
   const painel = useRef<HTMLDivElement>(null);
+  const fechar = useRef(onClose);
+  fechar.current = onClose;
 
+  // Só depende de `open`: se dependesse de onClose (recriada a cada render do pai), o foco
+  // voltaria para o painel a cada digitação dentro do modal.
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && fechar.current();
     document.addEventListener("keydown", onKey);
     const anterior = document.activeElement as HTMLElement | null;
     painel.current?.focus();
@@ -17,7 +21,7 @@ export function Modal({ open, onClose, title, children, footer }: { open: boolea
       document.removeEventListener("keydown", onKey);
       anterior?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return (

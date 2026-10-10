@@ -10,7 +10,7 @@ import { IntimacaoCard, PrazoTag } from "@/components/intimacao-card";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBadge } from "@/components/ui";
-import { baixarCSV, intimacoesParaCSV } from "@/lib/csv";
+import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
 import type { FiltrosIntimacao, StatusIntimacao } from "@/lib/types";
@@ -40,6 +40,7 @@ function ListaIntimacoes() {
   const [painelFiltros, setPainelFiltros] = useState(false);
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [confirmar, setConfirmar] = useState<{ ids: string[] } | null>(null);
+  const [exportando, setExportando] = useState(false);
 
   useEffect(() => {
     try {
@@ -113,15 +114,14 @@ function ListaIntimacoes() {
     });
   }
 
-  function exportar() {
-    const lista = selecionadas.size ? resultado.filter((i) => selecionadas.has(i.id)) : resultado;
-    if (!lista.length) {
-      toast("Nada para exportar", { tom: "info", descricao: "Ajuste os filtros para incluir intimações." });
-      return;
-    }
-    baixarCSV(intimacoesParaCSV(lista), `intimacoes-${hojeISO()}.csv`);
-    toast("CSV exportado", { descricao: `${lista.length} intimação(ões) no arquivo.` });
-  }
+  const conjuntosExportacao = useMemo(
+    () => [
+      { id: "filtradas", rotulo: "Resultado atual", descricao: ativos || filtros.busca ? `${ativos} filtro(s) ativo(s)${filtros.busca ? ` · busca "${filtros.busca}"` : ""}` : "Sem filtros, na ordem da lista", itens: resultado },
+      { id: "selecionadas", rotulo: "Selecionadas", descricao: selecionadas.size ? "Marcadas na lista" : "Marque itens na lista", itens: resultado.filter((i) => selecionadas.has(i.id)) },
+      { id: "todas", rotulo: "Acervo completo", descricao: "Todas as intimações da conta", itens: intimacoes },
+    ],
+    [resultado, selecionadas, intimacoes, ativos, filtros.busca],
+  );
 
   function mudarStatusLote(status: StatusIntimacao) {
     selecionadas.forEach((id) => atualizarIntimacao(id, { status }));
@@ -148,8 +148,8 @@ function ListaIntimacoes() {
         description={`${resultado.length} de ${intimacoes.length} intimação(ões)`}
         actions={
           <>
-            <Button variant="secondary" icon={<Download className="h-4 w-4" />} onClick={exportar}>
-              Exportar CSV{selecionadas.size ? ` (${selecionadas.size})` : ""}
+            <Button variant="secondary" icon={<Download className="h-4 w-4" />} onClick={() => setExportando(true)} disabled={!intimacoes.length}>
+              Exportar{selecionadas.size ? ` (${selecionadas.size})` : ""}
             </Button>
             <Link href="/intimacoes/nova">
               <Button icon={<Plus className="h-4 w-4" />}>Nova intimação</Button>
@@ -426,6 +426,8 @@ function ListaIntimacoes() {
           </div>
         </nav>
       )}
+
+      <DialogoExportacao aberto={exportando} onFechar={() => setExportando(false)} conjuntos={conjuntosExportacao} conjuntoInicial={selecionadas.size ? "selecionadas" : "filtradas"} />
 
       <ConfirmDialog
         open={!!confirmar}

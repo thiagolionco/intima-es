@@ -146,3 +146,22 @@ export function chaveDeduplicacao(i: Pick<Intimacao, "comunicaId" | "hash" | "nu
   if (i.comunicaId) return `c:${i.comunicaId}`;
   return `t:${i.numeroProcesso}|${i.dataDisponibilizacao}|${(i.texto ?? "").slice(0, 80)}`;
 }
+
+/**
+ * Divide um período em janelas de no máximo `dias` dias, da mais recente para a mais antiga.
+ * Consultas por nome de grandes litigantes ficam lentas no Comunica quando o período é longo;
+ * janelas curtas respondem bem mais rápido.
+ */
+export function dividirPeriodo(inicio: string, fim: string, dias: number): { inicio: string; fim: string }[] {
+  const DIA = 86_400_000;
+  const ini = Date.parse(`${inicio}T00:00:00Z`);
+  let f = Date.parse(`${fim}T00:00:00Z`);
+  const janelas: { inicio: string; fim: string }[] = [];
+  const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
+  while (f >= ini) {
+    const i = Math.max(ini, f - (dias - 1) * DIA);
+    janelas.push({ inicio: iso(i), fim: iso(f) });
+    f = i - DIA;
+  }
+  return janelas;
+}
