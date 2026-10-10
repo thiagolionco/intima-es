@@ -16,7 +16,7 @@ export function lerConfiguracao() {
     diretorioDados: path.resolve(env.DATA_DIR || path.join(process.cwd(), ".data")),
     email: {
       provedor,
-      remetente: env.EMAIL_FROM || "Controle de Intimações <no-reply@localhost>",
+      remetente: env.EMAIL_FROM || "Clepsa <no-reply@localhost>",
       resendChave: env.RESEND_API_KEY,
       smtp: {
         host: env.SMTP_HOST || "",
@@ -28,7 +28,7 @@ export function lerConfiguracao() {
     },
     /** Caixa de saída visível em /dev/caixa-de-saida (sempre em dev; em produção só se pedido). */
     caixaDeSaidaVisivel: !producao || env.ENABLE_DEV_OUTBOX === "true",
-    emissor2fa: env.TOTP_ISSUER || "Controle de Intimações",
+    emissor2fa: env.TOTP_ISSUER || "Clepsa",
   };
 }
 

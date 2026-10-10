@@ -1,12 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { Database, FileSearch, Gavel, History, LayoutDashboard, ListChecks, Menu, Users, X } from "lucide-react";
+import { Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { MenuUsuario } from "@/components/auth/menu-usuario";
+import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
 import { useStore } from "@/lib/store";
@@ -54,11 +55,11 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
 function Marca() {
   return (
     <Link href="/" className="flex items-center gap-2.5 px-6">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-white">
-        <Gavel className="h-4 w-4" aria-hidden />
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0b1736] ring-1 ring-inset ring-white/10">
+        <ClepsaSimbolo className="h-6 w-6" />
       </span>
       <span className="leading-tight">
-        <span className="block text-sm font-semibold text-white">Controle de Intimações</span>
+        <span className="block text-sm font-semibold text-white">Clepsa</span>
         <span className="block text-[11px] text-slate-400">Comunica PJe</span>
       </span>
     </Link>

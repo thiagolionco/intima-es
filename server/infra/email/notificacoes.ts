@@ -3,7 +3,7 @@ import type { Usuario } from "../../auth/model.ts";
 import type { NotificacoesDeConta } from "../../auth/ports.ts";
 import type { EnviadorDeEmail, MensagemEmail } from "./ports.ts";
 
-const PRODUTO = "Controle de Intimações";
+const PRODUTO = "Clepsa";
 
 function escapar(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
