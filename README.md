@@ -1,6 +1,6 @@
 # Controle de Intimações (Comunica PJe)
 
-Aplicação web em Next.js 14 para acompanhar as intimações publicadas no
+Aplicação web em Next.js 15 (React 19) para acompanhar as intimações publicadas no
 [Comunica PJe](https://comunica.pje.jus.br/) (Diário de Justiça Eletrônico Nacional)
 para uma carteira de clientes.
 
@@ -210,8 +210,8 @@ npm run build
 ```
 
 O GitHub Actions (`.github/workflows/ci.yml`) roda esses quatro passos em todo PR e no
-`main`. A auditoria de dependências (`npm audit`) roda à parte e, por enquanto, só avisa:
-ver [`docs/decisoes/0003`](docs/decisoes/0003-auditoria-de-dependencias.md).
+`main`, mais a auditoria de dependências (`npm audit`), que bloqueia o merge quando há
+falha alta ou crítica: ver [`docs/decisoes/0005`](docs/decisoes/0005-next-15.md).
 
 ## Estrutura
 

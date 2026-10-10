@@ -23,7 +23,7 @@ interface Opcoes {
 }
 
 function contexto(req: NextRequest): ContextoRequisicao {
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || req.ip || "local";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "local";
   return { ip: ip.slice(0, 64), userAgent: (req.headers.get("user-agent") || "desconhecido").slice(0, 300) };
 }
 
@@ -90,7 +90,7 @@ export function rotaPublica(handler: (r: RequisicaoAnonima) => Promise<Response>
 
 /** Rota que exige sessão válida; o usuário vem sempre do cookie, nunca do corpo. */
 export function rotaAutenticada<P = unknown>(handler: (r: RequisicaoAutenticada, params: P) => Promise<Response>, opcoes: Opcoes = {}) {
-  return (req: NextRequest, segmento: { params: P }) =>
+  return (req: NextRequest, segmento: { params: Promise<P> }) =>
     executar(req, async () => {
       const valida = await container().sessoes.validar(req.cookies.get(NOME_COOKIE_SESSAO)?.value);
       if (!valida) {
@@ -98,7 +98,7 @@ export function rotaAutenticada<P = unknown>(handler: (r: RequisicaoAutenticada,
         resp.cookies.delete(NOME_COOKIE_SESSAO);
         return resp;
       }
-      return handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO), ...valida }, segmento?.params);
+      return handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO), ...valida }, await segmento?.params);
     });
 }
 

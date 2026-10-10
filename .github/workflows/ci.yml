@@ -27,7 +27,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
 
   auditoria:
-    name: Auditoria de dependências (aviso)
+    name: Auditoria de dependências
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,11 +35,4 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      # Não bloqueia enquanto o Next 14 tiver falhas conhecidas sem correção na linha 14:
-      # a falha vira um aviso visível no resumo do CI. Ver docs/decisoes/0003-auditoria-de-dependencias.md.
-      # Volta a bloquear (sem continue-on-error) após a troca para o Next 15.
-      - id: audit
-        run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
-      - if: steps.audit.outcome == 'failure'
-        run: echo "::warning title=Auditoria de dependências::npm audit encontrou falhas altas ou críticas. Ver o passo anterior e docs/decisoes/0003."
+      - run: npm audit --omit=dev --audit-level=high

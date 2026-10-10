@@ -87,7 +87,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   const revisao = useRef(0);
   const ignorarProxima = useRef(true);
   const atual = useRef<{ intimacoes: Intimacao[]; termos: TermoMonitorado[] }>({ intimacoes: [], termos: [] });
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const emVoo = useRef(false);
   const pendente = useRef(false);
 

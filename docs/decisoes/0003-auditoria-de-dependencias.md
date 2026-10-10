@@ -1,6 +1,6 @@
 # 0003 · Auditoria de dependências como aviso até a troca para o Next 15
 
-*10/10/2026 · aceita, temporária*
+*10/10/2026 · substituída pela [0005](0005-next-15.md)*
 
 ## Contexto
 
