@@ -12,7 +12,8 @@ o que muda APIs usadas pelo app inteiro.
 ## Decisão
 
 - Na Fase 0, o CI roda a auditoria num job separado que **não bloqueia** o merge
-  (`continue-on-error`), para o resultado ficar visível em todo PR.
+  (o passo do `npm audit` usa `continue-on-error` e, se falhar, o job emite um aviso no
+  resumo do CI), para o resultado ficar visível em todo PR sem deixar o PR vermelho.
 - A troca para o Next 15 é um passo próprio, depois da Fase 0 e antes da Fase 1.
 - Depois da troca, o job passa a bloquear (`--audit-level=high`) e este registro é substituído.
 
