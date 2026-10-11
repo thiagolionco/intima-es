@@ -30,6 +30,9 @@ import { AvisosService } from "./avisos/avisos.ts";
 import { AssinadorDeLinks } from "./core/assinatura.ts";
 import { ResumidorClaude } from "./resumos/resumidor.ts";
 import { ResumosService } from "./resumos/resumos.ts";
+import { AgendaService } from "./agenda/agenda.ts";
+import { ClienteGoogleHttp } from "./agenda/google.ts";
+import { Cofre } from "./core/cofre.ts";
 import { tokenAleatorio } from "./core/crypto.ts";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -112,14 +115,27 @@ function montar() {
   };
   const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
+  const segredo = segredoDosLinks(config);
+  const assinador = new AssinadorDeLinks(segredo);
+  const urlApp = () => config.urlApp ?? origemDaRequisicao.getStore() ?? "http://localhost:3000";
+  const agenda = new AgendaService({
+    google: config.google ? new ClienteGoogleHttp(config.google) : undefined,
+    espacos: espacosRepo,
+    documentos: db,
+    cofre: new Cofre(segredo, "google-agenda"),
+    assinador,
+    clock,
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    urlApp,
+  });
   const avisos = new AvisosService({
     espacos: espacosRepo,
     usuarios: deps.usuarios,
     enviador,
     registro: db,
-    assinador: new AssinadorDeLinks(segredoDosLinks(config)),
+    assinador,
     clock,
-    urlApp: () => config.urlApp ?? origemDaRequisicao.getStore() ?? "http://localhost:3000",
+    urlApp,
   });
   const resumos = new ResumosService({
     espacos: espacosRepo,
@@ -150,12 +166,16 @@ function montar() {
     autenticacao: new AutenticacaoService(deps, sessoes),
     recuperacao: new RecuperacaoSenhaService(deps),
     doisFatores: new DoisFatoresService(deps),
-    conta: new ContaService(deps, espacosRepo),
-    espacos: new EspacoTrabalhoService(espacosRepo),
+    conta: new ContaService(deps, espacosRepo, async (id) => {
+      await agenda.desconectar(id);
+      await db.remover(`avisos/${id}`);
+    }),
+    espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,
     avisos,
     resumos,
+    agenda,
     limitador: deps.limitador,
   };
 }

@@ -103,9 +103,12 @@ function validarPreferencias(v: unknown): void {
 /** Regras do espaço de trabalho; o usuário vem sempre da sessão, nunca do corpo da requisição. */
 export class EspacoTrabalhoService {
   private readonly repo: EspacoTrabalhoRepository;
+  private readonly aoSalvar?: (usuarioId: string) => void;
 
-  constructor(repo: EspacoTrabalhoRepository) {
+  /** `aoSalvar` é avisado depois de cada gravação feita pela tela (ex.: atualizar a Google Agenda). */
+  constructor(repo: EspacoTrabalhoRepository, aoSalvar?: (usuarioId: string) => void) {
     this.repo = repo;
+    this.aoSalvar = aoSalvar;
   }
 
   carregar(usuarioId: string) {
@@ -119,6 +122,8 @@ export class EspacoTrabalhoService {
     if (c.suspensoes !== undefined) listaDeObjetosComId(c.suspensoes, "suspensoes");
     if (c.preferencias !== undefined) validarPreferencias(c.preferencias);
     if (typeof c.revisao !== "number" || !Number.isInteger(c.revisao) || c.revisao < 0) throw new AppError("dados_invalidos", "Revisão inválida.");
-    return this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined }, c.revisao);
+    const salvo = await this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined }, c.revisao);
+    this.aoSalvar?.(usuarioId);
+    return salvo;
   }
 }
