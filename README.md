@@ -131,6 +131,10 @@ Em **Equipe** você cadastra quem trabalha no escritório. Cada intimação pode
 
 Por enquanto a equipe é uma lista de nomes dentro da conta: as pessoas não entram no Clepsa com login próprio. Isso muda quando o banco por escritório (Fase 1) estiver no ar.
 
+### Relatório por cliente
+
+Em **Relatório por cliente** (ou pelo atalho "Relatório" em cada cliente monitorado), escolha o cliente e o período: mês passado, este mês, últimos 30 dias ou datas livres. O relatório mostra quantas intimações saíram e em quantos processos, o que já teve providência, os prazos vencidos e os próximos, e cada intimação com o resumo (ou o começo do texto). **Gerar PDF** abre a versão para imprimir ou salvar em PDF; **Copiar para e-mail** copia um texto curto para colar na mensagem ao cliente. Observações internas, o responsável e os prazos vencidos ficam de fora do que vai ao cliente, a menos que você marque para incluir (na tela, os vencidos sempre aparecem para o escritório).
+
 ## Autenticação e contas (Versão 2)
 
 | Recurso | Detalhes |

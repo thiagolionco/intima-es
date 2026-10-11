@@ -220,6 +220,9 @@ export default function ClientesPage() {
                   <Link href={`/intimacoes?cliente=${encodeURIComponent(t.apelido)}`}>
                     <Badge className="hover:bg-slate-200">{qtd} intimação(ões)</Badge>
                   </Link>
+                  <Link href={`/relatorios?cliente=${encodeURIComponent(t.apelido)}`}>
+                    <Badge className="hover:bg-slate-200">Relatório</Badge>
+                  </Link>
                 </div>
                 <div className="mt-4 flex items-center gap-1 border-t border-slate-100 pt-3">
                   <Link href={`/comunica?termo=${t.id}`} className="mr-auto">
