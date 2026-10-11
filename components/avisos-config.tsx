@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { BellRing, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/components/toast";
 import { Button, Card, CardHeader, Select } from "@/components/ui";
@@ -94,9 +94,6 @@ export function ConfigAvisos() {
           Enviar agora
         </Button>
       </div>
-      <p className="flex items-center gap-1.5 border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-        <BellRing className="h-3.5 w-3.5" aria-hidden /> Os avisos por WhatsApp entram assim que o serviço de envio for escolhido.
-      </p>
     </Card>
   );
 }
