@@ -1,4 +1,4 @@
-import type { Intimacao, Suspensao, TermoMonitorado } from "../../lib/types.ts";
+import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "../../lib/types.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
 import type { ArmazenamentoDocumentos } from "../infra/armazenamento.ts";
@@ -9,12 +9,14 @@ export interface EspacoTrabalho {
   termos: TermoMonitorado[];
   /** Feriados locais e suspensões de prazo cadastrados pelo escritório. Ausente em espaços antigos. */
   suspensoes?: Suspensao[];
+  /** Preferências do espaço (avisos…). Ausente em espaços antigos. */
+  preferencias?: Preferencias;
   /** Incrementada a cada gravação; usada para detectar edições concorrentes (outra aba). */
   revisao: number;
   atualizadoEm: string | null;
 }
 
-export type DadosEspaco = Pick<EspacoTrabalho, "intimacoes" | "termos" | "suspensoes">;
+export type DadosEspaco = Pick<EspacoTrabalho, "intimacoes" | "termos" | "suspensoes" | "preferencias">;
 
 export interface EspacoTrabalhoRepository {
   ler(usuarioId: string): Promise<EspacoTrabalho>;
@@ -49,7 +51,7 @@ export class EspacoTrabalhoRepositoryDocumentos implements EspacoTrabalhoReposit
       if (atual.revisao !== revisaoBase) {
         throw new AppError("conflito", "Seus dados foram alterados em outra aba ou dispositivo.", { revisaoAtual: atual.revisao });
       }
-      const novo: EspacoTrabalho = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? atual.suspensoes ?? [], revisao: atual.revisao + 1, atualizadoEm: this.clock.agora().toISOString() };
+      const novo: EspacoTrabalho = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? atual.suspensoes ?? [], preferencias: dados.preferencias ?? atual.preferencias, revisao: atual.revisao + 1, atualizadoEm: this.clock.agora().toISOString() };
       return { valor: novo, resultado: novo };
     });
   }
@@ -71,6 +73,22 @@ function listaDeObjetosComId(v: unknown, nome: string): void {
   }
 }
 
+function validarPreferencias(v: unknown): void {
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new AppError("dados_invalidos", "Preferências inválidas.");
+  const a = (v as Preferencias).avisos;
+  if (a === undefined) return;
+  const ok =
+    typeof a === "object" &&
+    typeof a.ativo === "boolean" &&
+    Array.isArray(a.diasAntes) &&
+    a.diasAntes.length <= 10 &&
+    a.diasAntes.every((n) => Number.isInteger(n) && n >= 0 && n <= 30) &&
+    Number.isInteger(a.hora) &&
+    a.hora >= 0 &&
+    a.hora <= 23;
+  if (!ok) throw new AppError("dados_invalidos", "Preferências de aviso inválidas.");
+}
+
 /** Regras do espaço de trabalho; o usuário vem sempre da sessão, nunca do corpo da requisição. */
 export class EspacoTrabalhoService {
   private readonly repo: EspacoTrabalhoRepository;
@@ -84,11 +102,12 @@ export class EspacoTrabalhoService {
   }
 
   async salvar(usuarioId: string, corpo: unknown) {
-    const c = (corpo ?? {}) as { intimacoes?: unknown; termos?: unknown; suspensoes?: unknown; revisao?: unknown };
+    const c = (corpo ?? {}) as { intimacoes?: unknown; termos?: unknown; suspensoes?: unknown; preferencias?: unknown; revisao?: unknown };
     listaDeObjetosComId(c.intimacoes, "intimacoes");
     listaDeObjetosComId(c.termos, "termos");
     if (c.suspensoes !== undefined) listaDeObjetosComId(c.suspensoes, "suspensoes");
+    if (c.preferencias !== undefined) validarPreferencias(c.preferencias);
     if (typeof c.revisao !== "number" || !Number.isInteger(c.revisao) || c.revisao < 0) throw new AppError("dados_invalidos", "Revisão inválida.");
-    return this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined }, c.revisao);
+    return this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined }, c.revisao);
   }
 }

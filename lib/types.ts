@@ -110,3 +110,18 @@ export interface Suspensao {
   /** Sigla do tribunal a que se aplica; vazio vale para todos. */
   tribunal?: string;
 }
+
+/** Avisos de prazo por e-mail. */
+export interface PreferenciasAvisos {
+  ativo: boolean;
+  /** Com quantos dias úteis de antecedência avisar (0 = no próprio dia do vencimento). */
+  diasAntes: number[];
+  /** Hora de Brasília (0 a 23) a partir da qual o aviso do dia é enviado. */
+  hora: number;
+}
+
+export interface Preferencias {
+  avisos?: PreferenciasAvisos;
+}
+
+export const AVISOS_PADRAO: PreferenciasAvisos = { ativo: false, diasAntes: [3, 1, 0], hora: 7 };

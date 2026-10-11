@@ -29,6 +29,8 @@ export function lerConfiguracao() {
     /** Caixa de saída visível em /dev/caixa-de-saida (sempre em dev; em produção só se pedido). */
     caixaDeSaidaVisivel: !producao || env.ENABLE_DEV_OUTBOX === "true",
     emissor2fa: env.TOTP_ISSUER || "Clepsa",
+    /** Segredo dos links assinados dos e-mails ("Já cumpri"). Sem ele, um é gerado e guardado em DATA_DIR. */
+    segredoLinks: env.LINKS_SECRET || undefined,
     comunica: {
       url: env.COMUNICA_API_URL || "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
       /**

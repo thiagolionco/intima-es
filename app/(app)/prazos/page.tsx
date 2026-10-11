@@ -2,6 +2,7 @@
 
 import { CalendarOff, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { ConfigAvisos } from "@/components/avisos-config";
 import { DatePicker } from "@/components/date-picker";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
@@ -61,7 +62,9 @@ export default function PrazosPage() {
 
   return (
     <>
-      <PageHeader title="Prazos e feriados" description="O vencimento é calculado a partir da disponibilização no DJEN, pulando fins de semana, feriados nacionais, o recesso de fim de ano e as suspensões cadastradas aqui." />
+      <PageHeader title="Prazos e avisos" description="O vencimento é calculado a partir da disponibilização no DJEN, pulando fins de semana, feriados nacionais, o recesso de fim de ano e as suspensões cadastradas aqui." />
+
+      <ConfigAvisos />
 
       {pendentes > 0 && (
         <Card className="mb-6">
