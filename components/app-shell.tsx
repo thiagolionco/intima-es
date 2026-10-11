@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X } from "lucide-react";
+import { CalendarDays, Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/comunica", label: "Buscar no Comunica", icon: FileSearch },
   { href: "/clientes", label: "Clientes monitorados", icon: Users },
   { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },
+  { href: "/equipe", label: "Equipe", icon: UsersRound },
   { href: "/dados", label: "Dados e backup", icon: Database },
 ];
 

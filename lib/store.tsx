@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "./types";
+import type { Intimacao, PessoaEquipe, Preferencias, Suspensao, TermoMonitorado } from "./types";
+import { delegar } from "./equipe";
 import { aplicarRegra, sugerirRegra } from "./prazos/calculo";
 
 type Dados = { intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[]; preferencias: Preferencias };
@@ -84,6 +85,11 @@ interface StoreValue {
   salvarPreferencias: (p: Preferencias) => void;
   /** Pede ao servidor o resumo em duas linhas das intimações indicadas. Devolve quantas ganharam resumo. */
   resumir: (ids: string[]) => Promise<{ resumidas: number; falhas: number }>;
+  /** Pessoas do escritório que recebem intimações para cuidar. */
+  equipe: PessoaEquipe[];
+  salvarEquipe: (lista: PessoaEquipe[]) => void;
+  /** Entrega as intimações a uma pessoa da equipe (ou tira o responsável, com `null`). */
+  delegarIntimacoes: (ids: string[], pessoaId: string | null) => void;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -264,6 +270,13 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     setIntimacoes((l) => l.filter((i) => !set.has(i.id)));
   }, []);
 
+  const delegarIntimacoes = useCallback((ids: string[], pessoaId: string | null) => {
+    setIntimacoes((l) => delegar(l, ids, pessoaId, new Date().toISOString()));
+  }, []);
+
+  const equipe = useMemo(() => preferencias.equipe ?? [], [preferencias.equipe]);
+  const salvarEquipe = useCallback((lista: PessoaEquipe[]) => setPreferencias((p) => ({ ...p, equipe: lista })), []);
+
   const chaves = useMemo(() => new Set(intimacoes.map(chaveDeduplicacao)), [intimacoes]);
 
   const existeNoAcervo = useCallback((item: IntimacaoImportada) => chaves.has(chaveDeduplicacao(item)), [chaves]);
@@ -378,8 +391,11 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       recarregar,
       preferencias,
       salvarPreferencias: setPreferencias,
+      equipe,
+      salvarEquipe,
+      delegarIntimacoes,
     }),
-    [resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [equipe, salvarEquipe, delegarIntimacoes, resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
