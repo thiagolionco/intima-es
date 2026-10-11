@@ -62,6 +62,17 @@ export interface TermoMonitorado {
   tribunal?: string;
   ativo: boolean;
   createdAt: string;
+  /** Resultado da última busca automática feita pelo servidor (só OAB e processo). */
+  ultimaRonda?: UltimaRonda;
+}
+
+export interface UltimaRonda {
+  /** Quando a busca rodou (ISO). */
+  em: string;
+  /** Até que data de disponibilização (AAAA-MM-DD) a busca já cobriu sem falhas. */
+  ate?: string;
+  novas: number;
+  erro?: string;
 }
 
 export interface FiltrosIntimacao {

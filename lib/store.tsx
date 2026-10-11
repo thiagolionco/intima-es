@@ -3,7 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Intimacao, Suspensao, TermoMonitorado } from "./types";
 import { aplicarRegra, sugerirRegra } from "./prazos/calculo";
+
+type Dados = { intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[] };
 import { chaveDeduplicacao, type IntimacaoImportada } from "./comunica";
+import { mesclarImportadas } from "./importacao";
+import { mesclarListas, semDuplicadas } from "./sincronizacao";
 import { api, ErroApi } from "./auth/api";
 import { uid } from "./utils";
 
@@ -73,6 +77,8 @@ interface StoreValue {
   salvarSuspensoes: (lista: Suspensao[]) => void;
   /** Lê o prazo no texto das intimações em aberto que ainda não têm prazo. Devolve quantas ganharam prazo. */
   calcularPrazosPendentes: () => number;
+  /** Grava o que estiver pendente e traz a versão do servidor (ex.: depois da busca automática). */
+  recarregar: () => Promise<void>;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -97,7 +103,9 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
 
   const revisao = useRef(0);
   const ignorarProxima = useRef(true);
-  const atual = useRef<{ intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[] }>({ intimacoes: [], termos: [], suspensoes: [] });
+  const atual = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [] });
+  /** O que o servidor tinha da última vez que carregamos ou gravamos; base da mescla em caso de conflito. */
+  const base = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [] });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const emVoo = useRef(false);
   const pendente = useRef(false);
@@ -106,6 +114,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     try {
       const dados = await repositorio.carregar();
       revisao.current = dados.revisao;
+      base.current = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? [] };
       ignorarProxima.current = true;
       setIntimacoes(dados.intimacoes);
       setTermos(dados.termos);
@@ -133,17 +142,40 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     pendente.current = false;
     setSincronizacao("salvando");
     try {
-      const { revisao: nova } = await repositorio.salvar({ ...atual.current, revisao: revisao.current });
+      const enviado = atual.current;
+      const { revisao: nova } = await repositorio.salvar({ ...enviado, revisao: revisao.current });
       revisao.current = nova;
+      base.current = enviado;
       setErro(null);
       setUltimaGravacao(new Date());
       setSincronizacao(pendente.current ? "pendente" : "salvo");
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === "conflito") {
-        // Outra aba/dispositivo gravou antes: trazemos a versão mais recente do servidor.
+        // Outra aba, outro dispositivo ou a ronda automática gravou antes: mesclamos a versão do
+        // servidor com o que foi alterado aqui e gravamos de novo.
         pendente.current = false;
-        await carregar();
-        onConflito?.();
+        try {
+          const servidor = await repositorio.carregar();
+          const doServidor: Dados = { intimacoes: servidor.intimacoes, termos: servidor.termos, suspensoes: servidor.suspensoes ?? [] };
+          const local = atual.current;
+          const mesclado: Dados = {
+            intimacoes: semDuplicadas(mesclarListas(base.current.intimacoes, local.intimacoes, doServidor.intimacoes)),
+            termos: mesclarListas(base.current.termos, local.termos, doServidor.termos),
+            suspensoes: mesclarListas(base.current.suspensoes, local.suspensoes, doServidor.suspensoes),
+          };
+          revisao.current = servidor.revisao;
+          base.current = doServidor;
+          const nadaAGravar = JSON.stringify(mesclado) === JSON.stringify(doServidor);
+          ignorarProxima.current = nadaAGravar;
+          setIntimacoes(mesclado.intimacoes);
+          setTermos(mesclado.termos);
+          setSuspensoes(mesclado.suspensoes);
+          setErro(null);
+          setSincronizacao(nadaAGravar ? "salvo" : "pendente");
+          onConflito?.();
+        } catch {
+          await carregar();
+        }
       } else {
         setErro(e instanceof Error ? e.message : "Não foi possível salvar seus dados.");
         setSincronizacao("erro");
@@ -219,27 +251,14 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
 
   const existeNoAcervo = useCallback((item: IntimacaoImportada) => chaves.has(chaveDeduplicacao(item)), [chaves]);
 
-  const importarDoComunica = useCallback(
-    (itens: IntimacaoImportada[], cliente: string) => {
-      const vistos = new Set(chaves);
-      const agora = new Date().toISOString();
-      const novas: Intimacao[] = [];
-      let duplicadas = 0;
-      for (const item of itens) {
-        const k = chaveDeduplicacao(item);
-        if (vistos.has(k)) {
-          duplicadas++;
-          continue;
-        }
-        vistos.add(k);
-        const regraPrazo = sugerirRegra(item) ?? undefined;
-        novas.push(aplicarRegra({ ...item, id: uid(), cliente, status: "nova", regraPrazo, createdAt: agora, updatedAt: agora }, atual.current.suspensoes));
-      }
-      if (novas.length) setIntimacoes((l) => [...novas, ...l]);
-      return { novas: novas.length, duplicadas };
-    },
-    [chaves],
-  );
+  const importarDoComunica = useCallback((itens: IntimacaoImportada[], cliente: string) => {
+    const r = mesclarImportadas(atual.current.intimacoes, itens, cliente, { suspensoes: atual.current.suspensoes, agora: new Date().toISOString(), novoId: uid });
+    if (r.novas.length) {
+      atual.current = { ...atual.current, intimacoes: r.lista };
+      setIntimacoes((l) => [...r.novas, ...l]);
+    }
+    return { novas: r.novas.length, duplicadas: r.duplicadas };
+  }, []);
 
   const substituirTudo = useCallback((novas: Intimacao[], novosTermos?: TermoMonitorado[]) => {
     setIntimacoes(novas);
@@ -264,7 +283,15 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   }, []);
 
   const atualizarTermo = useCallback((id: string, t: Partial<TermoMonitorado>) => {
-    setTermos((l) => l.map((x) => (x.id === id ? { ...x, ...t } : x)));
+    setTermos((l) =>
+      l.map((x) => {
+        if (x.id !== id) return x;
+        const novo = { ...x, ...t };
+        // Mudou o que se pesquisa: a próxima busca automática recomeça do zero.
+        const mudouBusca = (["tipo", "valor", "ufOab", "tribunal"] as const).some((k) => (novo[k] ?? "") !== (x[k] ?? ""));
+        return mudouBusca && !("ultimaRonda" in t) ? { ...novo, ultimaRonda: undefined } : novo;
+      }),
+    );
   }, []);
 
   const excluirTermo = useCallback((id: string) => {
@@ -290,6 +317,12 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     return calculadas;
   }, []);
 
+  const recarregar = useCallback(async () => {
+    clearTimeout(timer.current);
+    if (sincronizacao === "pendente" || emVoo.current) await gravar();
+    await carregar();
+  }, [sincronizacao, gravar, carregar]);
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
@@ -314,8 +347,9 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       suspensoes,
       salvarSuspensoes,
       calcularPrazosPendentes,
+      recarregar,
     }),
-    [suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

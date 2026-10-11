@@ -13,7 +13,8 @@ export function middleware(req: NextRequest) {
   const temSessao = !!req.cookies.get(NOME_COOKIE_SESSAO)?.value;
 
   if (pathname.startsWith("/api/")) {
-    if (pathname.startsWith("/api/auth/") || pathname.startsWith("/api/dev/") || temSessao) return NextResponse.next();
+    // /api/rondas/ é chamada por agendadores externos, que se autenticam com RONDA_TOKEN.
+    if (pathname.startsWith("/api/auth/") || pathname.startsWith("/api/dev/") || pathname.startsWith("/api/rondas/") || temSessao) return NextResponse.next();
     return NextResponse.json({ erro: { codigo: "nao_autenticado", mensagem: "Entre para continuar." } }, { status: 401 });
   }
 

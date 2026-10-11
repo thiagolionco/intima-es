@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { FileSearch, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { AlertTriangle, FileSearch, Pencil, Plus, RefreshCw, Timer, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { ConfirmDialog, Modal } from "@/components/modal";
@@ -9,7 +9,28 @@ import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { useStore } from "@/lib/store";
 import type { TermoMonitorado, TipoTermo } from "@/lib/types";
-import { TIPO_TERMO_LABEL, UFS } from "@/lib/utils";
+import { api } from "@/lib/auth/api";
+import { formatDateTime, TIPO_TERMO_LABEL, UFS } from "@/lib/utils";
+
+/** Tipos procurados sozinhos pelo servidor (ver server/rondas/ronda-comunica.ts). */
+const AUTOMATICOS: TipoTermo[] = ["oab", "processo"];
+
+function StatusRonda({ t }: { t: TermoMonitorado }) {
+  if (!AUTOMATICOS.includes(t.tipo)) return null;
+  const r = t.ultimaRonda;
+  return (
+    <p className={clsx("mt-3 flex items-start gap-1.5 text-xs", r?.erro ? "text-amber-800" : "text-slate-500")}>
+      {r?.erro ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> : <Timer className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />}
+      <span>
+        {!t.ativo
+          ? "Busca automática pausada."
+          : !r
+            ? "Busca automática ligada; ainda não rodou."
+            : `Busca automática em ${formatDateTime(r.em)}: ${r.novas} nova(s).${r.erro ? ` ${r.erro}` : ""}`}
+      </span>
+    </p>
+  );
+}
 import { validarTermo } from "@/lib/validacao";
 
 type Rascunho = Pick<TermoMonitorado, "apelido" | "tipo" | "valor" | "ufOab" | "tribunal" | "ativo">;
@@ -97,8 +118,29 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
 }
 
 export default function ClientesPage() {
-  const { ready, termos, intimacoes, adicionarTermo, atualizarTermo, excluirTermo } = useStore();
+  const { ready, termos, intimacoes, adicionarTermo, atualizarTermo, excluirTermo, recarregar } = useStore();
   const { toast } = useToast();
+  const [buscando, setBuscando] = useState(false);
+  const temAutomaticos = termos.some((t) => t.ativo && AUTOMATICOS.includes(t.tipo));
+
+  async function buscarAgora() {
+    setBuscando(true);
+    try {
+      await recarregar();
+      const r = await api<{ termos: { novas: number; erro?: string }[] }>("/api/comunica/ronda", { method: "POST" });
+      await recarregar();
+      const novas = r.termos.reduce((s, x) => s + x.novas, 0);
+      const erros = r.termos.filter((x) => x.erro).length;
+      toast(novas ? `${novas} intimação(ões) nova(s)` : "Nenhuma intimação nova", {
+        tom: erros ? "error" : "success",
+        descricao: erros ? `${erros} pesquisa(s) não terminaram; veja o aviso no cartão.` : undefined,
+      });
+    } catch (e) {
+      toast("Não foi possível buscar agora", { tom: "error", descricao: e instanceof Error ? e.message : undefined });
+    } finally {
+      setBuscando(false);
+    }
+  }
   const [editando, setEditando] = useState<TermoMonitorado | "novo" | null>(null);
   const [excluir, setExcluir] = useState<TermoMonitorado | null>(null);
 
@@ -110,16 +152,24 @@ export default function ClientesPage() {
         title="Clientes monitorados"
         description="Configure quais nomes, advogados, OABs ou processos devem ser pesquisados no Comunica PJe."
         actions={
-          <Button icon={<Plus className="h-4 w-4" />} onClick={() => setEditando("novo")}>
-            Adicionar cliente
-          </Button>
+          <>
+            {temAutomaticos && (
+              <Button variant="secondary" loading={buscando} icon={<RefreshCw className="h-4 w-4" />} onClick={buscarAgora}>
+                Buscar OAB e processos agora
+              </Button>
+            )}
+            <Button icon={<Plus className="h-4 w-4" />} onClick={() => setEditando("novo")}>
+              Adicionar cliente
+            </Button>
+          </>
         }
       />
 
       <div className="mb-6">
         <Alert tone="info">
           Cada cliente vira uma pesquisa na API pública do Comunica PJe. As intimações encontradas ficam vinculadas ao nome do cliente, o que permite filtrar e
-          analisar a carteira no painel.
+          analisar a carteira no painel. Os clientes por número de OAB ou de processo são pesquisados sozinhos, várias vezes ao dia; os por nome você pesquisa
+          em Buscar no Comunica.
         </Alert>
       </div>
 
@@ -164,6 +214,7 @@ export default function ClientesPage() {
                   {t.valor}
                   {t.tipo === "oab" && t.ufOab && `/${t.ufOab}`}
                 </p>
+                <StatusRonda t={t} />
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {t.tribunal && <Badge className="bg-brand-50 text-brand-700">{t.tribunal}</Badge>}
                   <Link href={`/intimacoes?cliente=${encodeURIComponent(t.apelido)}`}>

@@ -1,14 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  COMUNICA_API_URL,
-  interpretarResposta,
-  montarParametros,
-  validarConsulta,
-  type ConsultaComunica,
-} from "@/lib/comunica";
+import { validarConsulta, type ConsultaComunica } from "@/lib/comunica";
 import type { TipoTermo } from "@/lib/types";
 import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
-import { buscarEmJanelas, ErroComunica, type BuscarPagina } from "@/server/comunica/busca";
+import { buscarEmJanelas, ErroComunica } from "@/server/comunica/busca";
+import { criarBuscadorComunica } from "@/server/comunica/cliente";
 import { container } from "@/server/container";
 
 export const dynamic = "force-dynamic";
@@ -50,35 +45,11 @@ export async function GET(req: NextRequest) {
   const invalido = validarConsulta(consulta);
   if (invalido) return NextResponse.json({ erro: invalido }, { status: 400 });
 
-  const base = process.env.COMUNICA_API_URL || COMUNICA_API_URL;
-  const buscarPagina: BuscarPagina = async (c) => {
-    const resp = await fetch(`${base}?${montarParametros(c).toString()}`, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "ControleIntimacoes/2.0",
-        Origin: "https://comunica.pje.jus.br",
-        Referer: "https://comunica.pje.jus.br/",
-      },
-      cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    if (resp.status === 429) {
-      throw new ErroComunica("O Comunica PJe limitou o número de consultas. Aguarde um minuto e tente novamente.", 429, true);
-    }
-    if (!resp.ok) {
-      const corpo = await resp.text().catch(() => "");
-      if (resp.status >= 500) {
-        // Ex.: 500 {"message":"O sistema está muito ocupado..."}: a consulta foi pesada demais para o momento.
-        throw new ErroComunica(
-          "O Comunica PJe está sobrecarregado e recusou a consulta, mesmo repetindo e dividindo o período por dia. Tente de novo em alguns minutos, filtre por tribunal ou use um período menor.",
-          503,
-          true,
-        );
-      }
-      throw new ErroComunica(`O Comunica PJe respondeu com erro ${resp.status}. ${corpo.slice(0, 200)}`.trim(), 502);
-    }
-    return interpretarResposta(await resp.json());
-  };
+  const buscarPagina = criarBuscadorComunica({
+    base: container().config.comunica.url,
+    timeoutMs: TIMEOUT_MS,
+    urlApp: container().config.urlApp,
+  });
 
   try {
     const r = await buscarEmJanelas(consulta, buscarPagina, { diasPorJanela: DIAS_POR_JANELA, maxItens: MAX_ITENS, orcamentoMs: ORCAMENTO_MS });
