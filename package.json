@@ -17,6 +17,7 @@
     "db:importar": "node --experimental-strip-types scripts/importar-dados.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.3",
     "lucide-react": "^0.453.0",

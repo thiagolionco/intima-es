@@ -1,4 +1,4 @@
-# Controle de Intimações (Comunica PJe)
+# Clepsa: controle de intimações (Comunica PJe)
 
 Aplicação web em Next.js 15 (React 19) para acompanhar as intimações publicadas no
 [Comunica PJe](https://comunica.pje.jus.br/) (Diário de Justiça Eletrônico Nacional)
@@ -67,7 +67,7 @@ saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produç
 ### Banco de dados (PostgreSQL)
 
 Sem configuração, os dados ficam em arquivos na pasta `.data/`. Para usar o PostgreSQL
-(por exemplo, o Supabase em São Paulo), defina `DATABASE_URL` em `.env.local` e rode:
+(por exemplo, o Supabase em São Paulo), defina `DATABASE_URL` em `.env.local` (em produção, também `LINKS_SECRET`) e rode:
 
 ```bash
 npm run db:migrar     # cria as tabelas e o isolamento por escritório
@@ -88,11 +88,66 @@ escritório veja os dados de outro. Detalhes em
 | **Nova / Editar** | Formulário validado com seletor de datas, máscara do número CNJ e listas dinâmicas de partes e advogados. |
 | **Buscar no Comunica** (`/comunica`) | Pesquisa todos os clientes ativos, um cliente específico ou uma pesquisa avulsa num período; mostra o andamento por cliente, marca o que já está no acervo e importa as novas sem duplicar. |
 | **Clientes monitorados** (`/clientes`) | Campo configurável com o que deve ser pesquisado: nome da parte, nome do advogado, número da OAB + UF ou número do processo, com filtro opcional por tribunal. |
+| **Prazos e avisos** (`/prazos`) | Avisos de prazo por e-mail, feriados locais e suspensões de prazo do escritório (por tribunal ou para todos), calendário de dias sem contagem e cálculo em lote dos prazos que faltam. |
 | **Dados e backup** (`/dados`) | Exportar CSV, backup e restauração em JSON, dados de demonstração e limpeza total. |
+
+### Cálculo de prazos
+
+Ao importar do Comunica, a aplicação procura no texto o número de dias ("no prazo de 15 (quinze) dias")
+e calcula o vencimento sozinha; a intimação fica marcada como "lido no texto" até alguém conferir.
+A regra está em `lib/prazos/`:
+
+- publicação no primeiro dia útil após a disponibilização no DJEN (Lei 11.419/2006, art. 4º, § 3º);
+- contagem a partir do primeiro dia útil seguinte (art. 4º, § 4º, e art. 224 do CPC);
+- dias úteis por padrão (CPC, art. 219); dias corridos na matéria penal (CPP, art. 798), prorrogando se vencer sem expediente;
+- prazo em dobro opcional (arts. 180, 183 e 186 do CPC);
+- pula fins de semana, feriados nacionais, Carnaval, Sexta-feira Santa, o recesso de 20/12 a 20/01 e, na Justiça Federal e tribunais superiores, os dias da Lei 5.010/1966;
+- feriados estaduais, municipais e portarias entram quando o escritório os cadastra em `/prazos`.
+
+O calendário só inclui dias sem expediente em todo o país: um feriado a mais empurraria o vencimento para
+depois do real, enquanto um a menos apenas o antecipa.
+
+### Avisos de prazo por e-mail
+
+Em **Prazos e avisos** cada conta liga os avisos e escolhe com quantos dias úteis de antecedência
+(5, 3, 2, 1 ou no dia) e a partir de que hora. O servidor confere de hora em hora e manda **um**
+e-mail por dia, só quando há prazo chegando, para o e-mail da conta. Cada prazo vem com o botão
+**Já cumpri**: o link abre uma página que mostra a intimação e, com um clique, a marca como
+"Respondida" (o clique é exigido para que leitores de e-mail que abrem links sozinhos não marquem
+nada). O link é assinado e vale 30 dias; o segredo vem de `LINKS_SECRET` ou é gerado e guardado em
+`DATA_DIR/segredo-links`. Os avisos vêm desligados até a conta ligá-los.
 
 Os dados de cada usuário ficam no servidor, em `DATA_DIR/espacos/<id-do-usuário>.json`.
 Na primeira vez que você entrar num navegador que tinha dados da Versão 1 (localStorage),
 a aplicação oferece importá-los para a sua conta.
+
+### Resumo em duas linhas
+
+Com `ANTHROPIC_API_KEY` configurada, cada intimação ganha um resumo de duas linhas: o que o juízo decidiu e o que o advogado precisa fazer (ou "Sem providência: apenas ciência."). As que a busca automática traz já chegam resumidas; as demais têm o botão **Resumir** no detalhe e **Resumir as desta página** na lista (até 30 pedidos por hora por conta).
+
+- Sem a chave, nada muda: os botões não aparecem e a lista mostra o começo do texto.
+- Com a chave, o texto da intimação vai para a API da Anthropic. Avise os clientes do escritório se o contrato pedir.
+- O modelo padrão é `claude-opus-5-5` (troque com `ANTHROPIC_MODEL`). O pedido usa o *fallback* do lado do servidor da Anthropic: se o modelo estiver sobrecarregado, outro modelo da mesma família responde, em vez de dar erro.
+- Se o texto da intimação for editado, o resumo antigo é apagado.
+
+### Prazos na Google Agenda
+
+Em **Prazos e avisos**, o botão **Conectar** leva à tela de consentimento do Google. Depois disso, cada prazo em aberto vira um evento de dia inteiro numa agenda separada, "Prazos · Clepsa", com lembrete às 9h do dia anterior. Quando o prazo muda, o evento muda; quando a intimação é respondida, arquivada ou excluída, o evento sai. A agenda é atualizada alguns segundos depois de cada alteração na tela e, de hora em hora, para o que chegou pela busca automática ou pelo link do e-mail.
+
+- O Clepsa pede só a permissão `calendar.app.created`: ele cria a própria agenda e não enxerga os outros compromissos do usuário.
+- O evento leva processo, cliente, órgão, responsável, o resumo (se houver) e o link para o Clepsa. O inteiro teor não vai para o Google.
+- O acesso fica guardado cifrado (AES-256-GCM) no servidor. **Desconectar** revoga o acesso no Google; a agenda continua lá e pode ser apagada pelo próprio usuário.
+- Para ligar: crie no Google Cloud um ID do cliente OAuth do tipo "Aplicativo da Web", ative a Google Calendar API, cadastre `<APP_URL>/api/google/retorno` como URI de redirecionamento e defina `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Enquanto o app estiver em modo de teste no Google, só os e-mails cadastrados como testadores conseguem conectar.
+
+### Equipe e responsáveis
+
+Em **Equipe** você cadastra quem trabalha no escritório. Cada intimação pode ser entregue a uma pessoa no detalhe dela, ou várias de uma vez pela lista (selecione e use **Entregar a…**). A mesma página mostra o painel por pessoa: quantas intimações estão em aberto, vencidas, vencendo nos próximos 3 dias úteis e sem prazo, com as próximas a vencer. A lista de intimações filtra por responsável e as exportações ganharam as colunas "Responsável" e "Resumo".
+
+Por enquanto a equipe é uma lista de nomes dentro da conta: as pessoas não entram no Clepsa com login próprio. Isso muda quando o banco por escritório (Fase 1) estiver no ar.
+
+### Relatório por cliente
+
+Em **Relatório por cliente** (ou pelo atalho "Relatório" em cada cliente monitorado), escolha o cliente e o período: mês passado, este mês, últimos 30 dias ou datas livres. O relatório mostra quantas intimações saíram e em quantos processos, o que já teve providência, os prazos vencidos e os próximos, e cada intimação com o resumo (ou o começo do texto). **Gerar PDF** abre a versão para imprimir ou salvar em PDF; **Copiar para e-mail** copia um texto curto para colar na mensagem ao cliente. Observações internas, o responsável e os prazos vencidos ficam de fora do que vai ao cliente, a menos que você marque para incluir (na tela, os vencidos sempre aparecem para o escritório).
 
 ## Autenticação e contas (Versão 2)
 
@@ -169,7 +224,7 @@ Em `.env.local`:
 ```bash
 APP_URL=http://localhost:3000
 EMAIL_PROVIDER=smtp
-EMAIL_FROM="Controle de Intimações <voce@gmail.com>"
+EMAIL_FROM="Clepsa <voce@gmail.com>"
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=voce@gmail.com
@@ -201,6 +256,25 @@ CORS e permite paginar (até 5 páginas de 100 itens por cliente). Parâmetros u
 A conversão da resposta fica em `lib/comunica.ts` e é tolerante a variações de nomes de
 campos. A API pública tem limite de requisições; quando ela responde 429 a aplicação
 avisa para aguardar. A API pode recusar acessos vindos de fora do Brasil.
+As chamadas se identificam como `Clepsa/2.0` no `User-Agent`, sem imitar o site oficial.
+
+### Busca automática por OAB e processo
+
+Os clientes monitorados por **número de OAB** ou **número de processo** são pesquisados pelo
+próprio servidor, sem ninguém abrir a tela: na primeira vez, os últimos 7 dias; depois, do último
+dia já coberto até hoje. As novas entram no acervo como "Nova", sem duplicar e já com o prazo
+calculado. Cada cartão em **Clientes monitorados** mostra quando a última busca rodou e se deu
+erro, e o botão **Buscar OAB e processos agora** roda na hora para a sua conta.
+
+| Variável | Padrão | Para que serve |
+| --- | --- | --- |
+| `RONDA_COMUNICA` | `ligada` em produção, `desligada` em dev | Liga ou desliga a busca dentro do servidor. |
+| `RONDA_COMUNICA_INTERVALO_HORAS` | `6` | Intervalo entre as buscas. |
+| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` e `POST /api/rondas/avisos` com `Authorization: Bearer <token>`, para um agendador externo. |
+
+Se o servidor ficar desligado, a busca seguinte cobre os dias que faltaram
+(até 30 dias para trás). Se a tela estiver aberta enquanto a busca grava, as duas versões são
+mescladas: nada que você editou se perde.
 
 ## Roteiro de teste manual
 

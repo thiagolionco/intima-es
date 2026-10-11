@@ -4,12 +4,12 @@ import { ToastProvider } from "@/components/toast";
 import { SessaoProvider } from "@/lib/auth/sessao";
 
 export const metadata: Metadata = {
-  title: { default: "Controle de Intimações", template: "%s · Controle de Intimações" },
+  title: { default: "Clepsa", template: "%s · Clepsa" },
   description: "Acompanhe as intimações do Comunica PJe da sua carteira de clientes.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f172a",
+  themeColor: "#050a18",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

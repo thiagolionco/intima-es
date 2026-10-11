@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
 import { useUsuario } from "@/lib/auth/sessao";
+import { useStore } from "@/lib/store";
 import { COLUNAS, FORMATACAO_PADRAO, montarTabela, PRESETS, type OpcoesFormatacao } from "@/lib/exportacao/colunas";
 import { FORMATOS, nomeArquivoSeguro, tabelaParaTsv, type ContextoExportacao } from "@/lib/exportacao/formatos";
 import type { Intimacao } from "@/lib/types";
@@ -135,8 +136,10 @@ export function DialogoExportacao({ aberto, onFechar, conjuntos, conjuntoInicial
 
   const conjunto = conjuntos.find((c) => c.id === conjuntoId) ?? conjuntos[0];
   const formato = FORMATOS.find((f) => f.id === prefs.formato) ?? FORMATOS[0];
-  const tabela = useMemo(() => montarTabela(conjunto?.itens ?? [], prefs.colunas, prefs.formatacao), [conjunto, prefs.colunas, prefs.formatacao]);
-  const previa = useMemo(() => montarTabela((conjunto?.itens ?? []).slice(0, 5), prefs.colunas, prefs.formatacao), [conjunto, prefs.colunas, prefs.formatacao]);
+  const { equipe } = useStore();
+  const formatacao = useMemo(() => ({ ...prefs.formatacao, nomesEquipe: Object.fromEntries(equipe.map((p) => [p.id, p.nome])) }), [prefs.formatacao, equipe]);
+  const tabela = useMemo(() => montarTabela(conjunto?.itens ?? [], prefs.colunas, formatacao), [conjunto, prefs.colunas, formatacao]);
+  const previa = useMemo(() => montarTabela((conjunto?.itens ?? []).slice(0, 5), prefs.colunas, formatacao), [conjunto, prefs.colunas, formatacao]);
   const presetAtivo = PRESETS.find((p) => p.colunas.length === prefs.colunas.length && p.colunas.every((c, i) => prefs.colunas[i] === c))?.id;
 
   if (!aberto) return null;

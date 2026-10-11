@@ -8,6 +8,7 @@ export const FILTROS_VAZIOS: FiltrosIntimacao = {
   status: "",
   cliente: "",
   tribunal: "",
+  responsavel: "",
 };
 
 function norm(s: string | undefined): string {
@@ -43,6 +44,7 @@ export function filtrarIntimacoes(lista: Intimacao[], f: FiltrosIntimacao): Inti
     if (f.status && i.status !== f.status) return false;
     if (f.cliente && i.cliente !== f.cliente) return false;
     if (f.tribunal && i.tribunal !== f.tribunal) return false;
+    if (f.responsavel && (f.responsavel === "nenhum" ? !!i.responsavelId : i.responsavelId !== f.responsavel)) return false;
     if (termos.length) {
       const alvo = textoPesquisavel(i);
       if (!termos.every((t) => alvo.includes(t))) return false;

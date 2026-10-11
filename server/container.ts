@@ -8,7 +8,7 @@ import { RecuperacaoSenhaService } from "./auth/services/recuperacao-senha.ts";
 import { SessaoService } from "./auth/services/sessoes.ts";
 import { DIA, HORA, relogioDoSistema } from "./core/clock.ts";
 import { type Configuracao, lerConfiguracao } from "./config.ts";
-import { ArmazenamentoEmArquivo } from "./infra/armazenamento.ts";
+import { type ArmazenamentoDocumentos, ArmazenamentoEmArquivo } from "./infra/armazenamento.ts";
 import { CaixaDeSaidaLocal, EnviadorResend, EnviadorSmtp } from "./infra/email/enviadores.ts";
 import { NotificacoesPorEmail } from "./infra/email/notificacoes.ts";
 import type { EnviadorDeEmail } from "./infra/email/ports.ts";
@@ -23,6 +23,7 @@ import {
 } from "./infra/repositorios.ts";
 import { conectar } from "./infra/postgres/conexao.ts";
 import {
+  ArmazenamentoPostgres,
   AuditoriaPostgres,
   DesafioRepositoryPostgres,
   EspacoTrabalhoRepositoryPostgres,
@@ -32,6 +33,19 @@ import {
 } from "./infra/postgres/repositorios.ts";
 import { Totp } from "./infra/totp.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
+import { criarBuscadorComunica } from "./comunica/cliente.ts";
+import { novoId } from "./core/crypto.ts";
+import { RondaComunica } from "./rondas/ronda-comunica.ts";
+import { AvisosService } from "./avisos/avisos.ts";
+import { AssinadorDeLinks } from "./core/assinatura.ts";
+import { ResumidorClaude } from "./resumos/resumidor.ts";
+import { ResumosService } from "./resumos/resumos.ts";
+import { AgendaService } from "./agenda/agenda.ts";
+import { ClienteGoogleHttp } from "./agenda/google.ts";
+import { Cofre } from "./core/cofre.ts";
+import { tokenAleatorio } from "./core/crypto.ts";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
 /** Origem da requisição atual, usada nos links dos e-mails quando APP_URL não está definida. */
 export const origemDaRequisicao = new AsyncLocalStorage<string>();
@@ -54,6 +68,25 @@ function criarLinks(config: Configuracao): Links {
     confirmarEmail: (token) => `${base()}/confirmar-email#token=${token}`,
     redefinirSenha: (token) => `${base()}/redefinir-senha#token=${token}`,
   };
+}
+
+/** LINKS_SECRET ou, na falta dele, um segredo gerado uma vez e guardado junto dos dados. */
+function segredoDosLinks(config: Configuracao): string {
+  if (config.segredoLinks) return config.segredoLinks;
+  // Com banco, o disco do servidor pode ser descartado a cada publicação, e o segredo que assina os
+  // links e cifra o token do Google se perderia junto. Em produção ele precisa vir do ambiente.
+  if (config.urlBanco && config.producao) {
+    throw new Error("Com DATABASE_URL em produção, defina LINKS_SECRET (32+ caracteres): o segredo gerado em arquivo não sobrevive a uma nova publicação.");
+  }
+  const arquivo = path.join(config.diretorioDados, "segredo-links");
+  try {
+    return readFileSync(arquivo, "utf8").trim();
+  } catch {
+    const novo = tokenAleatorio(48);
+    mkdirSync(config.diretorioDados, { recursive: true, mode: 0o700 });
+    writeFileSync(arquivo, novo, { mode: 0o600, flag: "wx" });
+    return novo;
+  }
 }
 
 function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): EnviadorDeEmail {
@@ -83,6 +116,8 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
         auditoria: new AuditoriaPostgres(db, clock),
       },
       espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+      // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
+      documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
   }
   return {
@@ -94,6 +129,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       auditoria: new AuditoriaDocumentos(arquivos, clock),
     },
     espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
+    documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
 
@@ -107,20 +143,63 @@ function montar() {
   const arquivos = new ArmazenamentoEmArquivo(config.diretorioDados);
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
-  const { repositorios, espacosRepo } = criarRepositorios(config, arquivos);
+  const enviador = criarEnviador(config, caixaDeSaida);
+  const { repositorios, espacosRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const deps: DependenciasAuth = {
     ...repositorios,
     hash: new HashScrypt(),
     limitador: new LimitadorEmMemoria(clock),
     segundoFator: new Totp(clock),
-    notificacoes: new NotificacoesPorEmail(criarEnviador(config, caixaDeSaida)),
+    notificacoes: new NotificacoesPorEmail(enviador),
     clock,
     links: criarLinks(config),
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
     emissor2fa: config.emissor2fa,
   };
   const sessoes = new SessaoService(deps);
+  const segredo = segredoDosLinks(config);
+  const assinador = new AssinadorDeLinks(segredo);
+  const urlApp = () => config.urlApp ?? origemDaRequisicao.getStore() ?? "http://localhost:3000";
+  const agenda = new AgendaService({
+    google: config.google ? new ClienteGoogleHttp(config.google) : undefined,
+    espacos: espacosRepo,
+    documentos: db,
+    cofre: new Cofre(segredo, "google-agenda"),
+    assinador,
+    clock,
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    urlApp,
+  });
+  const avisos = new AvisosService({
+    espacos: espacosRepo,
+    usuarios: deps.usuarios,
+    enviador,
+    registro: db,
+    assinador,
+    clock,
+    urlApp,
+  });
+  const resumos = new ResumosService({
+    espacos: espacosRepo,
+    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    clock,
+  });
+  const rondaComunica = new RondaComunica({
+    espacos: espacosRepo,
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    buscarPagina: criarBuscadorComunica({ base: config.comunica.url, timeoutMs: 40_000, urlApp: config.urlApp }),
+    clock,
+    novoId,
+    // Com resumo ligado, o que a ronda trouxe já chega resumido.
+    aoEncontrar: resumos.disponivel
+      ? async (novas) => {
+          const porConta = new Map<string, string[]>();
+          for (const n of novas) porConta.set(n.usuarioId, [...(porConta.get(n.usuarioId) ?? []), n.intimacao.id]);
+          for (const [usuarioId, ids] of porConta) await resumos.resumir(usuarioId, ids, 50);
+        }
+      : undefined,
+  });
 
   return {
     config,
@@ -130,9 +209,17 @@ function montar() {
     autenticacao: new AutenticacaoService(deps, sessoes),
     recuperacao: new RecuperacaoSenhaService(deps),
     doisFatores: new DoisFatoresService(deps),
-    conta: new ContaService(deps, espacosRepo),
-    espacos: new EspacoTrabalhoService(espacosRepo),
+    conta: new ContaService(deps, espacosRepo, async (id) => {
+      await agenda.desconectar(id);
+      await db.remover(`avisos/${id}`);
+    }),
+    espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
+    rondaComunica,
+    avisos,
+    resumos,
+    agenda,
+    limitador: deps.limitador,
   };
 }
 

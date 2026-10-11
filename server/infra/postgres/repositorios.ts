@@ -1,14 +1,15 @@
-import { and, asc, count, desc, eq, gt, lte, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNotNull, lte, ne, sql } from "drizzle-orm";
 import type { DesafioDoisFatores, EventoAuditoria, FinalidadeToken, Sessao, TipoEvento, TokenVerificacao, Usuario } from "../../auth/model.ts";
 import type { Auditoria, DesafioRepository, SessaoRepository, TokenRepository, UsuarioRepository } from "../../auth/ports.ts";
 import type { Clock } from "../../core/clock.ts";
 import { novoId } from "../../core/crypto.ts";
 import { AppError } from "../../core/errors.ts";
-import type { EspacoTrabalho, EspacoTrabalhoRepository } from "../../workspace/espaco-trabalho.ts";
-import type { Intimacao, TermoMonitorado } from "../../../lib/types.ts";
+import type { DadosEspaco, EspacoTrabalho, EspacoTrabalhoRepository } from "../../workspace/espaco-trabalho.ts";
+import type { ArmazenamentoDocumentos } from "../armazenamento.ts";
+import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "../../../lib/types.ts";
 import type { BancoDeDados } from "./conexao.ts";
 import { comEscritorio, entrarNoEscritorio, sairDoEscritorio } from "./contexto.ts";
-import { auditoria, desafiosDoisFatores, escritorios, espacosTrabalho, membros, sessoes, tokensVerificacao, usuarios } from "./schema.ts";
+import { auditoria, desafiosDoisFatores, documentos, escritorios, espacosTrabalho, membros, sessoes, tokensVerificacao, usuarios } from "./schema.ts";
 
 /** Implementações dos repositórios sobre o PostgreSQL. Mesmas interfaces das versões em documento. */
 
@@ -72,6 +73,11 @@ export class UsuarioRepositoryPostgres implements UsuarioRepository {
   async porEmail(email: string) {
     const [l] = await this.db.select().from(usuarios).where(eq(usuarios.email, email));
     return l ? paraUsuario(l) : null;
+  }
+
+  async listarConfirmados() {
+    const linhas = await this.db.select({ id: usuarios.id }).from(usuarios).where(isNotNull(usuarios.emailConfirmadoEm));
+    return linhas.map((l) => l.id);
   }
 
   /** Cria a conta e, junto, o escritório dela, com o usuário como dono. */
@@ -296,12 +302,14 @@ export class AuditoriaPostgres implements Auditoria {
 
 // ---------- Espaço de trabalho (dados do escritório, sob RLS) ----------
 
-const VAZIO: EspacoTrabalho = { intimacoes: [], termos: [], revisao: 0, atualizadoEm: null };
+const VAZIO: EspacoTrabalho = { intimacoes: [], termos: [], suspensoes: [], revisao: 0, atualizadoEm: null };
 
 function paraEspaco(l: typeof espacosTrabalho.$inferSelect): EspacoTrabalho {
   return {
     intimacoes: l.intimacoes as Intimacao[],
     termos: l.termos as TermoMonitorado[],
+    suspensoes: l.suspensoes as Suspensao[],
+    ...(l.preferencias ? { preferencias: l.preferencias as Preferencias } : {}),
     revisao: l.revisao,
     atualizadoEm: l.atualizadoEm ? iso(l.atualizadoEm) : null,
   };
@@ -328,10 +336,17 @@ export class EspacoTrabalhoRepositoryPostgres implements EspacoTrabalhoRepositor
     });
   }
 
-  salvar(usuarioId: string, dados: Pick<EspacoTrabalho, "intimacoes" | "termos">, revisaoBase: number) {
+  salvar(usuarioId: string, dados: DadosEspaco, revisaoBase: number) {
     return comEscritorio(this.db, usuarioId, async (tx, escritorioId) => {
       if (!escritorioId) throw new AppError("nao_encontrado", "Sua conta não está ligada a nenhum escritório.");
-      const valores = { intimacoes: dados.intimacoes, termos: dados.termos, atualizadoEm: this.clock.agora() };
+      // Cliente antigo não manda suspensões/preferências: o que já está gravado continua valendo.
+      const valores = {
+        intimacoes: dados.intimacoes,
+        termos: dados.termos,
+        ...(dados.suspensoes !== undefined ? { suspensoes: dados.suspensoes } : {}),
+        ...(dados.preferencias !== undefined ? { preferencias: dados.preferencias } : {}),
+        atualizadoEm: this.clock.agora(),
+      };
       const [atualizado] = await tx
         .update(espacosTrabalho)
         .set({ ...valores, revisao: sql`${espacosTrabalho.revisao} + 1` })
@@ -355,5 +370,38 @@ export class EspacoTrabalhoRepositoryPostgres implements EspacoTrabalhoRepositor
       const [{ total }] = await tx.select({ total: count() }).from(membros).where(eq(membros.escritorioId, escritorioId));
       if (total <= 1) await tx.delete(espacosTrabalho).where(eq(espacosTrabalho.escritorioId, escritorioId));
     });
+  }
+}
+
+// ---------- Documentos soltos ----------
+
+/** Um valor JSON qualquer, inclusive `null` (que o driver trataria como SQL NULL). */
+const jsonb = (v: unknown) => sql`${JSON.stringify(v)}::jsonb`;
+
+/** `ArmazenamentoDocumentos` sobre a tabela `documentos`; `alterar` trava a linha para serializar escritas. */
+export class ArmazenamentoPostgres implements ArmazenamentoDocumentos {
+  private readonly db: BancoDeDados;
+  constructor(db: BancoDeDados) {
+    this.db = db;
+  }
+
+  async ler<T>(chave: string, padrao: T): Promise<T> {
+    const [l] = await this.db.select({ valor: documentos.valor }).from(documentos).where(eq(documentos.chave, chave));
+    return l ? (l.valor as T) : padrao;
+  }
+
+  alterar<T, R = void>(chave: string, padrao: T, fn: (atual: T) => { valor: T; resultado: R } | Promise<{ valor: T; resultado: R }>): Promise<R> {
+    return this.db.transaction(async (tx) => {
+      // Garante a linha e a trava antes de ler, para duas escritas na mesma chave não se sobreporem.
+      await tx.insert(documentos).values({ chave, valor: jsonb(padrao) }).onConflictDoNothing();
+      const [l] = await tx.select({ valor: documentos.valor }).from(documentos).where(eq(documentos.chave, chave)).for("update");
+      const { valor, resultado } = await fn((l?.valor ?? padrao) as T);
+      await tx.update(documentos).set({ valor: jsonb(valor), atualizadoEm: sql`now()` }).where(eq(documentos.chave, chave));
+      return resultado;
+    });
+  }
+
+  async remover(chave: string) {
+    await this.db.delete(documentos).where(eq(documentos.chave, chave));
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, KeyRound, LifeBuoy, ShieldCheck, Smartphone } from "lucide-react";
+import { ArrowLeft, ArrowRight, LifeBuoy, ShieldCheck, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
@@ -254,9 +254,9 @@ function Entrar() {
 
   return (
     <>
-      <Cabecalho titulo="Acesse sua conta" subtitulo="Entre para acompanhar as intimações e os prazos da sua carteira." />
+      <Cabecalho titulo="Entre na sua conta" subtitulo="Acompanhe suas intimações e prazos em um só lugar." />
       {avisoInicial && <Aviso tom={avisoInicial.tom}>{avisoInicial.texto}</Aviso>}
-      <form onSubmit={continuar} className="space-y-5" noValidate>
+      <form onSubmit={continuar} className="space-y-4" noValidate>
         <div>
           <Rotulo htmlFor="email">E-mail profissional</Rotulo>
           <CampoTexto
@@ -272,15 +272,26 @@ function Entrar() {
           <ErroCampo>{erroEmail}</ErroCampo>
         </div>
         <BotaoPrincipal>
-          Continuar <ArrowRight className="h-4 w-4" />
+          Continuar <ArrowRight className="h-4 w-4" aria-hidden />
         </BotaoPrincipal>
       </form>
-      <div className="my-8 flex items-center gap-3 text-xs uppercase tracking-wider text-slate-400">
+      <div className="mt-4 text-right">
+        <Link href={emailValido(email) ? `/esqueci-a-senha?email=${encodeURIComponent(email)}` : "/esqueci-a-senha"} className="rounded text-sm font-medium text-brand-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+          Esqueci minha senha
+        </Link>
+      </div>
+      <div className="my-8 flex items-center gap-3 text-xs font-medium uppercase tracking-wider text-slate-500">
         <span className="h-px flex-1 bg-slate-200" /> Novo por aqui? <span className="h-px flex-1 bg-slate-200" />
       </div>
-      <Link href="/criar-conta" className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-[15px] font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 transition hover:bg-slate-50">
-        <KeyRound className="h-4 w-4" /> Criar uma conta
+      <Link
+        href="/criar-conta"
+        className="flex h-12 w-full items-center justify-center rounded-xl px-4 text-[15px] font-semibold text-slate-800 ring-1 ring-inset ring-slate-300 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+      >
+        Criar uma conta
       </Link>
+      <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-slate-500">
+        <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Sessão protegida, sem rastreadores de terceiros.
+      </p>
       <LinkCaixaDeSaida className="mt-6" />
     </>
   );

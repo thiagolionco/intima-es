@@ -162,7 +162,7 @@ export function gerarRelatorioHtml(t: Tabela, ctx: Pick<ContextoExportacao, "tit
   <div class="aviso">Use <strong>Ctrl+P</strong> (ou ⌘+P) e escolha <strong>Salvar como PDF</strong> como destino.</div>
   <header><div><h1>${html(ctx.titulo)}</h1><div>${t.linhas.length} registro(s)</div></div><div class="meta">${ctx.metadados.map(html).join("<br>")}</div></header>
   <table><thead><tr>${cab}</tr></thead><tbody>${corpo}</tbody></table>
-  <footer>Gerado pelo Controle de Intimações em ${html(new Date().toLocaleString("pt-BR"))}</footer>
+  <footer>Gerado pela Clepsa em ${html(new Date().toLocaleString("pt-BR"))}</footer>
   <script>window.addEventListener("load", function () { setTimeout(function () { window.print(); }, 300); });</script>
   </body></html>`;
 }

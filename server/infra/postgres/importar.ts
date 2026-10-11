@@ -5,13 +5,14 @@ import type { EspacoTrabalho } from "../../workspace/espaco-trabalho.ts";
 import type { ArmazenamentoDocumentos } from "../armazenamento.ts";
 import type { BancoDeDados } from "./conexao.ts";
 import { comEscritorio } from "./contexto.ts";
-import { SessaoRepositoryPostgres, TokenRepositoryPostgres, UsuarioRepositoryPostgres } from "./repositorios.ts";
+import { ArmazenamentoPostgres, SessaoRepositoryPostgres, TokenRepositoryPostgres, UsuarioRepositoryPostgres } from "./repositorios.ts";
 import { auditoria, espacosTrabalho } from "./schema.ts";
 
 export interface ResultadoImportacao {
   importados: string[];
   ignorados: { email: string; motivo: string }[];
   intimacoes: number;
+  documentos: number;
   eventos: number;
   sessoes: number;
 }
@@ -30,7 +31,7 @@ export async function importarDeDocumentos(origem: ArmazenamentoDocumentos, db: 
   const lista = await origem.ler<Usuario[]>("usuarios", []);
   const sessoes = (await origem.ler<Sessao[]>("sessoes", [])).filter((s) => s.expiraEm > agora);
   const tokens = (await origem.ler<TokenVerificacao[]>("tokens", [])).filter((t) => t.expiraEm > agora);
-  const r: ResultadoImportacao = { importados: [], ignorados: [], intimacoes: 0, eventos: 0, sessoes: 0 };
+  const r: ResultadoImportacao = { importados: [], ignorados: [], intimacoes: 0, documentos: 0, eventos: 0, sessoes: 0 };
 
   for (const u of lista) {
     if (await usuariosRepo.porEmail(u.email)) {
@@ -48,6 +49,8 @@ export async function importarDeDocumentos(origem: ArmazenamentoDocumentos, db: 
           .set({
             intimacoes: espaco.intimacoes,
             termos: espaco.termos,
+            suspensoes: espaco.suspensoes ?? [],
+            preferencias: espaco.preferencias ?? null,
             revisao: espaco.revisao,
             atualizadoEm: espaco.atualizadoEm ? new Date(espaco.atualizadoEm) : null,
           })
@@ -68,6 +71,15 @@ export async function importarDeDocumentos(origem: ArmazenamentoDocumentos, db: 
       r.sessoes++;
     }
     for (const t of tokens.filter((t) => t.usuarioId === u.id)) await tokensRepo.salvar(t);
+
+    // Conexão do Google Agenda (token já cifrado) e registro dos avisos enviados.
+    for (const chave of [`google/${u.id}`, `avisos/${u.id}`]) {
+      const doc = await origem.ler<unknown>(chave, null);
+      if (doc !== null) {
+        await new ArmazenamentoPostgres(db).alterar(chave, null as unknown, () => ({ valor: doc, resultado: undefined }));
+        r.documentos++;
+      }
+    }
 
     r.importados.push(u.email);
   }

@@ -15,6 +15,13 @@
       "when": 1791654970685,
       "tag": "0001_isolamento_por_escritorio",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791719500850,
+      "tag": "0002_recursos_novos_e_documentos",
+      "breakpoints": true
     }
   ]
 }

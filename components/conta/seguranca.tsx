@@ -119,7 +119,7 @@ function AlterarSenha() {
 function CodigosRecuperacao({ codigos }: { codigos: string[] }) {
   const u = useUsuario();
   const [copiado, setCopiado] = useState(false);
-  const texto = `Controle de Intimações — códigos de recuperação\nConta: ${u.email}\nGerados em: ${new Date().toLocaleString("pt-BR")}\n\nCada código pode ser usado uma única vez.\n\n${codigos.join("\n")}\n`;
+  const texto = `Clepsa — códigos de recuperação\nConta: ${u.email}\nGerados em: ${new Date().toLocaleString("pt-BR")}\n\nCada código pode ser usado uma única vez.\n\n${codigos.join("\n")}\n`;
   return (
     <div>
       <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-900 p-4 font-mono text-sm text-slate-100">

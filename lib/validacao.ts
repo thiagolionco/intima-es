@@ -1,4 +1,4 @@
-import type { Advogado, Parte, StatusIntimacao, TermoMonitorado } from "./types";
+import type { Advogado, Parte, RegraPrazo, StatusIntimacao, TermoMonitorado } from "./types";
 
 export interface DadosFormulario {
   cliente: string;
@@ -16,6 +16,8 @@ export interface DadosFormulario {
   link: string;
   status: StatusIntimacao;
   prazo: string;
+  /** Regra do cálculo automático; null quando o prazo é uma data informada à mão. */
+  regraPrazo?: RegraPrazo | null;
   observacoes: string;
 }
 
@@ -49,7 +51,10 @@ export function validarIntimacao(d: DadosFormulario, hoje: string): ErrosFormula
   if (d.texto.trim().length < 10) e.texto = "O texto da intimação deve ter ao menos 10 caracteres.";
   if (d.link.trim() && !/^https?:\/\/\S+$/i.test(d.link.trim())) e.link = "Informe uma URL válida (http/https).";
 
-  if (d.prazo) {
+  if (d.regraPrazo) {
+    const n = d.regraPrazo.dias;
+    if (!Number.isInteger(n) || n < 1 || n > 365) e.prazo = "Informe de 1 a 365 dias.";
+  } else if (d.prazo) {
     if (!dataValida(d.prazo)) e.prazo = "Data inválida.";
     else if (dataValida(d.dataDisponibilizacao) && d.prazo < d.dataDisponibilizacao) {
       e.prazo = "O prazo não pode ser anterior à disponibilização.";

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { PrazoTag } from "@/components/intimacao-card";
+import { MemoriaPrazo, usePrazoCalculado } from "@/components/prazo";
+import { BotaoResumir, LinhasResumo } from "@/components/resumo";
+import { SeletorResponsavel } from "@/components/equipe";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Select, Spinner, StatusBadge, Textarea } from "@/components/ui";
@@ -24,13 +27,14 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
 export default function DetalheIntimacaoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao } = useStore();
+  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, equipe, delegarIntimacoes } = useStore();
   const { toast } = useToast();
   const [confirmar, setConfirmar] = useState(false);
   const i = intimacoes.find((x) => x.id === id);
   const [obs, setObs] = useState("");
 
   useEffect(() => setObs(i?.observacoes ?? ""), [i?.observacoes]);
+  const calculo = usePrazoCalculado(i ?? { tribunal: "", dataDisponibilizacao: "" }, i?.regraPrazo);
 
   if (!ready) return <Spinner />;
   if (!i) {
@@ -121,6 +125,15 @@ export default function DetalheIntimacaoPage() {
             </dl>
           </Card>
 
+          {i.resumo ? (
+            <Card className="p-5">
+              <LinhasResumo i={i} />
+              <p className="mt-2 text-xs text-slate-400">Resumo automático. Confira no inteiro teor antes de agir.</p>
+            </Card>
+          ) : (
+            <BotaoResumir ids={[i.id]} rotulo="Resumir em duas linhas" />
+          )}
+
           <Card>
             <CardHeader
               title="Inteiro teor"
@@ -184,6 +197,58 @@ export default function DetalheIntimacaoPage() {
           <Card>
             <CardHeader title="Controle interno" />
             <div className="space-y-4 p-5">
+              <div>
+                <label htmlFor="responsavel" className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Responsável
+                </label>
+                {equipe.length ? (
+                  <>
+                    <SeletorResponsavel
+                      id="responsavel"
+                      value={i.responsavelId}
+                      onChange={(pessoa) => {
+                        delegarIntimacoes([i.id], pessoa);
+                        const nome = equipe.find((p) => p.id === pessoa)?.nome;
+                        toast(nome ? `Entregue a ${nome}` : "Sem responsável");
+                      }}
+                      className="mt-1"
+                    />
+                    {i.delegadaEm && <p className="mt-1 text-xs text-slate-400">Desde {formatDateTime(i.delegadaEm)}</p>}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-500">
+                    <Link href="/equipe" className="font-medium text-brand-700 hover:underline">
+                      Cadastre a equipe
+                    </Link>{" "}
+                    para entregar intimações.
+                  </p>
+                )}
+              </div>
+              {i.regraPrazo && calculo && (
+                <div>
+                  <MemoriaPrazo r={calculo} regra={i.regraPrazo} />
+                  {i.regraPrazo.fonte === "texto" && (
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-2 text-xs text-amber-800">
+                      <p className="w-full">Os dias foram lidos no texto (“{i.regraPrazo.trecho}”) e ainda não foram conferidos.</p>
+                      <Link href={`/intimacoes/${i.id}/editar`}>
+                        <Button size="sm" variant="ghost">
+                          Ajustar
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          atualizarIntimacao(i.id, { regraPrazo: { ...i.regraPrazo!, fonte: "usuario" } });
+                          toast("Prazo conferido");
+                        }}
+                      >
+                        Está certo
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
               <dl className="grid grid-cols-2 gap-4">
                 <Item rotulo="Prazo">{formatDate(i.prazo)}</Item>
                 <Item rotulo="Origem">{i.origem === "comunica" ? "Comunica PJe" : "Manual"}</Item>

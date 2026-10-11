@@ -3,7 +3,7 @@ import type { Usuario } from "../../auth/model.ts";
 import type { NotificacoesDeConta } from "../../auth/ports.ts";
 import type { EnviadorDeEmail, MensagemEmail } from "./ports.ts";
 
-const PRODUTO = "Controle de Intimações";
+const PRODUTO = "Clepsa";
 
 function escapar(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -14,6 +14,8 @@ interface Conteudo {
   titulo: string;
   paragrafos: string[];
   botao?: { rotulo: string; url: string };
+  /** Lista de itens, cada um com título, linhas e botões próprios (ex.: um prazo por item). */
+  itens?: { titulo: string; linhas: string[]; botoes: { rotulo: string; url: string; destaque?: boolean }[] }[];
   rodape?: string;
 }
 
@@ -26,20 +28,35 @@ export function montarEmail(para: string, c: Conteudo): MensagemEmail {
        </td></tr></table>
        <p style="margin:0 0 16px;font-size:12px;line-height:18px;color:#64748b">Se o botão não funcionar, copie e cole este endereço no navegador:<br><span style="word-break:break-all;color:#2147ed">${escapar(c.botao.url)}</span></p>`
     : "";
+  const itens = (c.itens ?? [])
+    .map(
+      (it) => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 14px;border:1px solid #e2e8f0;border-radius:10px"><tr><td style="padding:14px 16px">
+        <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#0f172a">${escapar(it.titulo)}</p>
+        ${it.linhas.map((l) => `<p style="margin:0 0 4px;font-size:13px;line-height:19px;color:#475569">${escapar(l)}</p>`).join("")}
+        <p style="margin:10px 0 0">${it.botoes
+          .map(
+            (b) =>
+              `<a href="${escapar(b.url)}" style="display:inline-block;margin:0 8px 4px 0;padding:8px 14px;font-size:13px;font-weight:600;border-radius:7px;text-decoration:none;${b.destaque ? "background:#2147ed;color:#ffffff" : "background:#f1f5f9;color:#0f172a"}">${escapar(b.rotulo)}</a>`,
+          )
+          .join("")}</p>
+      </td></tr></table>`,
+    )
+    .join("");
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f1f5f9;font-family:Segoe UI,Helvetica,Arial,sans-serif">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 12px"><tr><td align="center">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0">
       <tr><td style="background:#0f172a;padding:20px 28px"><span style="font-size:15px;font-weight:700;color:#ffffff">⚖️ ${PRODUTO}</span></td></tr>
       <tr><td style="padding:32px 28px 12px">
         <h1 style="margin:0 0 20px;font-size:22px;line-height:30px;color:#0f172a">${escapar(c.titulo)}</h1>
-        ${ps}${botao}
+        ${ps}${itens}${botao}
       </td></tr>
       <tr><td style="padding:16px 28px 28px;border-top:1px solid #f1f5f9;font-size:12px;line-height:18px;color:#94a3b8">
         ${escapar(c.rodape ?? "Você recebeu esta mensagem porque há uma conta associada a este e-mail. Se não foi você, ignore-a com segurança.")}
       </td></tr>
     </table>
   </td></tr></table></body></html>`;
-  const texto = [c.titulo, "", ...c.paragrafos, ...(c.botao ? ["", `${c.botao.rotulo}: ${c.botao.url}`] : []), "", c.rodape ?? ""].join("\n").trim();
+  const textoItens = (c.itens ?? []).flatMap((it) => ["", `• ${it.titulo}`, ...it.linhas.map((l) => `  ${l}`), ...it.botoes.map((b) => `  ${b.rotulo}: ${b.url}`)]);
+  const texto = [c.titulo, "", ...c.paragrafos, ...textoItens, ...(c.botao ? ["", `${c.botao.rotulo}: ${c.botao.url}`] : []), "", c.rodape ?? ""].join("\n").trim();
   return { para, assunto: c.assunto, html, texto };
 }
 

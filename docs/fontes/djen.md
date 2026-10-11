@@ -35,13 +35,21 @@ API pública do Diário de Justiça Eletrônico Nacional:
 
 ## Como o app consulta hoje
 
-`app/api/comunica/route.ts` envia **um** critério por consulta (`montarParametros` em
-`lib/comunica.ts`), mais tribunal e período opcionais.
+A busca da tela (`app/api/comunica/route.ts`) e a ronda automática (`server/rondas/ronda-comunica.ts`)
+usam o mesmo cliente, `server/comunica/cliente.ts`, que envia **um** critério por consulta
+(`montarParametros` em `lib/comunica.ts`), mais tribunal e período opcionais.
 
-Cabeçalhos enviados hoje: `User-Agent: ControleIntimacoes/2.0`, além de `Origin` e
-`Referer` apontando para `https://comunica.pje.jus.br`, imitando o site oficial. **Isso será
-removido na Fase 2**, em favor de um `User-Agent` próprio com contato. Se o acesso quebrar
-sem esses cabeçalhos, o trabalho para e o problema é reportado; não se contorna.
+Cabeçalhos enviados: `Accept: application/json` e `User-Agent: Clepsa/2.0 (+APP_URL)`.
+Os cabeçalhos `Origin` e `Referer` que imitavam o site oficial foram removidos. Se o acesso
+quebrar sem eles, o trabalho para e o problema é reportado; não se contorna.
+
+## Ronda automática
+
+O servidor procura sozinho as comunicações dos clientes monitorados por **número de OAB** e
+**número de processo** que estiverem ativos. Buscas por nome de parte ou de advogado continuam
+manuais, porque são lentas no Comunica. Cada termo guarda até que dia já foi consultado
+(`ultimaRonda.ate`); a ronda seguinte repete o último dia e vai até hoje (no máximo 30 dias para
+trás). Detalhes de agendamento no README.
 
 ## Termos de uso e limites
 

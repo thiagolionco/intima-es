@@ -21,7 +21,7 @@ try {
   const r = await importarDeDocumentos(new ArmazenamentoEmArquivo(pasta), conexao.db, relogioDoSistema);
   console.log(`Contas importadas: ${r.importados.length}${r.importados.length ? ` (${r.importados.join(", ")})` : ""}`);
   for (const i of r.ignorados) console.log(`Ignorada: ${i.email} (${i.motivo})`);
-  console.log(`Intimações: ${r.intimacoes} · eventos de auditoria: ${r.eventos} · sessões ativas: ${r.sessoes}`);
+  console.log(`Intimações: ${r.intimacoes} · documentos (Agenda, avisos): ${r.documentos} · eventos de auditoria: ${r.eventos} · sessões ativas: ${r.sessoes}`);
 } finally {
   await conexao.encerrar();
 }

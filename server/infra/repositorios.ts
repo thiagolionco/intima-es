@@ -42,6 +42,10 @@ export class UsuarioRepositoryDocumentos implements UsuarioRepository {
   excluir(id: string) {
     return this.db.alterar<Usuario[]>("usuarios", [], (lista) => ({ valor: lista.filter((u) => u.id !== id), resultado: undefined }));
   }
+
+  async listarConfirmados() {
+    return (await this.db.ler<Usuario[]>("usuarios", [])).filter((u) => u.emailConfirmadoEm).map((u) => u.id);
+  }
 }
 
 export class SessaoRepositoryDocumentos implements SessaoRepository {

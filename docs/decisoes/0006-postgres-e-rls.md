@@ -55,9 +55,19 @@ npm run db:importar   # copia .data/ para o banco (pode repetir; não duplica)
 - **Conexão segura com o Supabase.** Use a string de conexão do painel do Supabase. Para
   exigir TLS com verificação do certificado, baixe o certificado do projeto (Database ›
   SSL Configuration) e use `?sslmode=verify-full&sslrootcert=/caminho/prod-ca-2021.crt`.
-  Ainda não testado contra o projeto real: será feito quando o conector do Supabase estiver
-  disponível.
+  As migrações 0000 e 0001 foram aplicadas no projeto real (São Paulo) em 2026-10-11 pelo
+  conector do Supabase, com o isolamento conferido lá; o app em si ainda não rodou contra ele.
 - Os testes rodam como superusuário, que enxerga tudo fora do contexto; o isolamento é
   testado sempre dentro de `comEscritorio`, que é como o app acessa os dados.
+- **Recursos posteriores (migração 0002).** `espacos_trabalho` ganhou `suspensoes` e
+  `preferencias` (avisos e equipe). Cliente antigo que não manda esses campos não os apaga. A tabela
+  `documentos` (chave → JSON) guarda a conexão do Google Agenda e o registro de avisos enviados,
+  com RLS ligado e sem política, como a identidade. `npm run db:importar` também copia esses dois
+  documentos.
+- **`LINKS_SECRET` é obrigatório em produção com banco.** Ele assina o link "Já cumpri" e cifra o
+  token do Google. Sem a variável, o app gerava um segredo em arquivo; num servidor que perde o
+  disco a cada publicação isso invalidaria os links e a conexão com a Agenda. O app agora se
+  recusa a subir nessa situação.
+- A caixa de saída de e-mails de desenvolvimento continua em arquivo.
 - As intimações e os clientes continuam como documento JSON por escritório. As tabelas
   próprias (Processo, Comunicacao, Monitoramento…) vêm nas fases 2 a 4.

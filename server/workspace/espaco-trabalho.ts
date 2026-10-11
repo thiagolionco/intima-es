@@ -1,4 +1,4 @@
-import type { Intimacao, TermoMonitorado } from "../../lib/types.ts";
+import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "../../lib/types.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
 import type { ArmazenamentoDocumentos } from "../infra/armazenamento.ts";
@@ -7,19 +7,25 @@ import type { ArmazenamentoDocumentos } from "../infra/armazenamento.ts";
 export interface EspacoTrabalho {
   intimacoes: Intimacao[];
   termos: TermoMonitorado[];
+  /** Feriados locais e suspensões de prazo cadastrados pelo escritório. Ausente em espaços antigos. */
+  suspensoes?: Suspensao[];
+  /** Preferências do espaço (avisos…). Ausente em espaços antigos. */
+  preferencias?: Preferencias;
   /** Incrementada a cada gravação; usada para detectar edições concorrentes (outra aba). */
   revisao: number;
   atualizadoEm: string | null;
 }
 
+export type DadosEspaco = Pick<EspacoTrabalho, "intimacoes" | "termos" | "suspensoes" | "preferencias">;
+
 export interface EspacoTrabalhoRepository {
   ler(usuarioId: string): Promise<EspacoTrabalho>;
   /** Grava se `revisaoBase` for a atual; caso contrário lança AppError("conflito"). */
-  salvar(usuarioId: string, dados: Pick<EspacoTrabalho, "intimacoes" | "termos">, revisaoBase: number): Promise<EspacoTrabalho>;
+  salvar(usuarioId: string, dados: DadosEspaco, revisaoBase: number): Promise<EspacoTrabalho>;
   excluir(usuarioId: string): Promise<void>;
 }
 
-const VAZIO: EspacoTrabalho = { intimacoes: [], termos: [], revisao: 0, atualizadoEm: null };
+const VAZIO: EspacoTrabalho = { intimacoes: [], termos: [], suspensoes: [], revisao: 0, atualizadoEm: null };
 
 function chave(usuarioId: string) {
   if (!/^[0-9a-f-]{36}$/.test(usuarioId)) throw new Error("Identificador de usuário inválido.");
@@ -35,16 +41,17 @@ export class EspacoTrabalhoRepositoryDocumentos implements EspacoTrabalhoReposit
     this.clock = clock;
   }
 
-  ler(usuarioId: string) {
-    return this.db.ler<EspacoTrabalho>(chave(usuarioId), VAZIO);
+  async ler(usuarioId: string) {
+    const e = await this.db.ler<EspacoTrabalho>(chave(usuarioId), VAZIO);
+    return { ...e, suspensoes: e.suspensoes ?? [] };
   }
 
-  salvar(usuarioId: string, dados: Pick<EspacoTrabalho, "intimacoes" | "termos">, revisaoBase: number) {
+  salvar(usuarioId: string, dados: DadosEspaco, revisaoBase: number) {
     return this.db.alterar<EspacoTrabalho, EspacoTrabalho>(chave(usuarioId), VAZIO, (atual) => {
       if (atual.revisao !== revisaoBase) {
         throw new AppError("conflito", "Seus dados foram alterados em outra aba ou dispositivo.", { revisaoAtual: atual.revisao });
       }
-      const novo: EspacoTrabalho = { intimacoes: dados.intimacoes, termos: dados.termos, revisao: atual.revisao + 1, atualizadoEm: this.clock.agora().toISOString() };
+      const novo: EspacoTrabalho = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? atual.suspensoes ?? [], preferencias: dados.preferencias ?? atual.preferencias, revisao: atual.revisao + 1, atualizadoEm: this.clock.agora().toISOString() };
       return { valor: novo, resultado: novo };
     });
   }
@@ -66,12 +73,42 @@ function listaDeObjetosComId(v: unknown, nome: string): void {
   }
 }
 
+function validarPreferencias(v: unknown): void {
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new AppError("dados_invalidos", "Preferências inválidas.");
+  const equipe = (v as Preferencias).equipe;
+  if (equipe !== undefined) {
+    const ok =
+      Array.isArray(equipe) &&
+      equipe.length <= 200 &&
+      equipe.every(
+        (p) =>
+          p && typeof p === "object" && typeof p.id === "string" && p.id.length <= 64 && typeof p.nome === "string" && p.nome.trim().length > 0 && p.nome.length <= 120 && (p.email === undefined || (typeof p.email === "string" && p.email.length <= 254)),
+      );
+    if (!ok) throw new AppError("dados_invalidos", "Lista da equipe inválida.");
+  }
+  const a = (v as Preferencias).avisos;
+  if (a === undefined) return;
+  const ok =
+    typeof a === "object" &&
+    typeof a.ativo === "boolean" &&
+    Array.isArray(a.diasAntes) &&
+    a.diasAntes.length <= 10 &&
+    a.diasAntes.every((n) => Number.isInteger(n) && n >= 0 && n <= 30) &&
+    Number.isInteger(a.hora) &&
+    a.hora >= 0 &&
+    a.hora <= 23;
+  if (!ok) throw new AppError("dados_invalidos", "Preferências de aviso inválidas.");
+}
+
 /** Regras do espaço de trabalho; o usuário vem sempre da sessão, nunca do corpo da requisição. */
 export class EspacoTrabalhoService {
   private readonly repo: EspacoTrabalhoRepository;
+  private readonly aoSalvar?: (usuarioId: string) => void;
 
-  constructor(repo: EspacoTrabalhoRepository) {
+  /** `aoSalvar` é avisado depois de cada gravação feita pela tela (ex.: atualizar a Google Agenda). */
+  constructor(repo: EspacoTrabalhoRepository, aoSalvar?: (usuarioId: string) => void) {
     this.repo = repo;
+    this.aoSalvar = aoSalvar;
   }
 
   carregar(usuarioId: string) {
@@ -79,10 +116,14 @@ export class EspacoTrabalhoService {
   }
 
   async salvar(usuarioId: string, corpo: unknown) {
-    const c = (corpo ?? {}) as { intimacoes?: unknown; termos?: unknown; revisao?: unknown };
+    const c = (corpo ?? {}) as { intimacoes?: unknown; termos?: unknown; suspensoes?: unknown; preferencias?: unknown; revisao?: unknown };
     listaDeObjetosComId(c.intimacoes, "intimacoes");
     listaDeObjetosComId(c.termos, "termos");
+    if (c.suspensoes !== undefined) listaDeObjetosComId(c.suspensoes, "suspensoes");
+    if (c.preferencias !== undefined) validarPreferencias(c.preferencias);
     if (typeof c.revisao !== "number" || !Number.isInteger(c.revisao) || c.revisao < 0) throw new AppError("dados_invalidos", "Revisão inválida.");
-    return this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[] }, c.revisao);
+    const salvo = await this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined }, c.revisao);
+    this.aoSalvar?.(usuarioId);
+    return salvo;
   }
 }

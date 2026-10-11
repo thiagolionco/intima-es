@@ -106,6 +106,19 @@ export const espacosTrabalho = pgTable("espacos_trabalho", {
   escritorioId: uuid("escritorio_id").primaryKey().references(() => escritorios.id, { onDelete: "cascade" }),
   intimacoes: jsonb("intimacoes").notNull().default([]),
   termos: jsonb("termos").notNull().default([]),
+  suspensoes: jsonb("suspensoes").notNull().default([]),
+  /** Preferências do espaço (avisos, equipe). Nulo até a primeira gravação. */
+  preferencias: jsonb("preferencias"),
   revisao: integer("revisao").notNull().default(0),
   atualizadoEm: instante("atualizado_em"),
+});
+
+/**
+ * Documentos soltos por chave (conexão do Google Agenda, registro de avisos enviados). Mesma ideia
+ * dos arquivos de DATA_DIR. Não são do escritório: RLS ligado e sem política, como a identidade.
+ */
+export const documentos = pgTable("documentos", {
+  chave: text("chave").primaryKey(),
+  valor: jsonb("valor").notNull(),
+  atualizadoEm: instante("atualizado_em").notNull().defaultNow(),
 });
