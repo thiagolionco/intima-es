@@ -116,6 +116,12 @@ Com `ANTHROPIC_API_KEY` configurada, cada intimação ganha um resumo de duas li
 - O modelo padrão é `claude-opus-5-5` (troque com `ANTHROPIC_MODEL`). O pedido usa o *fallback* do lado do servidor da Anthropic: se o modelo estiver sobrecarregado, outro modelo da mesma família responde, em vez de dar erro.
 - Se o texto da intimação for editado, o resumo antigo é apagado.
 
+### Equipe e responsáveis
+
+Em **Equipe** você cadastra quem trabalha no escritório. Cada intimação pode ser entregue a uma pessoa no detalhe dela, ou várias de uma vez pela lista (selecione e use **Entregar a…**). A mesma página mostra o painel por pessoa: quantas intimações estão em aberto, vencidas, vencendo nos próximos 3 dias úteis e sem prazo, com as próximas a vencer. A lista de intimações filtra por responsável e as exportações ganharam as colunas "Responsável" e "Resumo".
+
+Por enquanto a equipe é uma lista de nomes dentro da conta: as pessoas não entram no Clepsa com login próprio. Isso muda quando o banco por escritório (Fase 1) estiver no ar.
+
 ## Autenticação e contas (Versão 2)
 
 | Recurso | Detalhes |

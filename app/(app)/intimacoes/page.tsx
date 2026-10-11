@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBadge } from "@/components/ui";
 import { BotaoResumir } from "@/components/resumo";
+import { SeloResponsavel, SeletorResponsavel } from "@/components/equipe";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
@@ -24,7 +25,7 @@ function unicos(valores: string[]): string[] {
 }
 
 function ListaIntimacoes() {
-  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes } = useStore();
+  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes } = useStore();
   const { toast } = useToast();
   const params = useSearchParams();
   const router = useRouter();
@@ -34,6 +35,7 @@ function ListaIntimacoes() {
     status: (params.get("status") as StatusIntimacao) || "",
     cliente: params.get("cliente") || "",
     busca: params.get("q") || "",
+    responsavel: params.get("responsavel") || "",
   }));
   const [ordem, setOrdem] = useState<Ordenacao>((params.get("ordem") as Ordenacao) || "data_desc");
   const [visao, setVisao] = useState<"cards" | "tabela">("cards");
@@ -123,6 +125,13 @@ function ListaIntimacoes() {
     ],
     [resultado, selecionadas, intimacoes, ativos, filtros.busca],
   );
+
+  function delegarLote(pessoaId: string | null) {
+    delegarIntimacoes([...selecionadas], pessoaId);
+    const nome = equipe.find((p) => p.id === pessoaId)?.nome;
+    toast(nome ? `${selecionadas.size} intimação(ões) entregues a ${nome}` : `${selecionadas.size} intimação(ões) ficaram sem responsável`);
+    setSelecionadas(new Set());
+  }
 
   function mudarStatusLote(status: StatusIntimacao) {
     selecionadas.forEach((id) => atualizarIntimacao(id, { status }));
@@ -263,6 +272,20 @@ function ListaIntimacoes() {
                 ))}
               </Select>
             </label>
+            {equipe.length > 0 && (
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-slate-600">Responsável</span>
+                <Select value={filtros.responsavel ?? ""} onChange={(e) => set("responsavel", e.target.value)}>
+                  <option value="">Todos</option>
+                  <option value="nenhum">Sem responsável</option>
+                  {equipe.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nome}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            )}
             {ativos > 0 && (
               <div className="flex items-end sm:col-span-2 lg:col-span-3 xl:col-span-6">
                 <button onClick={limparFiltros} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
@@ -297,6 +320,15 @@ function ListaIntimacoes() {
                   </option>
                 ))}
               </Select>
+              {equipe.length > 0 && (
+                <SeletorResponsavel
+                  key={selecionadas.size}
+                  onChange={delegarLote}
+                  rotuloVazio="Entregar a…"
+                  className="w-auto py-1 text-xs"
+                  aria-label="Entregar as selecionadas a uma pessoa da equipe"
+                />
+              )}
               <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar({ ids: [...selecionadas] })}>
                 Excluir
               </Button>
@@ -391,6 +423,7 @@ function ListaIntimacoes() {
                           {i.numeroProcesso}
                         </Link>
                         <p className="text-xs text-slate-500">{i.cliente}</p>
+                        <SeloResponsavel id={i.responsavelId} className="mt-1" />
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                         {i.tipoComunicacao}

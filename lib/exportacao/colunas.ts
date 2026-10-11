@@ -5,6 +5,8 @@ export interface OpcoesFormatacao {
   /** Quando falso, o inteiro teor é cortado em `limiteTexto` caracteres. */
   textoCompleto: boolean;
   limiteTexto: number;
+  /** Nome de cada pessoa da equipe, por id, para a coluna "Responsável". Não é guardado nas preferências. */
+  nomesEquipe?: Record<string, string>;
 }
 
 export const FORMATACAO_PADRAO: OpcoesFormatacao = { formatoData: "br", textoCompleto: false, limiteTexto: 500 };
@@ -44,6 +46,8 @@ export const COLUNAS: ColunaExportacao[] = [
   { id: "advogados", rotulo: "Advogados", largura: 40, obter: (i) => i.advogados.map((a) => (a.oab ? `${a.nome} (OAB ${a.oab}/${a.uf})` : a.nome)).join(" | ") },
   { id: "status", rotulo: "Status", largura: 12, obter: (i) => STATUS[i.status] ?? i.status },
   { id: "prazo", rotulo: "Prazo", largura: 12, obter: (i, o) => formatarData(i.prazo, o.formatoData) },
+  { id: "responsavel", rotulo: "Responsável", largura: 20, obter: (i, o) => (i.responsavelId ? (o.nomesEquipe?.[i.responsavelId] ?? "") : "") },
+  { id: "resumo", rotulo: "Resumo", largura: 50, obter: (i) => i.resumo?.texto.replace("\n", " ") ?? "" },
   { id: "origem", rotulo: "Origem", largura: 13, obter: (i) => (i.origem === "comunica" ? "Comunica PJe" : "Manual") },
   { id: "observacoes", rotulo: "Observações", largura: 30, obter: (i) => i.observacoes ?? "" },
   {
@@ -63,7 +67,7 @@ export interface PresetColunas {
 
 export const PRESETS: PresetColunas[] = [
   { id: "essencial", rotulo: "Essencial", colunas: ["data", "cliente", "processo", "tribunal", "tipoComunicacao", "status", "prazo"] },
-  { id: "prazos", rotulo: "Controle de prazos", colunas: ["prazo", "status", "cliente", "processo", "orgao", "tipoDocumento", "observacoes"] },
+  { id: "prazos", rotulo: "Controle de prazos", colunas: ["prazo", "status", "responsavel", "cliente", "processo", "orgao", "tipoDocumento", "observacoes"] },
   { id: "completo", rotulo: "Completo", colunas: COLUNAS.map((c) => c.id) },
 ];
 

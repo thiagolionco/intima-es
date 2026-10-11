@@ -75,6 +75,17 @@ function listaDeObjetosComId(v: unknown, nome: string): void {
 
 function validarPreferencias(v: unknown): void {
   if (!v || typeof v !== "object" || Array.isArray(v)) throw new AppError("dados_invalidos", "Preferências inválidas.");
+  const equipe = (v as Preferencias).equipe;
+  if (equipe !== undefined) {
+    const ok =
+      Array.isArray(equipe) &&
+      equipe.length <= 200 &&
+      equipe.every(
+        (p) =>
+          p && typeof p === "object" && typeof p.id === "string" && p.id.length <= 64 && typeof p.nome === "string" && p.nome.trim().length > 0 && p.nome.length <= 120 && (p.email === undefined || (typeof p.email === "string" && p.email.length <= 254)),
+      );
+    if (!ok) throw new AppError("dados_invalidos", "Lista da equipe inválida.");
+  }
   const a = (v as Preferencias).avisos;
   if (a === undefined) return;
   const ok =

@@ -42,6 +42,10 @@ export interface Intimacao {
   /** Como o prazo foi calculado. Ausente quando a data foi informada à mão. */
   regraPrazo?: RegraPrazo;
   observacoes?: string;
+  /** Pessoa da equipe responsável por cuidar desta intimação (id em `preferencias.equipe`). */
+  responsavelId?: string;
+  /** Quando foi entregue ao responsável atual (ISO). */
+  delegadaEm?: string;
   /** Resumo em duas linhas gerado pelo servidor (só quando há ANTHROPIC_API_KEY). */
   resumo?: ResumoIntimacao;
   createdAt: string;
@@ -92,6 +96,8 @@ export interface FiltrosIntimacao {
   status: StatusIntimacao | "";
   cliente: string;
   tribunal: string;
+  /** Id da pessoa responsável, "nenhum" para as sem responsável, ou vazio para todas. */
+  responsavel?: string;
 }
 
 export type ContagemPrazo = "uteis" | "corridos";
@@ -129,8 +135,18 @@ export interface PreferenciasAvisos {
   hora: number;
 }
 
+/** Alguém do escritório que pode receber intimações para cuidar. */
+export interface PessoaEquipe {
+  id: string;
+  nome: string;
+  email?: string;
+  /** Desativada: some das opções de delegar, mas continua nas intimações antigas. */
+  inativa?: boolean;
+}
+
 export interface Preferencias {
   avisos?: PreferenciasAvisos;
+  equipe?: PessoaEquipe[];
 }
 
 export const AVISOS_PADRAO: PreferenciasAvisos = { ativo: false, diasAntes: [3, 1, 0], hora: 7 };
