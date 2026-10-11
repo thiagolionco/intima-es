@@ -37,8 +37,10 @@ export interface Intimacao {
   texto: string;
   link?: string;
   status: StatusIntimacao;
-  /** Prazo interno opcional, AAAA-MM-DD. */
+  /** Prazo interno opcional, AAAA-MM-DD. Quando há `regraPrazo`, é calculado a partir dela. */
   prazo?: string;
+  /** Como o prazo foi calculado. Ausente quando a data foi informada à mão. */
+  regraPrazo?: RegraPrazo;
   observacoes?: string;
   createdAt: string;
   updatedAt: string;
@@ -70,4 +72,30 @@ export interface FiltrosIntimacao {
   status: StatusIntimacao | "";
   cliente: string;
   tribunal: string;
+}
+
+export type ContagemPrazo = "uteis" | "corridos";
+
+/** Parâmetros do cálculo automático do prazo de uma intimação. */
+export interface RegraPrazo {
+  dias: number;
+  contagem: ContagemPrazo;
+  /** Prazo em dobro (Fazenda Pública, Ministério Público, Defensoria: arts. 180, 183 e 186 do CPC). */
+  dobro: boolean;
+  /** "texto": dias lidos do inteiro teor, ainda não conferidos; "usuario": informados ou confirmados pelo escritório. */
+  fonte: "texto" | "usuario";
+  /** Trecho do texto de onde os dias foram lidos. */
+  trecho?: string;
+}
+
+/** Período sem contagem de prazos cadastrado pelo escritório (feriado local, portaria do tribunal…). */
+export interface Suspensao {
+  id: string;
+  /** AAAA-MM-DD, inclusive. */
+  inicio: string;
+  /** AAAA-MM-DD, inclusive. */
+  fim: string;
+  descricao: string;
+  /** Sigla do tribunal a que se aplica; vazio vale para todos. */
+  tribunal?: string;
 }

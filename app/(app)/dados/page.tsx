@@ -9,7 +9,7 @@ import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { gerarDadosDemo } from "@/lib/demo";
 import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { useStore } from "@/lib/store";
-import type { Intimacao, TermoMonitorado } from "@/lib/types";
+import type { Intimacao, Suspensao, TermoMonitorado } from "@/lib/types";
 import { hojeISO } from "@/lib/utils";
 
 function Bloco({ icone, titulo, descricao, children }: { icone: ReactNode; titulo: string; descricao: string; children: ReactNode }) {
@@ -33,7 +33,7 @@ function ehIntimacao(x: unknown): x is Intimacao {
 }
 
 export default function DadosPage() {
-  const { ready, intimacoes, termos, substituirTudo } = useStore();
+  const { ready, intimacoes, termos, suspensoes, substituirTudo, salvarSuspensoes } = useStore();
   const { toast } = useToast();
   const arquivo = useRef<HTMLInputElement>(null);
   const [confirmar, setConfirmar] = useState<"limpar" | "demo" | null>(null);
@@ -44,7 +44,7 @@ export default function DadosPage() {
   const bytes = new Blob([JSON.stringify(intimacoes), JSON.stringify(termos)]).size;
 
   function exportarJSON() {
-    const conteudo = JSON.stringify({ versao: 1, exportadoEm: new Date().toISOString(), intimacoes, termos }, null, 2);
+    const conteudo = JSON.stringify({ versao: 1, exportadoEm: new Date().toISOString(), intimacoes, termos, suspensoes }, null, 2);
     const blob = new Blob([conteudo], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -62,6 +62,7 @@ export default function DadosPage() {
       if (!Array.isArray(lista) || !lista.every(ehIntimacao)) throw new Error("Arquivo não reconhecido.");
       const novosTermos = Array.isArray(json.termos) ? (json.termos as TermoMonitorado[]) : undefined;
       substituirTudo(lista as Intimacao[], novosTermos);
+      if (Array.isArray(json.suspensoes)) salvarSuspensoes((json.suspensoes as Suspensao[]).filter((s) => s && typeof s.id === "string" && typeof s.inicio === "string" && typeof s.fim === "string"));
       toast("Backup restaurado", { descricao: `${lista.length} intimação(ões)${novosTermos ? ` e ${novosTermos.length} cliente(s)` : ""}.` });
     } catch (e) {
       toast("Não foi possível importar", { tom: "error", descricao: e instanceof Error ? e.message : "Arquivo inválido." });

@@ -7,6 +7,7 @@ import { hojeISO, MEIOS, STATUS_LABEL, STATUS_ORDER, TIPOS_COMUNICACAO_PADRAO, U
 import { validarIntimacao, type DadosFormulario, type ErrosFormulario } from "@/lib/validacao";
 import { useStore } from "@/lib/store";
 import { DatePicker } from "./date-picker";
+import { EditorPrazo } from "./prazo";
 import { Button, Card, CardHeader, Field, Input, Select, Textarea } from "./ui";
 
 function inicial(i?: Intimacao): DadosFormulario {
@@ -26,6 +27,7 @@ function inicial(i?: Intimacao): DadosFormulario {
     link: i?.link ?? "",
     status: i?.status ?? "nova",
     prazo: i?.prazo ?? "",
+    regraPrazo: i ? (i.regraPrazo ?? null) : null,
     observacoes: i?.observacoes ?? "",
   };
 }
@@ -81,6 +83,8 @@ export function IntimacaoForm({ intimacao, onSalvar, onCancelar }: Props) {
       ...dados,
       partes: dados.partes.filter((p) => p.nome.trim()),
       advogados: dados.advogados.filter((a) => a.nome.trim()),
+      // Salvar o formulário confirma os dias lidos no texto.
+      regraPrazo: dados.regraPrazo ? { ...dados.regraPrazo, fonte: "usuario" } : null,
     });
   }
 
@@ -270,9 +274,20 @@ export function IntimacaoForm({ intimacao, onSalvar, onCancelar }: Props) {
               ))}
             </Select>
           </Field>
-          <Field label="Prazo" htmlFor="prazo" error={erros.prazo} hint="Data limite para providência">
-            <DatePicker id="prazo" value={dados.prazo} onChange={(v) => atualizar("prazo", v)} min={dados.dataDisponibilizacao || undefined} invalid={!!erros.prazo} />
-          </Field>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <p className="mb-1.5 block text-sm font-medium text-slate-700">Prazo</p>
+            <EditorPrazo
+              base={dados}
+              prazo={dados.prazo}
+              regra={dados.regraPrazo ?? null}
+              erro={erros.prazo}
+              onChange={(prazo, regraPrazo) => {
+                const novo = { ...dados, prazo, regraPrazo };
+                setDados(novo);
+                if (tentou) setErros(validarIntimacao(novo, hojeISO()));
+              }}
+            />
+          </div>
           <Field label="Observações" htmlFor="obs" className="sm:col-span-2 lg:col-span-3">
             <Textarea id="obs" rows={3} value={dados.observacoes} onChange={(e) => atualizar("observacoes", e.target.value)} />
           </Field>
