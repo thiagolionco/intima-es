@@ -12,6 +12,10 @@ function agendarAvisos() {
     } catch (e) {
       console.error("[avisos] falhou:", e);
     }
+    // Na mesma hora, acerta a Google Agenda (prazos que mudaram pela busca automática ou pelo link do e-mail).
+    await container()
+      .agenda.rodar()
+      .catch((e) => console.error("[agenda] falhou:", e));
   };
   setTimeout(rodar, 3 * MINUTO).unref?.();
   setInterval(rodar, HORA).unref?.();

@@ -116,6 +116,15 @@ Com `ANTHROPIC_API_KEY` configurada, cada intimação ganha um resumo de duas li
 - O modelo padrão é `claude-opus-5-5` (troque com `ANTHROPIC_MODEL`). O pedido usa o *fallback* do lado do servidor da Anthropic: se o modelo estiver sobrecarregado, outro modelo da mesma família responde, em vez de dar erro.
 - Se o texto da intimação for editado, o resumo antigo é apagado.
 
+### Prazos na Google Agenda
+
+Em **Prazos e avisos**, o botão **Conectar** leva à tela de consentimento do Google. Depois disso, cada prazo em aberto vira um evento de dia inteiro numa agenda separada, "Prazos · Clepsa", com lembrete às 9h do dia anterior. Quando o prazo muda, o evento muda; quando a intimação é respondida, arquivada ou excluída, o evento sai. A agenda é atualizada alguns segundos depois de cada alteração na tela e, de hora em hora, para o que chegou pela busca automática ou pelo link do e-mail.
+
+- O Clepsa pede só a permissão `calendar.app.created`: ele cria a própria agenda e não enxerga os outros compromissos do usuário.
+- O evento leva processo, cliente, órgão, responsável, o resumo (se houver) e o link para o Clepsa. O inteiro teor não vai para o Google.
+- O acesso fica guardado cifrado (AES-256-GCM) no servidor. **Desconectar** revoga o acesso no Google; a agenda continua lá e pode ser apagada pelo próprio usuário.
+- Para ligar: crie no Google Cloud um ID do cliente OAuth do tipo "Aplicativo da Web", ative a Google Calendar API, cadastre `<APP_URL>/api/google/retorno` como URI de redirecionamento e defina `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`. Enquanto o app estiver em modo de teste no Google, só os e-mails cadastrados como testadores conseguem conectar.
+
 ### Equipe e responsáveis
 
 Em **Equipe** você cadastra quem trabalha no escritório. Cada intimação pode ser entregue a uma pessoa no detalhe dela, ou várias de uma vez pela lista (selecione e use **Entregar a…**). A mesma página mostra o painel por pessoa: quantas intimações estão em aberto, vencidas, vencendo nos próximos 3 dias úteis e sem prazo, com as próximas a vencer. A lista de intimações filtra por responsável e as exportações ganharam as colunas "Responsável" e "Resumo".

@@ -36,6 +36,8 @@ export function lerConfiguracao() {
       chave: env.ANTHROPIC_API_KEY || undefined,
       modelo: env.ANTHROPIC_MODEL || "claude-opus-5-5",
     },
+    /** Google Agenda (OAuth). Sem as duas chaves, a opção não aparece. */
+    google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } : undefined,
     comunica: {
       url: env.COMUNICA_API_URL || "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
       /**
