@@ -23,6 +23,9 @@ import {
 } from "./infra/repositorios.ts";
 import { Totp } from "./infra/totp.ts";
 import { EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
+import { criarBuscadorComunica } from "./comunica/cliente.ts";
+import { novoId } from "./core/crypto.ts";
+import { RondaComunica } from "./rondas/ronda-comunica.ts";
 
 /** Origem da requisição atual, usada nos links dos e-mails quando APP_URL não está definida. */
 export const origemDaRequisicao = new AsyncLocalStorage<string>();
@@ -87,6 +90,13 @@ function montar() {
   };
   const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
+  const rondaComunica = new RondaComunica({
+    espacos: espacosRepo,
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    buscarPagina: criarBuscadorComunica({ base: config.comunica.url, timeoutMs: 40_000, urlApp: config.urlApp }),
+    clock,
+    novoId,
+  });
 
   return {
     config,
@@ -99,6 +109,7 @@ function montar() {
     conta: new ContaService(deps, espacosRepo),
     espacos: new EspacoTrabalhoService(espacosRepo),
     usuarios: deps.usuarios,
+    rondaComunica,
   };
 }
 

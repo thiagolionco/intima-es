@@ -29,6 +29,17 @@ export function lerConfiguracao() {
     /** Caixa de saída visível em /dev/caixa-de-saida (sempre em dev; em produção só se pedido). */
     caixaDeSaidaVisivel: !producao || env.ENABLE_DEV_OUTBOX === "true",
     emissor2fa: env.TOTP_ISSUER || "Clepsa",
+    comunica: {
+      url: env.COMUNICA_API_URL || "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
+      /**
+       * Ronda automática por OAB e processo. Ligada por padrão em produção; em desenvolvimento só
+       * com RONDA_COMUNICA=ligada, para não consultar o Comunica a cada `npm run dev`.
+       */
+      rondaLigada: env.RONDA_COMUNICA ? env.RONDA_COMUNICA === "ligada" : producao,
+      rondaIntervaloHoras: Math.max(1, Number(env.RONDA_COMUNICA_INTERVALO_HORAS || 6) || 6),
+      /** Segredo para um agendador externo chamar POST /api/rondas/comunica. */
+      rondaToken: env.RONDA_TOKEN || undefined,
+    },
   };
 }
 

@@ -204,6 +204,25 @@ CORS e permite paginar (até 5 páginas de 100 itens por cliente). Parâmetros u
 A conversão da resposta fica em `lib/comunica.ts` e é tolerante a variações de nomes de
 campos. A API pública tem limite de requisições; quando ela responde 429 a aplicação
 avisa para aguardar. A API pode recusar acessos vindos de fora do Brasil.
+As chamadas se identificam como `Clepsa/2.0` no `User-Agent`, sem imitar o site oficial.
+
+### Busca automática por OAB e processo
+
+Os clientes monitorados por **número de OAB** ou **número de processo** são pesquisados pelo
+próprio servidor, sem ninguém abrir a tela: na primeira vez, os últimos 7 dias; depois, do último
+dia já coberto até hoje. As novas entram no acervo como "Nova", sem duplicar e já com o prazo
+calculado. Cada cartão em **Clientes monitorados** mostra quando a última busca rodou e se deu
+erro, e o botão **Buscar OAB e processos agora** roda na hora para a sua conta.
+
+| Variável | Padrão | Para que serve |
+| --- | --- | --- |
+| `RONDA_COMUNICA` | `ligada` em produção, `desligada` em dev | Liga ou desliga a busca dentro do servidor. |
+| `RONDA_COMUNICA_INTERVALO_HORAS` | `6` | Intervalo entre as buscas. |
+| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` com `Authorization: Bearer <token>`, para um agendador externo. |
+
+Se o servidor ficar desligado, a busca seguinte cobre os dias que faltaram
+(até 30 dias para trás). Se a tela estiver aberta enquanto a busca grava, as duas versões são
+mescladas: nada que você editou se perde.
 
 ## Roteiro de teste manual
 
