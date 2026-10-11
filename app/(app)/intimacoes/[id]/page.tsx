@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { PrazoTag } from "@/components/intimacao-card";
+import { MemoriaPrazo, usePrazoCalculado } from "@/components/prazo";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Select, Spinner, StatusBadge, Textarea } from "@/components/ui";
@@ -31,6 +32,7 @@ export default function DetalheIntimacaoPage() {
   const [obs, setObs] = useState("");
 
   useEffect(() => setObs(i?.observacoes ?? ""), [i?.observacoes]);
+  const calculo = usePrazoCalculado(i ?? { tribunal: "", dataDisponibilizacao: "" }, i?.regraPrazo);
 
   if (!ready) return <Spinner />;
   if (!i) {
@@ -184,6 +186,31 @@ export default function DetalheIntimacaoPage() {
           <Card>
             <CardHeader title="Controle interno" />
             <div className="space-y-4 p-5">
+              {i.regraPrazo && calculo && (
+                <div>
+                  <MemoriaPrazo r={calculo} regra={i.regraPrazo} />
+                  {i.regraPrazo.fonte === "texto" && (
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-2 text-xs text-amber-800">
+                      <p className="w-full">Os dias foram lidos no texto (“{i.regraPrazo.trecho}”) e ainda não foram conferidos.</p>
+                      <Link href={`/intimacoes/${i.id}/editar`}>
+                        <Button size="sm" variant="ghost">
+                          Ajustar
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          atualizarIntimacao(i.id, { regraPrazo: { ...i.regraPrazo!, fonte: "usuario" } });
+                          toast("Prazo conferido");
+                        }}
+                      >
+                        Está certo
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
               <dl className="grid grid-cols-2 gap-4">
                 <Item rotulo="Prazo">{formatDate(i.prazo)}</Item>
                 <Item rotulo="Origem">{i.origem === "comunica" ? "Comunica PJe" : "Manual"}</Item>

@@ -24,6 +24,7 @@ export default function NovaIntimacaoPage() {
             origem: "manual",
             link: d.link.trim() || undefined,
             prazo: d.prazo || undefined,
+            regraPrazo: d.regraPrazo ?? undefined,
             observacoes: d.observacoes.trim() || undefined,
           });
           toast("Intimação cadastrada", { descricao: d.numeroProcesso });

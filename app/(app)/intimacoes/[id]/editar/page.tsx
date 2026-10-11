@@ -44,6 +44,7 @@ export default function EditarIntimacaoPage() {
             ...d,
             link: d.link.trim() || undefined,
             prazo: d.prazo || undefined,
+            regraPrazo: d.regraPrazo ?? undefined,
             observacoes: d.observacoes.trim() || undefined,
           });
           toast("Alterações salvas");
