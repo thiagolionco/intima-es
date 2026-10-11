@@ -6,7 +6,7 @@ import { forwardRef, useMemo, useRef, useState, type ClipboardEvent, type InputH
 import { avaliarSenha } from "@/lib/auth/politica-senha";
 
 const baseCampo =
-  "block w-full rounded-xl border-0 bg-white px-3.5 py-2.5 text-[15px] text-slate-900 shadow-sm ring-1 ring-inset placeholder:text-slate-400 transition focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50";
+  "block w-full rounded-xl border-0 bg-white px-3.5 py-3 text-[15px] text-slate-900 shadow-sm ring-1 ring-inset placeholder:text-slate-400 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-600 disabled:bg-slate-50";
 
 export const CampoTexto = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement> & { invalido?: boolean }>(function CampoTexto({ className, invalido, ...rest }, ref) {
   return <input ref={ref} className={clsx(baseCampo, invalido ? "ring-red-400" : "ring-slate-300", className)} aria-invalid={invalido || undefined} {...rest} />;

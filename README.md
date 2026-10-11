@@ -1,4 +1,4 @@
-# Controle de Intimações (Comunica PJe)
+# Clepsa: controle de intimações (Comunica PJe)
 
 Aplicação web em Next.js 15 (React 19) para acompanhar as intimações publicadas no
 [Comunica PJe](https://comunica.pje.jus.br/) (Diário de Justiça Eletrônico Nacional)
@@ -155,7 +155,7 @@ Em `.env.local`:
 ```bash
 APP_URL=http://localhost:3000
 EMAIL_PROVIDER=smtp
-EMAIL_FROM="Controle de Intimações <voce@gmail.com>"
+EMAIL_FROM="Clepsa <voce@gmail.com>"
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=voce@gmail.com

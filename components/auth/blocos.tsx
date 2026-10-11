@@ -9,8 +9,8 @@ export function Cabecalho({ titulo, subtitulo, icone }: { titulo: string; subtit
   return (
     <div className="mb-8">
       {icone && <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 ring-1 ring-brand-100">{icone}</div>}
-      <h1 className="text-[26px] font-semibold tracking-tight text-slate-900">{titulo}</h1>
-      {subtitulo && <p className="mt-2 text-[15px] leading-relaxed text-slate-500">{subtitulo}</p>}
+      <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{titulo}</h1>
+      {subtitulo && <p className="mt-2 text-[15px] leading-relaxed text-slate-600">{subtitulo}</p>}
     </div>
   );
 }
@@ -21,7 +21,7 @@ export function BotaoPrincipal({ carregando, children, className, ...rest }: But
       {...rest}
       disabled={rest.disabled || carregando}
       className={clsx(
-        "flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-60",
+        "flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 text-[15px] font-semibold text-white shadow-sm shadow-brand-900/20 transition hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
     >
