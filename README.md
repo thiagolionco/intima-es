@@ -74,7 +74,7 @@ saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produç
 | **Nova / Editar** | Formulário validado com seletor de datas, máscara do número CNJ e listas dinâmicas de partes e advogados. |
 | **Buscar no Comunica** (`/comunica`) | Pesquisa todos os clientes ativos, um cliente específico ou uma pesquisa avulsa num período; mostra o andamento por cliente, marca o que já está no acervo e importa as novas sem duplicar. |
 | **Clientes monitorados** (`/clientes`) | Campo configurável com o que deve ser pesquisado: nome da parte, nome do advogado, número da OAB + UF ou número do processo, com filtro opcional por tribunal. |
-| **Prazos e feriados** (`/prazos`) | Feriados locais e suspensões de prazo do escritório (por tribunal ou para todos), calendário de dias sem contagem e cálculo em lote dos prazos que faltam. |
+| **Prazos e avisos** (`/prazos`) | Avisos de prazo por e-mail, feriados locais e suspensões de prazo do escritório (por tribunal ou para todos), calendário de dias sem contagem e cálculo em lote dos prazos que faltam. |
 | **Dados e backup** (`/dados`) | Exportar CSV, backup e restauração em JSON, dados de demonstração e limpeza total. |
 
 ### Cálculo de prazos
@@ -92,6 +92,16 @@ A regra está em `lib/prazos/`:
 
 O calendário só inclui dias sem expediente em todo o país: um feriado a mais empurraria o vencimento para
 depois do real, enquanto um a menos apenas o antecipa.
+
+### Avisos de prazo por e-mail
+
+Em **Prazos e avisos** cada conta liga os avisos e escolhe com quantos dias úteis de antecedência
+(5, 3, 2, 1 ou no dia) e a partir de que hora. O servidor confere de hora em hora e manda **um**
+e-mail por dia, só quando há prazo chegando, para o e-mail da conta. Cada prazo vem com o botão
+**Já cumpri**: o link abre uma página que mostra a intimação e, com um clique, a marca como
+"Respondida" (o clique é exigido para que leitores de e-mail que abrem links sozinhos não marquem
+nada). O link é assinado e vale 30 dias; o segredo vem de `LINKS_SECRET` ou é gerado e guardado em
+`DATA_DIR/segredo-links`. Os avisos vêm desligados até a conta ligá-los.
 
 Os dados de cada usuário ficam no servidor, em `DATA_DIR/espacos/<id-do-usuário>.json`.
 Na primeira vez que você entrar num navegador que tinha dados da Versão 1 (localStorage),
@@ -218,7 +228,7 @@ erro, e o botão **Buscar OAB e processos agora** roda na hora para a sua conta.
 | --- | --- | --- |
 | `RONDA_COMUNICA` | `ligada` em produção, `desligada` em dev | Liga ou desliga a busca dentro do servidor. |
 | `RONDA_COMUNICA_INTERVALO_HORAS` | `6` | Intervalo entre as buscas. |
-| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` com `Authorization: Bearer <token>`, para um agendador externo. |
+| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` e `POST /api/rondas/avisos` com `Authorization: Bearer <token>`, para um agendador externo. |
 
 Se o servidor ficar desligado, a busca seguinte cobre os dias que faltaram
 (até 30 dias para trás). Se a tela estiver aberta enquanto a busca grava, as duas versões são

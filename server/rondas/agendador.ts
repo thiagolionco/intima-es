@@ -3,6 +3,20 @@ import { container } from "../container.ts";
 
 const g = globalThis as typeof globalThis & { __agendadorClepsa?: boolean };
 
+/** Os avisos de prazo são conferidos de hora em hora; cada conta escolhe a hora do envio. */
+function agendarAvisos() {
+  const rodar = async () => {
+    try {
+      const r = await container().avisos.rodar();
+      if (r.emails) console.info(`[avisos] ${r.emails} e-mail(s) de prazo enviado(s).`);
+    } catch (e) {
+      console.error("[avisos] falhou:", e);
+    }
+  };
+  setTimeout(rodar, 3 * MINUTO).unref?.();
+  setInterval(rodar, HORA).unref?.();
+}
+
 /**
  * Roda a busca automática no próprio processo do servidor: alguns minutos depois de subir e
  * depois a cada RONDA_COMUNICA_INTERVALO_HORAS. Para um agendador externo, use POST /api/rondas/comunica.
@@ -11,6 +25,7 @@ export function iniciarAgendador() {
   if (g.__agendadorClepsa) return;
   g.__agendadorClepsa = true;
   const { config } = container();
+  agendarAvisos();
   if (!config.comunica.rondaLigada) {
     console.info("[ronda] busca automática desligada (RONDA_COMUNICA).");
     return;

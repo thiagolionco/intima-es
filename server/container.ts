@@ -26,6 +26,11 @@ import { EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./wor
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
 import { novoId } from "./core/crypto.ts";
 import { RondaComunica } from "./rondas/ronda-comunica.ts";
+import { AvisosService } from "./avisos/avisos.ts";
+import { AssinadorDeLinks } from "./core/assinatura.ts";
+import { tokenAleatorio } from "./core/crypto.ts";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 
 /** Origem da requisição atual, usada nos links dos e-mails quando APP_URL não está definida. */
 export const origemDaRequisicao = new AsyncLocalStorage<string>();
@@ -50,6 +55,20 @@ function criarLinks(config: Configuracao): Links {
   };
 }
 
+/** LINKS_SECRET ou, na falta dele, um segredo gerado uma vez e guardado junto dos dados. */
+function segredoDosLinks(config: Configuracao): string {
+  if (config.segredoLinks) return config.segredoLinks;
+  const arquivo = path.join(config.diretorioDados, "segredo-links");
+  try {
+    return readFileSync(arquivo, "utf8").trim();
+  } catch {
+    const novo = tokenAleatorio(48);
+    mkdirSync(config.diretorioDados, { recursive: true, mode: 0o700 });
+    writeFileSync(arquivo, novo, { mode: 0o600, flag: "wx" });
+    return novo;
+  }
+}
+
 function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): EnviadorDeEmail {
   const { email } = config;
   if (email.provedor === "resend") {
@@ -72,6 +91,7 @@ function montar() {
   const clock = relogioDoSistema;
   const db = new ArmazenamentoEmArquivo(config.diretorioDados);
   const caixaDeSaida = new CaixaDeSaidaLocal(db, clock);
+  const enviador = criarEnviador(config, caixaDeSaida);
 
   const deps: DependenciasAuth = {
     usuarios: new UsuarioRepositoryDocumentos(db),
@@ -82,7 +102,7 @@ function montar() {
     hash: new HashScrypt(),
     limitador: new LimitadorEmMemoria(clock),
     segundoFator: new Totp(clock),
-    notificacoes: new NotificacoesPorEmail(criarEnviador(config, caixaDeSaida)),
+    notificacoes: new NotificacoesPorEmail(enviador),
     clock,
     links: criarLinks(config),
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
@@ -90,6 +110,15 @@ function montar() {
   };
   const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
+  const avisos = new AvisosService({
+    espacos: espacosRepo,
+    usuarios: deps.usuarios,
+    enviador,
+    registro: db,
+    assinador: new AssinadorDeLinks(segredoDosLinks(config)),
+    clock,
+    urlApp: () => config.urlApp ?? origemDaRequisicao.getStore() ?? "http://localhost:3000",
+  });
   const rondaComunica = new RondaComunica({
     espacos: espacosRepo,
     listarUsuarios: () => deps.usuarios.listarConfirmados(),
@@ -110,6 +139,8 @@ function montar() {
     espacos: new EspacoTrabalhoService(espacosRepo),
     usuarios: deps.usuarios,
     rondaComunica,
+    avisos,
+    limitador: deps.limitador,
   };
 }
 

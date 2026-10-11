@@ -17,7 +17,7 @@ const NAV = [
   { href: "/intimacoes", label: "Intimações", icon: ListChecks },
   { href: "/comunica", label: "Buscar no Comunica", icon: FileSearch },
   { href: "/clientes", label: "Clientes monitorados", icon: Users },
-  { href: "/prazos", label: "Prazos e feriados", icon: CalendarDays },
+  { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },
   { href: "/dados", label: "Dados e backup", icon: Database },
 ];
 

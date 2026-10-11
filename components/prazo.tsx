@@ -39,7 +39,7 @@ export function MemoriaPrazo({ r, regra, className }: { r: ResultadoPrazo; regra
       <p className="mt-1 text-slate-500">
         Feriados locais e suspensões do tribunal entram só se estiverem em{" "}
         <Link href="/prazos" className="font-medium text-brand-700 hover:underline">
-          Prazos e feriados
+          Prazos e avisos
         </Link>
         .
       </p>

@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Intimacao, Suspensao, TermoMonitorado } from "./types";
+import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "./types";
 import { aplicarRegra, sugerirRegra } from "./prazos/calculo";
 
-type Dados = { intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[] };
+type Dados = { intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[]; preferencias: Preferencias };
 import { chaveDeduplicacao, type IntimacaoImportada } from "./comunica";
 import { mesclarImportadas } from "./importacao";
 import { mesclarListas, semDuplicadas } from "./sincronizacao";
@@ -19,6 +19,7 @@ interface Instantaneo {
   intimacoes: Intimacao[];
   termos: TermoMonitorado[];
   suspensoes?: Suspensao[];
+  preferencias?: Preferencias;
   revisao: number;
 }
 
@@ -79,6 +80,8 @@ interface StoreValue {
   calcularPrazosPendentes: () => number;
   /** Grava o que estiver pendente e traz a versão do servidor (ex.: depois da busca automática). */
   recarregar: () => Promise<void>;
+  preferencias: Preferencias;
+  salvarPreferencias: (p: Preferencias) => void;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -96,6 +99,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   const [intimacoes, setIntimacoes] = useState<Intimacao[]>([]);
   const [termos, setTermos] = useState<TermoMonitorado[]>([]);
   const [suspensoes, setSuspensoes] = useState<Suspensao[]>([]);
+  const [preferencias, setPreferencias] = useState<Preferencias>({});
   const [erroPersistencia, setErro] = useState<string | null>(null);
   const [sincronizacao, setSincronizacao] = useState<EstadoSincronizacao>("carregando");
   const [ultimaGravacao, setUltimaGravacao] = useState<Date | null>(null);
@@ -103,9 +107,9 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
 
   const revisao = useRef(0);
   const ignorarProxima = useRef(true);
-  const atual = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [] });
+  const atual = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [], preferencias: {} });
   /** O que o servidor tinha da última vez que carregamos ou gravamos; base da mescla em caso de conflito. */
-  const base = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [] });
+  const base = useRef<Dados>({ intimacoes: [], termos: [], suspensoes: [], preferencias: {} });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const emVoo = useRef(false);
   const pendente = useRef(false);
@@ -114,11 +118,12 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     try {
       const dados = await repositorio.carregar();
       revisao.current = dados.revisao;
-      base.current = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? [] };
+      base.current = { intimacoes: dados.intimacoes, termos: dados.termos, suspensoes: dados.suspensoes ?? [], preferencias: dados.preferencias ?? {} };
       ignorarProxima.current = true;
       setIntimacoes(dados.intimacoes);
       setTermos(dados.termos);
       setSuspensoes(dados.suspensoes ?? []);
+      setPreferencias(dados.preferencias ?? {});
       setErro(null);
       setSincronizacao("salvo");
       setReady(true);
@@ -156,12 +161,13 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
         pendente.current = false;
         try {
           const servidor = await repositorio.carregar();
-          const doServidor: Dados = { intimacoes: servidor.intimacoes, termos: servidor.termos, suspensoes: servidor.suspensoes ?? [] };
+          const doServidor: Dados = { intimacoes: servidor.intimacoes, termos: servidor.termos, suspensoes: servidor.suspensoes ?? [], preferencias: servidor.preferencias ?? {} };
           const local = atual.current;
           const mesclado: Dados = {
             intimacoes: semDuplicadas(mesclarListas(base.current.intimacoes, local.intimacoes, doServidor.intimacoes)),
             termos: mesclarListas(base.current.termos, local.termos, doServidor.termos),
             suspensoes: mesclarListas(base.current.suspensoes, local.suspensoes, doServidor.suspensoes),
+            preferencias: JSON.stringify(local.preferencias) !== JSON.stringify(base.current.preferencias) ? local.preferencias : doServidor.preferencias,
           };
           revisao.current = servidor.revisao;
           base.current = doServidor;
@@ -170,6 +176,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
           setIntimacoes(mesclado.intimacoes);
           setTermos(mesclado.termos);
           setSuspensoes(mesclado.suspensoes);
+          setPreferencias(mesclado.preferencias);
           setErro(null);
           setSincronizacao(nadaAGravar ? "salvo" : "pendente");
           onConflito?.();
@@ -187,7 +194,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   }, [repositorio, carregar, onConflito]);
 
   useEffect(() => {
-    atual.current = { intimacoes, termos, suspensoes };
+    atual.current = { intimacoes, termos, suspensoes, preferencias };
     if (!ready) return;
     if (ignorarProxima.current) {
       ignorarProxima.current = false;
@@ -196,7 +203,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     setSincronizacao("pendente");
     clearTimeout(timer.current);
     timer.current = setTimeout(gravar, ESPERA_GRAVACAO_MS);
-  }, [intimacoes, termos, suspensoes, ready, gravar]);
+  }, [intimacoes, termos, suspensoes, preferencias, ready, gravar]);
 
   // Ao voltar para a aba, traz o que foi alterado em outra aba ou dispositivo.
   useEffect(() => {
@@ -348,8 +355,10 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       salvarSuspensoes,
       calcularPrazosPendentes,
       recarregar,
+      preferencias,
+      salvarPreferencias: setPreferencias,
     }),
-    [recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
