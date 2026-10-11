@@ -31,6 +31,11 @@ export function lerConfiguracao() {
     emissor2fa: env.TOTP_ISSUER || "Clepsa",
     /** Segredo dos links assinados dos e-mails ("Já cumpri"). Sem ele, um é gerado e guardado em DATA_DIR. */
     segredoLinks: env.LINKS_SECRET || undefined,
+    /** Resumo das intimações pela API da Anthropic. Sem chave, o Clepsa funciona sem resumos. */
+    resumos: {
+      chave: env.ANTHROPIC_API_KEY || undefined,
+      modelo: env.ANTHROPIC_MODEL || "claude-opus-5-5",
+    },
     comunica: {
       url: env.COMUNICA_API_URL || "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
       /**

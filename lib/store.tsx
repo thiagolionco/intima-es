@@ -82,6 +82,8 @@ interface StoreValue {
   recarregar: () => Promise<void>;
   preferencias: Preferencias;
   salvarPreferencias: (p: Preferencias) => void;
+  /** Pede ao servidor o resumo em duas linhas das intimações indicadas. Devolve quantas ganharam resumo. */
+  resumir: (ids: string[]) => Promise<{ resumidas: number; falhas: number }>;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -242,7 +244,15 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   }, []);
 
   const atualizarIntimacao = useCallback((id: string, dados: Partial<NovaIntimacao>) => {
-    setIntimacoes((l) => l.map((i) => (i.id === id ? aplicarRegra({ ...i, ...dados, updatedAt: new Date().toISOString() }, atual.current.suspensoes) : i)));
+    setIntimacoes((l) =>
+      l.map((i) => {
+        if (i.id !== id) return i;
+        const nova: Intimacao = { ...i, ...dados, updatedAt: new Date().toISOString() };
+        // Texto mudou: o resumo antigo não vale mais.
+        if (dados.texto !== undefined && dados.texto !== i.texto) delete nova.resumo;
+        return aplicarRegra(nova, atual.current.suspensoes);
+      }),
+    );
   }, []);
 
   const excluirIntimacao = useCallback((id: string) => {
@@ -330,8 +340,19 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     await carregar();
   }, [sincronizacao, gravar, carregar]);
 
+  const resumir = useCallback(
+    async (ids: string[]) => {
+      const r = await api<{ resumos: Record<string, unknown>; falhas: number }>("/api/intimacoes/resumo", { body: { ids } });
+      const resumidas = Object.keys(r.resumos).length;
+      if (resumidas) await recarregar();
+      return { resumidas, falhas: r.falhas };
+    },
+    [recarregar],
+  );
+
   const value = useMemo<StoreValue>(
     () => ({
+      resumir,
       ready,
       erroPersistencia,
       sincronizacao,
@@ -358,7 +379,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       preferencias,
       salvarPreferencias: setPreferencias,
     }),
-    [preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

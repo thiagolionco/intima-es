@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Intimacao, StatusIntimacao } from "@/lib/types";
 import { diffDays, formatDate, hojeISO, resumo, STATUS_LABEL, STATUS_ORDER } from "@/lib/utils";
 import { Badge, StatusBadge } from "./ui";
+import { LinhasResumo } from "./resumo";
 
 export function PrazoTag({ prazo, status }: { prazo?: string; status: StatusIntimacao }) {
   if (!prazo || status === "respondida" || status === "arquivada") return null;
@@ -86,7 +87,11 @@ export function IntimacaoCard({ intimacao: i, selecionada, onSelecionar, onStatu
             </dl>
           )}
 
-          <p className={clsx("mt-2 text-sm text-slate-600", compacto ? "line-clamp-2" : "line-clamp-3")}>{resumo(i.texto, compacto ? 160 : 320)}</p>
+          {i.resumo ? (
+            <LinhasResumo i={i} className="mt-2" />
+          ) : (
+            <p className={clsx("mt-2 text-sm text-slate-600", compacto ? "line-clamp-2" : "line-clamp-3")}>{resumo(i.texto, compacto ? 160 : 320)}</p>
+          )}
 
           {(onStatus || onExcluir) && (
             <div className="relative z-10 mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">

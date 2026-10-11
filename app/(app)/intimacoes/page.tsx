@@ -10,6 +10,7 @@ import { IntimacaoCard, PrazoTag } from "@/components/intimacao-card";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBadge } from "@/components/ui";
+import { BotaoResumir } from "@/components/resumo";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
@@ -148,6 +149,7 @@ function ListaIntimacoes() {
         description={`${resultado.length} de ${intimacoes.length} intimação(ões)`}
         actions={
           <>
+            <BotaoResumir ids={visiveis.filter((i) => !i.resumo && i.texto).map((i) => i.id)} rotulo="Resumir as desta página" />
             <Button variant="secondary" icon={<Download className="h-4 w-4" />} onClick={() => setExportando(true)} disabled={!intimacoes.length}>
               Exportar{selecionadas.size ? ` (${selecionadas.size})` : ""}
             </Button>
