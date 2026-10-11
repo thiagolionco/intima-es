@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { PrazoTag } from "@/components/intimacao-card";
 import { MemoriaPrazo, usePrazoCalculado } from "@/components/prazo";
+import { BotaoResumir, LinhasResumo } from "@/components/resumo";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Select, Spinner, StatusBadge, Textarea } from "@/components/ui";
@@ -122,6 +123,15 @@ export default function DetalheIntimacaoPage() {
               <Item rotulo="Classe (tipo de ação)">{i.classe}</Item>
             </dl>
           </Card>
+
+          {i.resumo ? (
+            <Card className="p-5">
+              <LinhasResumo i={i} />
+              <p className="mt-2 text-xs text-slate-400">Resumo automático. Confira no inteiro teor antes de agir.</p>
+            </Card>
+          ) : (
+            <BotaoResumir ids={[i.id]} rotulo="Resumir em duas linhas" />
+          )}
 
           <Card>
             <CardHeader

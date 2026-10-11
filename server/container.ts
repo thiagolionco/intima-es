@@ -28,6 +28,8 @@ import { novoId } from "./core/crypto.ts";
 import { RondaComunica } from "./rondas/ronda-comunica.ts";
 import { AvisosService } from "./avisos/avisos.ts";
 import { AssinadorDeLinks } from "./core/assinatura.ts";
+import { ResumidorClaude } from "./resumos/resumidor.ts";
+import { ResumosService } from "./resumos/resumos.ts";
 import { tokenAleatorio } from "./core/crypto.ts";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -119,12 +121,25 @@ function montar() {
     clock,
     urlApp: () => config.urlApp ?? origemDaRequisicao.getStore() ?? "http://localhost:3000",
   });
+  const resumos = new ResumosService({
+    espacos: espacosRepo,
+    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    clock,
+  });
   const rondaComunica = new RondaComunica({
     espacos: espacosRepo,
     listarUsuarios: () => deps.usuarios.listarConfirmados(),
     buscarPagina: criarBuscadorComunica({ base: config.comunica.url, timeoutMs: 40_000, urlApp: config.urlApp }),
     clock,
     novoId,
+    // Com resumo ligado, o que a ronda trouxe já chega resumido.
+    aoEncontrar: resumos.disponivel
+      ? async (novas) => {
+          const porConta = new Map<string, string[]>();
+          for (const n of novas) porConta.set(n.usuarioId, [...(porConta.get(n.usuarioId) ?? []), n.intimacao.id]);
+          for (const [usuarioId, ids] of porConta) await resumos.resumir(usuarioId, ids, 50);
+        }
+      : undefined,
   });
 
   return {
@@ -140,6 +155,7 @@ function montar() {
     usuarios: deps.usuarios,
     rondaComunica,
     avisos,
+    resumos,
     limitador: deps.limitador,
   };
 }

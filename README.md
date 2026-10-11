@@ -107,6 +107,15 @@ Os dados de cada usuário ficam no servidor, em `DATA_DIR/espacos/<id-do-usuári
 Na primeira vez que você entrar num navegador que tinha dados da Versão 1 (localStorage),
 a aplicação oferece importá-los para a sua conta.
 
+### Resumo em duas linhas
+
+Com `ANTHROPIC_API_KEY` configurada, cada intimação ganha um resumo de duas linhas: o que o juízo decidiu e o que o advogado precisa fazer (ou "Sem providência: apenas ciência."). As que a busca automática traz já chegam resumidas; as demais têm o botão **Resumir** no detalhe e **Resumir as desta página** na lista (até 30 pedidos por hora por conta).
+
+- Sem a chave, nada muda: os botões não aparecem e a lista mostra o começo do texto.
+- Com a chave, o texto da intimação vai para a API da Anthropic. Avise os clientes do escritório se o contrato pedir.
+- O modelo padrão é `claude-opus-5-5` (troque com `ANTHROPIC_MODEL`). O pedido usa o *fallback* do lado do servidor da Anthropic: se o modelo estiver sobrecarregado, outro modelo da mesma família responde, em vez de dar erro.
+- Se o texto da intimação for editado, o resumo antigo é apagado.
+
 ## Autenticação e contas (Versão 2)
 
 | Recurso | Detalhes |

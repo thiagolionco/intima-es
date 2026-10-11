@@ -42,8 +42,17 @@ export interface Intimacao {
   /** Como o prazo foi calculado. Ausente quando a data foi informada à mão. */
   regraPrazo?: RegraPrazo;
   observacoes?: string;
+  /** Resumo em duas linhas gerado pelo servidor (só quando há ANTHROPIC_API_KEY). */
+  resumo?: ResumoIntimacao;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ResumoIntimacao {
+  /** Duas linhas: o que foi decidido e o que fazer. */
+  texto: string;
+  /** Quando foi gerado (ISO). */
+  em: string;
 }
 
 export type TipoTermo = "parte" | "advogado" | "oab" | "processo";

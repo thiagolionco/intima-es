@@ -152,6 +152,7 @@ export class AvisosService {
 }
 
 function resumoCurto(i: Intimacao): string {
+  if (i.resumo) return i.resumo.texto.replace("\n", " ");
   const t = (i.texto ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   return t.length > 180 ? `${t.slice(0, 180).trimEnd()}…` : t;
 }
