@@ -8,7 +8,7 @@ import { RecuperacaoSenhaService } from "./auth/services/recuperacao-senha.ts";
 import { SessaoService } from "./auth/services/sessoes.ts";
 import { DIA, HORA, relogioDoSistema } from "./core/clock.ts";
 import { type Configuracao, lerConfiguracao } from "./config.ts";
-import { ArmazenamentoEmArquivo } from "./infra/armazenamento.ts";
+import { type ArmazenamentoDocumentos, ArmazenamentoEmArquivo } from "./infra/armazenamento.ts";
 import { CaixaDeSaidaLocal, EnviadorResend, EnviadorSmtp } from "./infra/email/enviadores.ts";
 import { NotificacoesPorEmail } from "./infra/email/notificacoes.ts";
 import type { EnviadorDeEmail } from "./infra/email/ports.ts";
@@ -21,8 +21,18 @@ import {
   TokenRepositoryDocumentos,
   UsuarioRepositoryDocumentos,
 } from "./infra/repositorios.ts";
+import { conectar } from "./infra/postgres/conexao.ts";
+import {
+  ArmazenamentoPostgres,
+  AuditoriaPostgres,
+  DesafioRepositoryPostgres,
+  EspacoTrabalhoRepositoryPostgres,
+  SessaoRepositoryPostgres,
+  TokenRepositoryPostgres,
+  UsuarioRepositoryPostgres,
+} from "./infra/postgres/repositorios.ts";
 import { Totp } from "./infra/totp.ts";
-import { EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
+import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
 import { novoId } from "./core/crypto.ts";
 import { RondaComunica } from "./rondas/ronda-comunica.ts";
@@ -63,6 +73,11 @@ function criarLinks(config: Configuracao): Links {
 /** LINKS_SECRET ou, na falta dele, um segredo gerado uma vez e guardado junto dos dados. */
 function segredoDosLinks(config: Configuracao): string {
   if (config.segredoLinks) return config.segredoLinks;
+  // Com banco, o disco do servidor pode ser descartado a cada publicação, e o segredo que assina os
+  // links e cifra o token do Google se perderia junto. Em produção ele precisa vir do ambiente.
+  if (config.urlBanco && config.producao) {
+    throw new Error("Com DATABASE_URL em produção, defina LINKS_SECRET (32+ caracteres): o segredo gerado em arquivo não sobrevive a uma nova publicação.");
+  }
   const arquivo = path.join(config.diretorioDados, "segredo-links");
   try {
     return readFileSync(arquivo, "utf8").trim();
@@ -87,6 +102,37 @@ function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): Enviador
   return caixa;
 }
 
+/** Repositórios no PostgreSQL (com DATABASE_URL) ou em arquivos JSON (sem ela). */
+function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquivo) {
+  const clock = relogioDoSistema;
+  if (config.urlBanco) {
+    const { db } = conectar(config.urlBanco);
+    return {
+      repositorios: {
+        usuarios: new UsuarioRepositoryPostgres(db),
+        sessoes: new SessaoRepositoryPostgres(db, clock),
+        tokens: new TokenRepositoryPostgres(db, clock),
+        desafios: new DesafioRepositoryPostgres(db, clock),
+        auditoria: new AuditoriaPostgres(db, clock),
+      },
+      espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+      // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
+      documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
+    };
+  }
+  return {
+    repositorios: {
+      usuarios: new UsuarioRepositoryDocumentos(arquivos),
+      sessoes: new SessaoRepositoryDocumentos(arquivos, clock),
+      tokens: new TokenRepositoryDocumentos(arquivos, clock),
+      desafios: new DesafioRepositoryDocumentos(arquivos, clock),
+      auditoria: new AuditoriaDocumentos(arquivos, clock),
+    },
+    espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
+    documentos: arquivos as ArmazenamentoDocumentos,
+  };
+}
+
 /**
  * Raiz de composição: o único lugar que conhece as implementações concretas.
  * Os serviços recebem apenas interfaces.
@@ -94,16 +140,14 @@ function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): Enviador
 function montar() {
   const config = lerConfiguracao();
   const clock = relogioDoSistema;
-  const db = new ArmazenamentoEmArquivo(config.diretorioDados);
-  const caixaDeSaida = new CaixaDeSaidaLocal(db, clock);
+  const arquivos = new ArmazenamentoEmArquivo(config.diretorioDados);
+  // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
+  const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
+  const { repositorios, espacosRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const deps: DependenciasAuth = {
-    usuarios: new UsuarioRepositoryDocumentos(db),
-    sessoes: new SessaoRepositoryDocumentos(db, clock),
-    tokens: new TokenRepositoryDocumentos(db, clock),
-    desafios: new DesafioRepositoryDocumentos(db, clock),
-    auditoria: new AuditoriaDocumentos(db, clock),
+    ...repositorios,
     hash: new HashScrypt(),
     limitador: new LimitadorEmMemoria(clock),
     segundoFator: new Totp(clock),
@@ -113,7 +157,6 @@ function montar() {
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
     emissor2fa: config.emissor2fa,
   };
-  const espacosRepo = new EspacoTrabalhoRepositoryDocumentos(db, clock);
   const sessoes = new SessaoService(deps);
   const segredo = segredoDosLinks(config);
   const assinador = new AssinadorDeLinks(segredo);

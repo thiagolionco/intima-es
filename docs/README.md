@@ -14,8 +14,8 @@ aprovação entre elas; cada decisão relevante vira um registro curto em `decis
 
 | Fase | Tema | Estado |
 | --- | --- | --- |
-| 0 | Fundação: repositório único, CI, documentação | em andamento |
-| 1 | Postgres com isolamento por escritório (RLS) | não iniciada |
+| 0 | Fundação: repositório único, CI, documentação | concluída |
+| 1 | Postgres com isolamento por escritório (RLS) | em andamento |
 | 2 | Adaptador de fonte e livro de cobertura | não iniciada |
 | 3 | Rondas, alertas e monitoramentos combináveis | não iniciada |
 | 4 | Motor de prazos e processos sigilosos | não iniciada |
@@ -26,7 +26,7 @@ aprovação entre elas; cada decisão relevante vira um registro curto em `decis
 
 | Pergunta | Necessária antes da |
 | --- | --- |
-| Hospedagem: provedor e região do app e do Postgres (recomendação atual: Fly.io em São Paulo) | Fase 1 |
+| Hospedagem do app e do worker (o banco já está decidido: Supabase em São Paulo) | Fase 3 |
 | Quais tribunais priorizar no calendário forense do piloto | Fase 4 |
 | Quem valida o conjunto dourado de prazos (advogado ou advogada) | Fase 4 |
 | O escritório-piloto autoriza IA sobre os textos? Em quais condições? | Fase 6 |
