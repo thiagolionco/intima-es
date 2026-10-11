@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { Intimacao, TermoMonitorado } from "./types";
+import type { Intimacao, Suspensao, TermoMonitorado } from "./types";
+import { aplicarRegra, sugerirRegra } from "./prazos/calculo";
 import { chaveDeduplicacao, type IntimacaoImportada } from "./comunica";
 import { api, ErroApi } from "./auth/api";
 import { uid } from "./utils";
@@ -13,6 +14,7 @@ const CHAVE_V1_TERMOS = "controle-intimacoes:termos:v1";
 interface Instantaneo {
   intimacoes: Intimacao[];
   termos: TermoMonitorado[];
+  suspensoes?: Suspensao[];
   revisao: number;
 }
 
@@ -65,7 +67,15 @@ interface StoreValue {
   adicionarTermo: (t: Omit<TermoMonitorado, "id" | "createdAt">) => void;
   atualizarTermo: (id: string, t: Partial<TermoMonitorado>) => void;
   excluirTermo: (id: string) => void;
+  /** Feriados locais e suspensões de prazo do escritório. */
+  suspensoes: Suspensao[];
+  /** Troca a lista de suspensões e recalcula os prazos em aberto que têm regra. */
+  salvarSuspensoes: (lista: Suspensao[]) => void;
+  /** Lê o prazo no texto das intimações em aberto que ainda não têm prazo. Devolve quantas ganharam prazo. */
+  calcularPrazosPendentes: () => number;
 }
+
+const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
 
 const StoreContext = createContext<StoreValue | null>(null);
 
@@ -79,6 +89,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   const [ready, setReady] = useState(false);
   const [intimacoes, setIntimacoes] = useState<Intimacao[]>([]);
   const [termos, setTermos] = useState<TermoMonitorado[]>([]);
+  const [suspensoes, setSuspensoes] = useState<Suspensao[]>([]);
   const [erroPersistencia, setErro] = useState<string | null>(null);
   const [sincronizacao, setSincronizacao] = useState<EstadoSincronizacao>("carregando");
   const [ultimaGravacao, setUltimaGravacao] = useState<Date | null>(null);
@@ -86,7 +97,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
 
   const revisao = useRef(0);
   const ignorarProxima = useRef(true);
-  const atual = useRef<{ intimacoes: Intimacao[]; termos: TermoMonitorado[] }>({ intimacoes: [], termos: [] });
+  const atual = useRef<{ intimacoes: Intimacao[]; termos: TermoMonitorado[]; suspensoes: Suspensao[] }>({ intimacoes: [], termos: [], suspensoes: [] });
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const emVoo = useRef(false);
   const pendente = useRef(false);
@@ -98,6 +109,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       ignorarProxima.current = true;
       setIntimacoes(dados.intimacoes);
       setTermos(dados.termos);
+      setSuspensoes(dados.suspensoes ?? []);
       setErro(null);
       setSincronizacao("salvo");
       setReady(true);
@@ -143,7 +155,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   }, [repositorio, carregar, onConflito]);
 
   useEffect(() => {
-    atual.current = { intimacoes, termos };
+    atual.current = { intimacoes, termos, suspensoes };
     if (!ready) return;
     if (ignorarProxima.current) {
       ignorarProxima.current = false;
@@ -152,7 +164,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     setSincronizacao("pendente");
     clearTimeout(timer.current);
     timer.current = setTimeout(gravar, ESPERA_GRAVACAO_MS);
-  }, [intimacoes, termos, ready, gravar]);
+  }, [intimacoes, termos, suspensoes, ready, gravar]);
 
   // Ao voltar para a aba, traz o que foi alterado em outra aba ou dispositivo.
   useEffect(() => {
@@ -185,13 +197,13 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
 
   const adicionarIntimacao = useCallback((dados: NovaIntimacao) => {
     const agora = new Date().toISOString();
-    const nova: Intimacao = { ...dados, id: uid(), createdAt: agora, updatedAt: agora };
+    const nova: Intimacao = aplicarRegra({ ...dados, id: uid(), createdAt: agora, updatedAt: agora }, atual.current.suspensoes);
     setIntimacoes((l) => [nova, ...l]);
     return nova;
   }, []);
 
   const atualizarIntimacao = useCallback((id: string, dados: Partial<NovaIntimacao>) => {
-    setIntimacoes((l) => l.map((i) => (i.id === id ? { ...i, ...dados, updatedAt: new Date().toISOString() } : i)));
+    setIntimacoes((l) => l.map((i) => (i.id === id ? aplicarRegra({ ...i, ...dados, updatedAt: new Date().toISOString() }, atual.current.suspensoes) : i)));
   }, []);
 
   const excluirIntimacao = useCallback((id: string) => {
@@ -220,7 +232,8 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
           continue;
         }
         vistos.add(k);
-        novas.push({ ...item, id: uid(), cliente, status: "nova", createdAt: agora, updatedAt: agora });
+        const regraPrazo = sugerirRegra(item) ?? undefined;
+        novas.push(aplicarRegra({ ...item, id: uid(), cliente, status: "nova", regraPrazo, createdAt: agora, updatedAt: agora }, atual.current.suspensoes));
       }
       if (novas.length) setIntimacoes((l) => [...novas, ...l]);
       return { novas: novas.length, duplicadas };
@@ -258,6 +271,25 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
     setTermos((l) => l.filter((x) => x.id !== id));
   }, []);
 
+  const salvarSuspensoes = useCallback((lista: Suspensao[]) => {
+    setSuspensoes(lista);
+    setIntimacoes((l) => l.map((i) => (emAberto(i) ? aplicarRegra(i, lista) : i)));
+  }, []);
+
+  const calcularPrazosPendentes = useCallback(() => {
+    const agora = new Date().toISOString();
+    let calculadas = 0;
+    const lista = atual.current.intimacoes.map((i) => {
+      if (!emAberto(i) || i.prazo || i.regraPrazo) return i;
+      const regraPrazo = sugerirRegra(i);
+      if (!regraPrazo) return i;
+      calculadas++;
+      return aplicarRegra({ ...i, regraPrazo, updatedAt: agora }, atual.current.suspensoes);
+    });
+    if (calculadas) setIntimacoes(lista);
+    return calculadas;
+  }, []);
+
   const value = useMemo<StoreValue>(
     () => ({
       ready,
@@ -279,8 +311,11 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       adicionarTermo,
       atualizarTermo,
       excluirTermo,
+      suspensoes,
+      salvarSuspensoes,
+      calcularPrazosPendentes,
     }),
-    [ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

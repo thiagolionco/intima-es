@@ -74,7 +74,24 @@ saída local (`/dev/caixa-de-saida`) e os dados ficam em `./.data`. Para produç
 | **Nova / Editar** | Formulário validado com seletor de datas, máscara do número CNJ e listas dinâmicas de partes e advogados. |
 | **Buscar no Comunica** (`/comunica`) | Pesquisa todos os clientes ativos, um cliente específico ou uma pesquisa avulsa num período; mostra o andamento por cliente, marca o que já está no acervo e importa as novas sem duplicar. |
 | **Clientes monitorados** (`/clientes`) | Campo configurável com o que deve ser pesquisado: nome da parte, nome do advogado, número da OAB + UF ou número do processo, com filtro opcional por tribunal. |
+| **Prazos e feriados** (`/prazos`) | Feriados locais e suspensões de prazo do escritório (por tribunal ou para todos), calendário de dias sem contagem e cálculo em lote dos prazos que faltam. |
 | **Dados e backup** (`/dados`) | Exportar CSV, backup e restauração em JSON, dados de demonstração e limpeza total. |
+
+### Cálculo de prazos
+
+Ao importar do Comunica, a aplicação procura no texto o número de dias ("no prazo de 15 (quinze) dias")
+e calcula o vencimento sozinha; a intimação fica marcada como "lido no texto" até alguém conferir.
+A regra está em `lib/prazos/`:
+
+- publicação no primeiro dia útil após a disponibilização no DJEN (Lei 11.419/2006, art. 4º, § 3º);
+- contagem a partir do primeiro dia útil seguinte (art. 4º, § 4º, e art. 224 do CPC);
+- dias úteis por padrão (CPC, art. 219); dias corridos na matéria penal (CPP, art. 798), prorrogando se vencer sem expediente;
+- prazo em dobro opcional (arts. 180, 183 e 186 do CPC);
+- pula fins de semana, feriados nacionais, Carnaval, Sexta-feira Santa, o recesso de 20/12 a 20/01 e, na Justiça Federal e tribunais superiores, os dias da Lei 5.010/1966;
+- feriados estaduais, municipais e portarias entram quando o escritório os cadastra em `/prazos`.
+
+O calendário só inclui dias sem expediente em todo o país: um feriado a mais empurraria o vencimento para
+depois do real, enquanto um a menos apenas o antecipa.
 
 Os dados de cada usuário ficam no servidor, em `DATA_DIR/espacos/<id-do-usuário>.json`.
 Na primeira vez que você entrar num navegador que tinha dados da Versão 1 (localStorage),

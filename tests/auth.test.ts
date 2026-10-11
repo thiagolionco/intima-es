@@ -290,6 +290,19 @@ test("cada usuário tem seu próprio espaço de trabalho", async () => {
   await rejeita(s.espacos.salvar(ana.id, { intimacoes: [{ semId: true }], termos: [], revisao: 1 }), "dados_invalidos");
 });
 
+test("suspensões de prazo ficam no espaço e são mantidas por clientes antigos", async () => {
+  const s = montar();
+  const ana = await contaConfirmada(s);
+  assert.deepEqual((await s.espacos.carregar(ana.id)).suspensoes, []);
+  const suspensao = { id: "s1", inicio: "2026-06-04", fim: "2026-06-04", descricao: "Corpus Christi", tribunal: "TJSP" };
+  await s.espacos.salvar(ana.id, { intimacoes: [], termos: [], suspensoes: [suspensao], revisao: 0 });
+  assert.deepEqual((await s.espacos.carregar(ana.id)).suspensoes, [suspensao]);
+  // Uma aba aberta antes da atualização não manda `suspensoes`: a lista gravada continua lá.
+  await s.espacos.salvar(ana.id, { intimacoes: [], termos: [], revisao: 1 });
+  assert.deepEqual((await s.espacos.carregar(ana.id)).suspensoes, [suspensao]);
+  await rejeita(s.espacos.salvar(ana.id, { intimacoes: [], termos: [], suspensoes: [{ inicio: "x" }], revisao: 2 }), "dados_invalidos");
+});
+
 test("exportação LGPD não inclui segredos e exclusão apaga tudo", async () => {
   const s = montar();
   const u = await contaConfirmada(s);

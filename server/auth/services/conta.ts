@@ -64,6 +64,7 @@ export class ContaService {
       atividade,
       intimacoes: espaco.intimacoes,
       termos: espaco.termos,
+      suspensoes: espaco.suspensoes ?? [],
     };
   }
 
