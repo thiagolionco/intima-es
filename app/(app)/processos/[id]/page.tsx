@@ -8,6 +8,7 @@ import { useState, type ReactNode } from "react";
 import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
 import { SeloResponsavel } from "@/components/equipe";
 import { IntimacaoCard } from "@/components/intimacao-card";
+import { ParecerDoProcesso, usePareceres } from "@/components/parecer-processo";
 import { ConfirmDialog } from "@/components/modal";
 import { ProcessoNaoEncontrado } from "@/components/processos";
 import { useToast } from "@/components/toast";
@@ -27,7 +28,7 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-type Aba = "resumo" | "documentos" | "intimacoes";
+type Aba = "resumo" | "parecer" | "documentos" | "intimacoes";
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,13 +39,16 @@ export default function DetalheProcessoPage() {
   const [aba, setAba] = useState<Aba>("resumo");
   const [confirmar, setConfirmar] = useState(false);
   const docs = useDocumentos(id);
+  const pareceres = usePareceres(id);
 
   if (!ready || carregando) return <Spinner />;
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
 
   const ligadas = intimacoesDoProcesso(intimacoes, p.numero);
+  const parecer = pareceres.pareceres?.[0];
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
+    { id: "parecer", rotulo: "Parecer" },
     { id: "documentos", rotulo: "Documentos", contagem: docs.documentos?.length },
     { id: "intimacoes", rotulo: "Intimações", contagem: ligadas.length },
   ];
@@ -115,6 +119,22 @@ export default function DetalheProcessoPage() {
                 <Item rotulo="Valor da causa">{formatarValor(p.valorCausa)}</Item>
               </dl>
             </Card>
+            <Card>
+              <CardHeader
+                title="Parecer"
+                subtitle={parecer ? `Versão ${parecer.versao} · ${parecer.autorNome} · ${formatDateTime(parecer.criadoEm)}` : undefined}
+                action={
+                  <Button size="sm" variant="ghost" onClick={() => setAba("parecer")}>
+                    {parecer ? "Ver completo" : "Escrever"}
+                  </Button>
+                }
+              />
+              {parecer ? (
+                <p className="line-clamp-6 whitespace-pre-wrap break-words p-5 text-sm leading-relaxed text-slate-700">{parecer.texto}</p>
+              ) : (
+                <p className="px-5 py-4 text-sm text-slate-500">{pareceres.pareceres ? "Nenhum parecer ainda." : "Carregando…"}</p>
+              )}
+            </Card>
             {p.observacoes && (
               <Card>
                 <CardHeader title="Observações" />
@@ -142,6 +162,8 @@ export default function DetalheProcessoPage() {
           </div>
         </div>
       )}
+
+      {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} />}
 
       {aba === "documentos" && <DocumentosDoProcesso processoId={p.id} {...docs} />}
 
@@ -175,7 +197,7 @@ export default function DetalheProcessoPage() {
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> e os PDFs anexados a ele serão apagados. As intimações continuam na lista de intimações.
+            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados e o parecer, com todas as versões, serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {

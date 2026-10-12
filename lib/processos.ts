@@ -151,3 +151,18 @@ export function formatarTamanho(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
 }
+
+/** Uma versão do parecer do processo. Cada gravação cria uma versão nova; nenhuma é apagada. */
+export interface ParecerProcesso {
+  id: string;
+  processoId: string;
+  /** 1, 2, 3… dentro do processo. */
+  versao: number;
+  texto: string;
+  autorId: string;
+  /** Nome do autor quando escreveu (continua lá mesmo se ele sair do escritório). */
+  autorNome: string;
+  criadoEm: string;
+}
+
+export const LIMITES_PARECER = { caracteres: 50_000, versoes: 500 } as const;
