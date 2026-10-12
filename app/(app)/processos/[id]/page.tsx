@@ -5,6 +5,7 @@ import { ArrowLeft, Inbox, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
 import { SeloResponsavel } from "@/components/equipe";
 import { IntimacaoCard } from "@/components/intimacao-card";
 import { ConfirmDialog } from "@/components/modal";
@@ -26,7 +27,7 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-type Aba = "resumo" | "intimacoes";
+type Aba = "resumo" | "documentos" | "intimacoes";
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +37,7 @@ export default function DetalheProcessoPage() {
   const { toast } = useToast();
   const [aba, setAba] = useState<Aba>("resumo");
   const [confirmar, setConfirmar] = useState(false);
+  const docs = useDocumentos(id);
 
   if (!ready || carregando) return <Spinner />;
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
@@ -43,6 +45,7 @@ export default function DetalheProcessoPage() {
   const ligadas = intimacoesDoProcesso(intimacoes, p.numero);
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
+    { id: "documentos", rotulo: "Documentos", contagem: docs.documentos?.length },
     { id: "intimacoes", rotulo: "Intimações", contagem: ligadas.length },
   ];
 
@@ -140,6 +143,8 @@ export default function DetalheProcessoPage() {
         </div>
       )}
 
+      {aba === "documentos" && <DocumentosDoProcesso processoId={p.id} {...docs} />}
+
       {aba === "intimacoes" &&
         (ligadas.length ? (
           <div className="space-y-3">
@@ -170,7 +175,7 @@ export default function DetalheProcessoPage() {
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> será removido. As intimações dele continuam na lista de intimações.
+            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> e os PDFs anexados a ele serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {

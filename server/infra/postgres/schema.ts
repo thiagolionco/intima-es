@@ -4,9 +4,9 @@
  * - Identidade (usuarios, sessoes, tokens, desafios, auditoria): consultadas antes de se saber
  *   o escritório (login, validação de sessão). Ficam com RLS ligado e sem política, então só o
  *   dono das tabelas (a conexão do app) as enxerga; nenhum outro papel do banco lê nada.
- * - Dados do escritório (escritorios, membros, espacos_trabalho, processos): RLS forçado por
+ * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001, 0003 e 0004.
  */
 import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
@@ -134,6 +134,24 @@ export const processos = pgTable(
     atualizadoEm: instante("atualizado_em").notNull(),
   },
   (t) => [unique("processos_escritorio_numero_key").on(t.escritorioId, t.numero)],
+);
+
+/** PDFs anexados aos processos: só os metadados; os bytes ficam no armazenamento de arquivos. */
+export const processoDocumentos = pgTable(
+  "processo_documentos",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    processoId: uuid("processo_id").notNull().references(() => processos.id, { onDelete: "cascade" }),
+    nome: text("nome").notNull(),
+    tamanho: integer("tamanho").notNull(),
+    /** sha256 do conteúdo. */
+    hash: text("hash").notNull(),
+    /** Caminho no armazenamento de arquivos. */
+    caminho: text("caminho").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+  },
+  (t) => [unique("processo_documentos_processo_hash_key").on(t.processoId, t.hash), index("processo_documentos_escritorio_idx").on(t.escritorioId)],
 );
 
 /**

@@ -86,14 +86,22 @@ function dadosValidos(corpo: unknown): DadosProcesso {
 
 const idValido = (id: unknown): id is string => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id);
 
+/** O que mais some quando um processo é excluído (os PDFs anexados). */
+export interface DependentesDoProcesso {
+  caminhosDoProcesso(usuarioId: string, processoId: string): Promise<string[]>;
+  aposExcluirProcesso(usuarioId: string, processoId: string, caminhos: string[]): Promise<void>;
+}
+
 /** Regras do cadastro de processos. */
 export class ProcessosService {
   private readonly repo: ProcessoRepository;
   private readonly clock: Clock;
+  private readonly dependentes?: DependentesDoProcesso;
 
-  constructor(repo: ProcessoRepository, clock: Clock) {
+  constructor(repo: ProcessoRepository, clock: Clock, dependentes?: DependentesDoProcesso) {
     this.repo = repo;
     this.clock = clock;
+    this.dependentes = dependentes;
   }
 
   async listar(usuarioId: string) {
@@ -121,6 +129,10 @@ export class ProcessosService {
   }
 
   async excluir(usuarioId: string, id: string) {
-    if (!idValido(id) || !(await this.repo.excluir(usuarioId, id))) throw naoEncontrado();
+    if (!idValido(id)) throw naoEncontrado();
+    // Os caminhos são lidos antes: no Postgres, os metadados somem junto com o processo.
+    const caminhos = (await this.dependentes?.caminhosDoProcesso(usuarioId, id)) ?? [];
+    if (!(await this.repo.excluir(usuarioId, id))) throw naoEncontrado();
+    await this.dependentes?.aposExcluirProcesso(usuarioId, id, caminhos);
   }
 }
