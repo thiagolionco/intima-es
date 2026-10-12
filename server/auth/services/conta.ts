@@ -13,12 +13,17 @@ export class ContaService {
   private readonly espacos: EspacoTrabalhoRepository;
 
   private readonly aoExcluir?: (usuarioId: string) => Promise<void>;
+  private readonly listarProcessos?: (usuarioId: string) => Promise<unknown[]>;
 
-  /** `aoExcluir` apaga o que outros módulos guardam da conta (avisos enviados, acesso à Google Agenda). */
-  constructor(deps: Deps, espacos: EspacoTrabalhoRepository, aoExcluir?: (usuarioId: string) => Promise<void>) {
+  /**
+   * `aoExcluir` apaga o que outros módulos guardam da conta (avisos enviados, acesso à Google Agenda).
+   * `listarProcessos` entra na exportação dos dados.
+   */
+  constructor(deps: Deps, espacos: EspacoTrabalhoRepository, aoExcluir?: (usuarioId: string) => Promise<void>, listarProcessos?: (usuarioId: string) => Promise<unknown[]>) {
     this.d = deps;
     this.espacos = espacos;
     this.aoExcluir = aoExcluir;
+    this.listarProcessos = listarProcessos;
   }
 
   async atualizarPerfil(usuarioId: string, dados: { nome?: string; escritorio?: string; oab?: string }, ctx: ContextoRequisicao): Promise<UsuarioPublico> {
@@ -57,7 +62,12 @@ export class ContaService {
   async exportar(usuarioId: string, ctx: ContextoRequisicao) {
     const usuario = await this.d.usuarios.porId(usuarioId);
     if (!usuario) throw new AppError("nao_autenticado", "Sessão inválida.");
-    const [espaco, sessoes, atividade] = await Promise.all([this.espacos.ler(usuarioId), this.d.sessoes.doUsuario(usuarioId), this.d.auditoria.doUsuario(usuarioId, 1000)]);
+    const [espaco, sessoes, atividade, processos] = await Promise.all([
+      this.espacos.ler(usuarioId),
+      this.d.sessoes.doUsuario(usuarioId),
+      this.d.auditoria.doUsuario(usuarioId, 1000),
+      this.listarProcessos?.(usuarioId) ?? Promise.resolve([]),
+    ]);
     await this.d.auditoria.registrar({ usuarioId, tipo: "dados.exportados", ...ctx });
     return {
       formato: "controle-intimacoes/exportacao-titular",
@@ -69,6 +79,7 @@ export class ContaService {
       intimacoes: espaco.intimacoes,
       termos: espaco.termos,
       suspensoes: espaco.suspensoes ?? [],
+      processos,
     };
   }
 

@@ -5,6 +5,7 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import type { Intimacao } from "@/lib/types";
 import { hojeISO, MEIOS, STATUS_LABEL, STATUS_ORDER, TIPOS_COMUNICACAO_PADRAO, UFS } from "@/lib/utils";
 import { validarIntimacao, type DadosFormulario, type ErrosFormulario } from "@/lib/validacao";
+import { mascaraCNJ } from "@/lib/processos";
 import { useStore } from "@/lib/store";
 import { DatePicker } from "./date-picker";
 import { EditorPrazo } from "./prazo";
@@ -30,16 +31,6 @@ function inicial(i?: Intimacao): DadosFormulario {
     regraPrazo: i ? (i.regraPrazo ?? null) : null,
     observacoes: i?.observacoes ?? "",
   };
-}
-
-/** Máscara do número CNJ: NNNNNNN-DD.AAAA.J.TR.OOOO */
-function mascaraCNJ(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 20);
-  const partes = [d.slice(0, 7), d.slice(7, 9), d.slice(9, 13), d.slice(13, 14), d.slice(14, 16), d.slice(16, 20)];
-  let out = partes[0];
-  if (partes[1]) out += "-" + partes[1];
-  for (const p of partes.slice(2)) if (p) out += "." + p;
-  return out;
 }
 
 interface Props {

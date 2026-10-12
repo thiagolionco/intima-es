@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText } from "lucide-react";
+import { CalendarDays, Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -15,6 +15,7 @@ import { useStore } from "@/lib/store";
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
   { href: "/intimacoes", label: "Intimações", icon: ListChecks },
+  { href: "/processos", label: "Processos", icon: FolderOpen },
   { href: "/comunica", label: "Buscar no Comunica", icon: FileSearch },
   { href: "/clientes", label: "Clientes monitorados", icon: Users },
   { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },
