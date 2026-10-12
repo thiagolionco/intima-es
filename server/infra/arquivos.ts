@@ -24,7 +24,7 @@ export class ArquivosEmMemoria implements ArmazenamentoArquivos {
   readonly nome = "memória";
   readonly dados = new Map<string, Uint8Array>();
 
-  async gravar(caminho: string, bytes: Uint8Array) {
+  async gravar(caminho: string, bytes: Uint8Array, _tipo?: string) {
     this.dados.set(validarCaminho(caminho), new Uint8Array(bytes));
   }
 
@@ -50,7 +50,7 @@ export class ArquivosEmDisco implements ArmazenamentoArquivos {
     return path.join(this.diretorio, validarCaminho(caminho));
   }
 
-  async gravar(caminho: string, bytes: Uint8Array) {
+  async gravar(caminho: string, bytes: Uint8Array, _tipo?: string) {
     const destino = this.completo(caminho);
     await mkdir(path.dirname(destino), { recursive: true, mode: 0o700 });
     const temporario = `${destino}.${process.pid}.tmp`;
