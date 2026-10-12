@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Copy, ExternalLink, FileX, Pencil, Scale, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, FileX, FolderOpen, Pencil, Scale, Trash2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -11,9 +11,25 @@ import { SeletorResponsavel } from "@/components/equipe";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Select, Spinner, StatusBadge, Textarea } from "@/components/ui";
+import { digitos } from "@/lib/processos";
 import { useStore } from "@/lib/store";
+import { useProcessos } from "@/lib/use-processos";
 import type { StatusIntimacao } from "@/lib/types";
 import { formatDate, formatDateTime, meioLabel, poloLabel, STATUS_LABEL, STATUS_ORDER, textoPlano } from "@/lib/utils";
+
+/** Leva ao processo cadastrado com o mesmo número ou oferece cadastrá-lo com os dados da intimação. */
+function LinkProcesso({ numero, cliente, tribunal, orgao, classe }: { numero: string; cliente: string; tribunal: string; orgao: string; classe: string }) {
+  const { processos } = useProcessos();
+  if (!processos || digitos(numero).length !== 20) return null;
+  const existente = processos.find((p) => p.numero === digitos(numero));
+  const href = existente ? `/processos/${existente.id}` : `/processos/novo?${new URLSearchParams({ numero, cliente, tribunal, orgao, classe })}`;
+  return (
+    <Link href={href} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
+      <FolderOpen className="h-4 w-4" aria-hidden />
+      {existente ? "Ver processo" : "Cadastrar processo"}
+    </Link>
+  );
+}
 
 function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -83,6 +99,7 @@ export default function DetalheIntimacaoPage() {
           <p className="mt-1 text-sm text-slate-500">
             {i.cliente} · disponibilizada em {formatDate(i.dataDisponibilizacao)}
           </p>
+          <LinkProcesso numero={i.numeroProcesso} cliente={i.cliente} tribunal={i.tribunal} orgao={i.orgao} classe={i.classe} />
         </div>
         <div className="flex flex-wrap gap-2">
           <Select

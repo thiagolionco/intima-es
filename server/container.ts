@@ -31,7 +31,9 @@ import {
   TokenRepositoryPostgres,
   UsuarioRepositoryPostgres,
 } from "./infra/postgres/repositorios.ts";
+import { ProcessoRepositoryPostgres } from "./infra/postgres/processos.ts";
 import { Totp } from "./infra/totp.ts";
+import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
 import { novoId } from "./core/crypto.ts";
@@ -116,6 +118,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
         auditoria: new AuditoriaPostgres(db, clock),
       },
       espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+      processosRepo: new ProcessoRepositoryPostgres(db) as ProcessoRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -129,6 +132,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       auditoria: new AuditoriaDocumentos(arquivos, clock),
     },
     espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
+    processosRepo: new ProcessoRepositoryDocumentos(arquivos) as ProcessoRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -144,7 +148,7 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const deps: DependenciasAuth = {
     ...repositorios,
@@ -209,10 +213,17 @@ function montar() {
     autenticacao: new AutenticacaoService(deps, sessoes),
     recuperacao: new RecuperacaoSenhaService(deps),
     doisFatores: new DoisFatoresService(deps),
-    conta: new ContaService(deps, espacosRepo, async (id) => {
-      await agenda.desconectar(id);
-      await db.remover(`avisos/${id}`);
-    }),
+    conta: new ContaService(
+      deps,
+      espacosRepo,
+      async (id) => {
+        await agenda.desconectar(id);
+        await db.remover(`avisos/${id}`);
+        await processosRepo.excluirDoUsuario(id);
+      },
+      (id) => processosRepo.listar(id),
+    ),
+    processos: new ProcessosService(processosRepo, clock),
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,

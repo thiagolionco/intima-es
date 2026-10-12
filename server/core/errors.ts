@@ -37,7 +37,19 @@ const STATUS: Record<CodigoErro, number> = {
   indisponivel: 404,
 };
 
+/** Marca global: reconhece o erro mesmo vindo de outra cópia deste módulo. */
+const MARCA = Symbol.for("clepsa.AppError");
+
 export class AppError extends Error {
+  /**
+   * O build do Next junta este arquivo em mais de um pedaço (importado como "errors" e como
+   * "errors.ts"), e cada pedaço tem a sua classe. Sem isto, `instanceof` falhava na camada HTTP
+   * e todo erro de negócio (senha errada, dado inválido) virava "Erro inesperado" com status 500.
+   */
+  static [Symbol.hasInstance](v: unknown): boolean {
+    return typeof v === "object" && v !== null && (v as Record<symbol, unknown>)[MARCA] === true;
+  }
+
   readonly codigo: CodigoErro;
   readonly status: number;
   readonly detalhes?: Record<string, unknown>;
@@ -48,5 +60,6 @@ export class AppError extends Error {
     this.codigo = codigo;
     this.status = STATUS[codigo];
     this.detalhes = detalhes;
+    Object.defineProperty(this, MARCA, { value: true });
   }
 }

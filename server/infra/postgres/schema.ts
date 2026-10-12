@@ -4,11 +4,11 @@
  * - Identidade (usuarios, sessoes, tokens, desafios, auditoria): consultadas antes de se saber
  *   o escritório (login, validação de sessão). Ficam com RLS ligado e sem política, então só o
  *   dono das tabelas (a conexão do app) as enxerga; nenhum outro papel do banco lê nada.
- * - Dados do escritório (escritorios, membros, espacos_trabalho): RLS forçado por
+ * - Dados do escritório (escritorios, membros, espacos_trabalho, processos): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão na migração 0001.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003.
  */
-import { bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
 
@@ -112,6 +112,29 @@ export const espacosTrabalho = pgTable("espacos_trabalho", {
   revisao: integer("revisao").notNull().default(0),
   atualizadoEm: instante("atualizado_em"),
 });
+
+/** Processos cadastrados pelo escritório. O número CNJ (só dígitos) é único dentro do escritório. */
+export const processos = pgTable(
+  "processos",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    numero: text("numero").notNull(),
+    cliente: text("cliente").notNull(),
+    parteContraria: text("parte_contraria"),
+    polo: text("polo").notNull().$type<"ativo" | "passivo">(),
+    tribunal: text("tribunal"),
+    orgao: text("orgao"),
+    classe: text("classe"),
+    /** Em centavos. */
+    valorCausa: bigint("valor_causa", { mode: "number" }),
+    responsavelId: text("responsavel_id"),
+    observacoes: text("observacoes"),
+    criadoEm: instante("criado_em").notNull(),
+    atualizadoEm: instante("atualizado_em").notNull(),
+  },
+  (t) => [unique("processos_escritorio_numero_key").on(t.escritorioId, t.numero)],
+);
 
 /**
  * Documentos soltos por chave (conexão do Google Agenda, registro de avisos enviados). Mesma ideia
