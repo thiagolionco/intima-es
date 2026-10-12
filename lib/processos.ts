@@ -166,3 +166,36 @@ export interface ParecerProcesso {
 }
 
 export const LIMITES_PARECER = { caracteres: 50_000, versoes: 500 } as const;
+
+export type NivelRisco = "baixo" | "medio" | "alto" | "indeterminado";
+
+export const NIVEL_RISCO_LABEL: Record<NivelRisco, string> = {
+  baixo: "Risco baixo",
+  medio: "Risco médio",
+  alto: "Risco alto",
+  indeterminado: "Risco indeterminado",
+};
+
+/** Um ponto da análise, sempre com a página do PDF em que se apoia. */
+export interface PontoAnalise {
+  texto: string;
+  documentoId: string;
+  documentoNome: string;
+  pagina: number;
+}
+
+/** Análise de risco feita pela IA a partir dos PDFs do processo. Cada análise fica guardada. */
+export interface AnaliseRisco {
+  id: string;
+  processoId: string;
+  nivel: NivelRisco;
+  justificativa: string;
+  pontosFortes: PontoAnalise[];
+  pontosFracos: PontoAnalise[];
+  /** PDFs que a IA leu nesta análise. */
+  documentos: { id: string; nome: string }[];
+  modelo: string;
+  autorId: string;
+  autorNome: string;
+  criadoEm: string;
+}

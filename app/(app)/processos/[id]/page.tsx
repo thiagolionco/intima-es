@@ -5,6 +5,7 @@ import { ArrowLeft, Inbox, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { AnaliseDoProcesso, CartaoRisco, SeloRisco, useAnalises } from "@/components/analise-processo";
 import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
 import { SeloResponsavel } from "@/components/equipe";
 import { IntimacaoCard } from "@/components/intimacao-card";
@@ -28,7 +29,7 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-type Aba = "resumo" | "parecer" | "documentos" | "intimacoes";
+type Aba = "resumo" | "risco" | "parecer" | "documentos" | "intimacoes";
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +41,7 @@ export default function DetalheProcessoPage() {
   const [confirmar, setConfirmar] = useState(false);
   const docs = useDocumentos(id);
   const pareceres = usePareceres(id);
+  const analises = useAnalises(id);
 
   if (!ready || carregando) return <Spinner />;
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
@@ -48,6 +50,7 @@ export default function DetalheProcessoPage() {
   const parecer = pareceres.pareceres?.[0];
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
+    { id: "risco", rotulo: "Risco (IA)" },
     { id: "parecer", rotulo: "Parecer" },
     { id: "documentos", rotulo: "Documentos", contagem: docs.documentos?.length },
     { id: "intimacoes", rotulo: "Intimações", contagem: ligadas.length },
@@ -65,6 +68,7 @@ export default function DetalheProcessoPage() {
             {p.tribunal && <Badge className="bg-brand-50 text-brand-700">{p.tribunal}</Badge>}
             <Badge>{POLO_CLIENTE_LABEL[p.polo]}</Badge>
             <SeloResponsavel id={p.responsavelId} />
+            {analises.analises?.[0] && <SeloRisco nivel={analises.analises[0].nivel} />}
           </div>
           <h1 className="mt-2 break-all font-mono text-xl font-semibold text-slate-900 sm:text-2xl">{formatProcesso(p.numero)}</h1>
           <p className="mt-1 text-sm text-slate-500">
@@ -143,6 +147,7 @@ export default function DetalheProcessoPage() {
             )}
           </div>
           <div className="space-y-6">
+            <CartaoRisco estado={analises} temDocumentos={!!docs.documentos?.length} onVer={() => setAba("risco")} />
             <Card>
               <CardHeader title="Última intimação" />
               {ligadas[0] ? (
@@ -163,9 +168,16 @@ export default function DetalheProcessoPage() {
         </div>
       )}
 
+      {aba === "risco" && <AnaliseDoProcesso processoId={p.id} estado={analises} documentos={docs.documentos} />}
+
       {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} />}
 
-      {aba === "documentos" && <DocumentosDoProcesso processoId={p.id} {...docs} />}
+      {aba === "documentos" && <DocumentosDoProcesso
+          processoId={p.id}
+          {...docs}
+          // Com a IA ligada, PDFs novos já disparam uma análise (uma só para o lote enviado).
+          aoEnviar={analises.disponivel ? () => void analises.analisar() : undefined}
+        />}
 
       {aba === "intimacoes" &&
         (ligadas.length ? (
@@ -197,7 +209,7 @@ export default function DetalheProcessoPage() {
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados e o parecer, com todas as versões, serão apagados. As intimações continuam na lista de intimações.
+            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados, o parecer e as análises de risco serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {
