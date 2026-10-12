@@ -33,8 +33,10 @@ import {
 } from "./infra/postgres/repositorios.ts";
 import { ProcessoRepositoryPostgres } from "./infra/postgres/processos.ts";
 import { DocumentoRepositoryPostgres } from "./infra/postgres/documentos.ts";
+import { ParecerRepositoryPostgres } from "./infra/postgres/pareceres.ts";
 import { type ArmazenamentoArquivos, ArquivosEmDisco, ArquivosSupabase } from "./infra/arquivos.ts";
 import { type DocumentoRepository, DocumentoRepositoryDocumentos, DocumentosService } from "./processos/documentos.ts";
+import { type ParecerRepository, ParecerRepositoryDocumentos, PareceresService } from "./processos/pareceres.ts";
 import { Totp } from "./infra/totp.ts";
 import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
@@ -135,6 +137,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
       processosRepo: new ProcessoRepositoryPostgres(db) as ProcessoRepository,
       documentosRepo: new DocumentoRepositoryPostgres(db) as DocumentoRepository,
+      pareceresRepo: new ParecerRepositoryPostgres(db) as ParecerRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -150,6 +153,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
     processosRepo: new ProcessoRepositoryDocumentos(arquivos) as ProcessoRepository,
     documentosRepo: new DocumentoRepositoryDocumentos(arquivos) as DocumentoRepository,
+    pareceresRepo: new ParecerRepositoryDocumentos(arquivos) as ParecerRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -165,9 +169,10 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, documentosRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
+  const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
 
   const deps: DependenciasAuth = {
     ...repositorios,
@@ -239,12 +244,20 @@ function montar() {
         await agenda.desconectar(id);
         await db.remover(`avisos/${id}`);
         await documentosArquivos.excluirDaConta(id);
+        await pareceres.excluirDaConta(id);
         await processosRepo.excluirDoUsuario(id);
       },
       (id) => processosRepo.listar(id),
     ),
-    processos: new ProcessosService(processosRepo, clock, documentosArquivos),
+    processos: new ProcessosService(processosRepo, clock, {
+      caminhosDoProcesso: (usuarioId, processoId) => documentosArquivos.caminhosDoProcesso(usuarioId, processoId),
+      async aposExcluirProcesso(usuarioId, processoId, caminhos) {
+        await pareceres.excluirDoProcesso(usuarioId, processoId);
+        await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
+      },
+    }),
     documentosProcesso: documentosArquivos,
+    pareceres,
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,

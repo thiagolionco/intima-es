@@ -4,9 +4,9 @@
  * - Identidade (usuarios, sessoes, tokens, desafios, auditoria): consultadas antes de se saber
  *   o escritório (login, validação de sessão). Ficam com RLS ligado e sem política, então só o
  *   dono das tabelas (a conexão do app) as enxerga; nenhum outro papel do banco lê nada.
- * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos): RLS forçado por
+ * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001, 0003 e 0004.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001, 0003, 0004 e 0005.
  */
 import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
@@ -152,6 +152,23 @@ export const processoDocumentos = pgTable(
     criadoEm: instante("criado_em").notNull(),
   },
   (t) => [unique("processo_documentos_processo_hash_key").on(t.processoId, t.hash), index("processo_documentos_escritorio_idx").on(t.escritorioId)],
+);
+
+/** Versões do parecer do processo: só se acrescenta, nunca se altera. */
+export const processoPareceres = pgTable(
+  "processo_pareceres",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    processoId: uuid("processo_id").notNull().references(() => processos.id, { onDelete: "cascade" }),
+    versao: integer("versao").notNull(),
+    texto: text("texto").notNull(),
+    /** Sem chave estrangeira: o parecer continua no processo se o autor sair do escritório. */
+    autorId: uuid("autor_id").notNull(),
+    autorNome: text("autor_nome").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+  },
+  (t) => [unique("processo_pareceres_processo_versao_key").on(t.processoId, t.versao), index("processo_pareceres_escritorio_idx").on(t.escritorioId)],
 );
 
 /**

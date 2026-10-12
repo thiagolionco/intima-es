@@ -36,6 +36,13 @@
       "when": 1791846189836,
       "tag": "0004_documentos_dos_processos",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791847122536,
+      "tag": "0005_pareceres_dos_processos",
+      "breakpoints": true
     }
   ]
 }
