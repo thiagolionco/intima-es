@@ -33,6 +33,14 @@ export function lerConfiguracao() {
     emissor2fa: env.TOTP_ISSUER || "Clepsa",
     /** Segredo dos links assinados dos e-mails ("Já cumpri"). Sem ele, um é gerado e guardado em DATA_DIR. */
     segredoLinks: env.LINKS_SECRET || undefined,
+    /**
+     * PDFs dos processos no Supabase Storage (bucket privado). Sem SUPABASE_URL e
+     * SUPABASE_SERVICE_ROLE_KEY, ficam em disco, em DATA_DIR/arquivos.
+     */
+    arquivos:
+      env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
+        ? { url: env.SUPABASE_URL, chave: env.SUPABASE_SERVICE_ROLE_KEY, bucket: env.SUPABASE_BUCKET || "processos" }
+        : undefined,
     /** Resumo das intimações pela API da Anthropic. Sem chave, o Clepsa funciona sem resumos. */
     resumos: {
       chave: env.ANTHROPIC_API_KEY || undefined,

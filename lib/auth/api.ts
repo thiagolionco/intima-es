@@ -27,13 +27,15 @@ export function quandoSessaoExpirar(fn: Ouvinte): () => void {
   return () => aoExpirar.delete(fn);
 }
 
+/** `body` vai como JSON; um FormData vai como está (envio de arquivos). */
 export async function api<T = unknown>(url: string, opcoes: { method?: string; body?: unknown; signal?: AbortSignal; silencioso401?: boolean } = {}): Promise<T> {
   let resp: Response;
+  const formulario = typeof FormData !== "undefined" && opcoes.body instanceof FormData;
   try {
     resp = await fetch(url, {
       method: opcoes.method ?? (opcoes.body === undefined ? "GET" : "POST"),
-      headers: opcoes.body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: opcoes.body === undefined ? undefined : JSON.stringify(opcoes.body),
+      headers: opcoes.body === undefined || formulario ? undefined : { "Content-Type": "application/json" },
+      body: opcoes.body === undefined ? undefined : formulario ? (opcoes.body as FormData) : JSON.stringify(opcoes.body),
       credentials: "same-origin",
       cache: "no-store",
       signal: opcoes.signal,

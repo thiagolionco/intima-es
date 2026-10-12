@@ -130,3 +130,24 @@ export function intimacoesDoProcesso(intimacoes: Intimacao[], numero: string): I
     .filter((i) => digitos(i.numeroProcesso) === alvo)
     .sort((a, b) => b.dataDisponibilizacao.localeCompare(a.dataDisponibilizacao));
 }
+
+/** PDF anexado a um processo. Os bytes ficam no armazenamento de arquivos; aqui só os metadados. */
+export interface DocumentoProcesso {
+  id: string;
+  processoId: string;
+  /** Nome do arquivo como foi enviado. */
+  nome: string;
+  /** Em bytes. */
+  tamanho: number;
+  /** sha256 do conteúdo, para não guardar o mesmo PDF duas vezes no processo. */
+  hash: string;
+  criadoEm: string;
+}
+
+export const LIMITES_DOCUMENTO = { bytes: 30 * 1024 * 1024, porProcesso: 200 } as const;
+
+export function formatarTamanho(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+}

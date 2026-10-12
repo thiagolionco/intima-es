@@ -32,6 +32,9 @@ import {
   UsuarioRepositoryPostgres,
 } from "./infra/postgres/repositorios.ts";
 import { ProcessoRepositoryPostgres } from "./infra/postgres/processos.ts";
+import { DocumentoRepositoryPostgres } from "./infra/postgres/documentos.ts";
+import { type ArmazenamentoArquivos, ArquivosEmDisco, ArquivosSupabase } from "./infra/arquivos.ts";
+import { type DocumentoRepository, DocumentoRepositoryDocumentos, DocumentosService } from "./processos/documentos.ts";
 import { Totp } from "./infra/totp.ts";
 import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
@@ -91,6 +94,18 @@ function segredoDosLinks(config: Configuracao): string {
   }
 }
 
+let avisouArquivosEmDisco = false;
+
+/** PDFs no Supabase Storage ou, sem ele, em disco (DATA_DIR/arquivos). */
+function criarArquivos(config: Configuracao): ArmazenamentoArquivos {
+  if (config.arquivos) return new ArquivosSupabase(config.arquivos);
+  if (config.urlBanco && config.producao && !avisouArquivosEmDisco) {
+    avisouArquivosEmDisco = true;
+    console.warn("[documentos] Sem SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY, os PDFs ficam no disco do servidor e se perdem numa nova publicação.");
+  }
+  return new ArquivosEmDisco(path.join(config.diretorioDados, "arquivos"));
+}
+
 function criarEnviador(config: Configuracao, caixa: CaixaDeSaidaLocal): EnviadorDeEmail {
   const { email } = config;
   if (email.provedor === "resend") {
@@ -119,6 +134,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       },
       espacosRepo: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
       processosRepo: new ProcessoRepositoryPostgres(db) as ProcessoRepository,
+      documentosRepo: new DocumentoRepositoryPostgres(db) as DocumentoRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -133,6 +149,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     },
     espacosRepo: new EspacoTrabalhoRepositoryDocumentos(arquivos, clock) as EspacoTrabalhoRepository,
     processosRepo: new ProcessoRepositoryDocumentos(arquivos) as ProcessoRepository,
+    documentosRepo: new DocumentoRepositoryDocumentos(arquivos) as DocumentoRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -148,7 +165,9 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentosRepo, documentos: db } = criarRepositorios(config, arquivos);
+
+  const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
 
   const deps: DependenciasAuth = {
     ...repositorios,
@@ -219,11 +238,13 @@ function montar() {
       async (id) => {
         await agenda.desconectar(id);
         await db.remover(`avisos/${id}`);
+        await documentosArquivos.excluirDaConta(id);
         await processosRepo.excluirDoUsuario(id);
       },
       (id) => processosRepo.listar(id),
     ),
-    processos: new ProcessosService(processosRepo, clock),
+    processos: new ProcessosService(processosRepo, clock, documentosArquivos),
+    documentosProcesso: documentosArquivos,
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,
