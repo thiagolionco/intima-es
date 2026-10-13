@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, Database, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen } from "lucide-react";
+import { CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -10,12 +10,15 @@ import { MenuUsuario } from "@/components/auth/menu-usuario";
 import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
+import { contarUrgentes } from "@/lib/hoje";
 import { useStore } from "@/lib/store";
+import { hojeISO } from "@/lib/utils";
 import { CoberturaContexto, useLerCobertura } from "@/lib/use-cobertura";
 import { SeloVigilia } from "@/components/vigilia";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
+  { href: "/hoje", label: "Hoje", icon: Sun },
   { href: "/intimacoes", label: "Intimações", icon: ListChecks },
   { href: "/processos", label: "Processos", icon: FolderOpen },
   { href: "/comunica", label: "Buscar no Comunica", icon: FileSearch },
@@ -34,6 +37,7 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { intimacoes, ready } = useStore();
   const novas = intimacoes.filter((i) => i.status === "nova").length;
+  const urgentes = contarUrgentes(intimacoes, hojeISO());
 
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
@@ -49,6 +53,11 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icone className="h-4 w-4 shrink-0" aria-hidden />
           <span className="flex-1">{label}</span>
+          {href === "/hoje" && ready && urgentes > 0 && (
+            <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white" title={`${urgentes} prazo(s) vencido(s) ou vencendo hoje`}>
+              {urgentes}
+            </span>
+          )}
           {href === "/intimacoes" && ready && novas > 0 && (
             <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-white">{novas}</span>
           )}

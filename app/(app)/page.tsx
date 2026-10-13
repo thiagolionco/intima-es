@@ -255,7 +255,15 @@ export default function DashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Prazos a acompanhar" subtitle="Vencidos e próximos 7 dias" />
+          <CardHeader
+            title="Prazos a acompanhar"
+            subtitle="Vencidos e próximos 7 dias"
+            action={
+              <Link href="/hoje" className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
+                Ver todos <ArrowRight className="h-3 w-3" aria-hidden />
+              </Link>
+            }
+          />
           {dados.vencidas.length + dados.proximas.length === 0 ? (
             <p className="px-5 py-10 text-center text-sm text-slate-500">
               {coberturaCompleta ? "Nenhum prazo pendente. 🎉" : "Nenhum prazo pendente entre as intimações já encontradas. Há dias sem verificação: veja o aviso acima."}
