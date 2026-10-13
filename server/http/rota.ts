@@ -3,6 +3,7 @@ import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
 import type { ContextoRequisicao, Sessao, Usuario } from "../auth/model";
 import { container, origemDaRequisicao } from "../container";
 import { AppError } from "../core/errors";
+import { ehAdministrador } from "../admin/administracao";
 
 const LIMITE_CORPO_PADRAO = 64 * 1024;
 
@@ -100,6 +101,17 @@ export function rotaAutenticada<P = unknown>(handler: (r: RequisicaoAutenticada,
       }
       return handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO), ...valida }, await segmento?.params);
     });
+}
+
+/**
+ * Rota da administração da plataforma. Primeira barreira; o serviço confere de novo e, no
+ * Postgres, o RLS também só libera a leitura entre escritórios para administradores.
+ */
+export function rotaAdministrador<P = unknown>(handler: (r: RequisicaoAutenticada, params: P) => Promise<Response>, opcoes: Opcoes = {}) {
+  return rotaAutenticada<P>(async (r, params) => {
+    if (!ehAdministrador(r.usuario)) throw new AppError("sem_permissao", "Esta área é só para a administração da Clepsa.");
+    return handler(r, params);
+  }, opcoes);
 }
 
 /** Grava o cookie de sessão. Sem "manter conectado" ele morre ao fechar o navegador. */

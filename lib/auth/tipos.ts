@@ -9,6 +9,7 @@ export interface UsuarioPublico {
   emailConfirmado: boolean;
   doisFatoresAtivo: boolean;
   codigosRecuperacaoRestantes: number;
+  administrador: boolean;
   senhaAlteradaEm: string;
   criadoEm: string;
 }

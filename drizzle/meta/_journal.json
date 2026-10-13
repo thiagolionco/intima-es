@@ -64,6 +64,13 @@
       "when": 1791852121197,
       "tag": "0008_livro_de_cobertura",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791926402764,
+      "tag": "0009_administracao_da_plataforma",
+      "breakpoints": true
     }
   ]
 }

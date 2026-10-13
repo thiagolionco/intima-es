@@ -13,7 +13,7 @@ export interface UsuarioRepository {
   criar(usuario: Usuario): Promise<void>;
   atualizar(id: string, alteracoes: Partial<Usuario>): Promise<Usuario>;
   excluir(id: string): Promise<void>;
-  /** Contas com e-mail confirmado (usadas pelas rotinas automáticas). */
+  /** Contas ativas com e-mail confirmado (usadas pelas rotinas automáticas). */
   listarConfirmados(): Promise<string[]>;
 }
 

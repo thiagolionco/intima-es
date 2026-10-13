@@ -20,6 +20,8 @@ export interface SessaoResumo {
   userAgent: string;
 }
 
+export const contaDesativada = () => new AppError("conta_desativada", "Esta conta foi desativada. Fale com a administração da Clepsa para voltar a ter acesso.");
+
 /** Ciclo de vida das sessões: criação, validação deslizante, listagem e encerramento. */
 export class SessaoService {
   private readonly d: Deps;
@@ -30,6 +32,7 @@ export class SessaoService {
 
   /** Cria a sessão e devolve o token em claro (vai só para o cookie; guardamos o hash). */
   async criar(usuario: Usuario, lembrar: boolean, ctx: ContextoRequisicao): Promise<{ token: string; sessao: Sessao }> {
+    if (usuario.desativadoEm) throw contaDesativada();
     const anteriores = await this.d.sessoes.doUsuario(usuario.id);
     const eventos = await this.d.auditoria.doUsuario(usuario.id, 200);
     const conhecido =
@@ -68,7 +71,7 @@ export class SessaoService {
       return null;
     }
     const usuario = await this.d.usuarios.porId(sessao.usuarioId);
-    if (!usuario || !usuario.emailConfirmadoEm) {
+    if (!usuario || !usuario.emailConfirmadoEm || usuario.desativadoEm) {
       await this.d.sessoes.excluir(sessao.id);
       return null;
     }

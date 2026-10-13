@@ -29,6 +29,8 @@ export const usuarios = pgTable("usuarios", {
   bloqueadoAte: instante("bloqueado_ate"),
   senhaAlteradaEm: instante("senha_alterada_em").notNull(),
   aceitouTermosEm: instante("aceitou_termos_em").notNull(),
+  administrador: boolean("administrador").notNull().default(false),
+  desativadoEm: instante("desativado_em"),
   criadoEm: instante("criado_em").notNull(),
   atualizadoEm: instante("atualizado_em").notNull(),
 });

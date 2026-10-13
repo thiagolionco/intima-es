@@ -20,6 +20,10 @@ export interface Usuario {
   bloqueadoAte?: string;
   senhaAlteradaEm: string;
   aceitouTermosEm: string;
+  /** Administrador da plataforma: vê e gerencia as contas de todos os escritórios. */
+  administrador?: boolean;
+  /** Conta desativada por um administrador: não entra nem recebe as rotinas automáticas. */
+  desativadoEm?: string;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -73,7 +77,11 @@ export type TipoEvento =
   | "2fa.codigos_regenerados"
   | "2fa.codigo_recuperacao_usado"
   | "perfil.atualizado"
-  | "dados.exportados";
+  | "dados.exportados"
+  | "conta.desativada"
+  | "conta.reativada"
+  | "administrador.concedido"
+  | "administrador.removido";
 
 export interface EventoAuditoria {
   id: string;
@@ -101,6 +109,7 @@ export interface UsuarioPublico {
   emailConfirmado: boolean;
   doisFatoresAtivo: boolean;
   codigosRecuperacaoRestantes: number;
+  administrador: boolean;
   senhaAlteradaEm: string;
   criadoEm: string;
 }
@@ -115,6 +124,7 @@ export function paraPublico(u: Usuario): UsuarioPublico {
     emailConfirmado: !!u.emailConfirmadoEm,
     doisFatoresAtivo: u.totpAtivo,
     codigosRecuperacaoRestantes: u.codigosRecuperacao.length,
+    administrador: !!u.administrador,
     senhaAlteradaEm: u.senhaAlteradaEm,
     criadoEm: u.criadoEm,
   };

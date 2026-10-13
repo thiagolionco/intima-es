@@ -44,7 +44,7 @@ export class UsuarioRepositoryDocumentos implements UsuarioRepository {
   }
 
   async listarConfirmados() {
-    return (await this.db.ler<Usuario[]>("usuarios", [])).filter((u) => u.emailConfirmadoEm).map((u) => u.id);
+    return (await this.db.ler<Usuario[]>("usuarios", [])).filter((u) => u.emailConfirmadoEm && !u.desativadoEm).map((u) => u.id);
   }
 }
 

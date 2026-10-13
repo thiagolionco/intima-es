@@ -1,12 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen } from "lucide-react";
+import { CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { MenuUsuario } from "@/components/auth/menu-usuario";
+import { useSessao } from "@/lib/auth/sessao";
 import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
@@ -29,6 +30,9 @@ const NAV = [
   { href: "/dados", label: "Dados e backup", icon: Database },
 ];
 
+/** Só aparece para administradores; a página e a API conferem a permissão de novo no servidor. */
+const NAV_ADMIN = { href: "/administracao", label: "Administração", icon: ShieldCheck };
+
 function ativo(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
@@ -38,10 +42,12 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
   const { intimacoes, ready } = useStore();
   const novas = intimacoes.filter((i) => i.status === "nova").length;
   const urgentes = contarUrgentes(intimacoes, hojeISO());
+  const { usuario } = useSessao();
+  const itens = usuario?.administrador ? [...NAV, NAV_ADMIN] : NAV;
 
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV.map(({ href, label, icon: Icone }) => (
+      {itens.map(({ href, label, icon: Icone }) => (
         <Link
           key={href}
           href={href}

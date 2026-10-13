@@ -8,6 +8,8 @@ export type CodigoErro =
   | "credenciais_invalidas"
   | "email_nao_confirmado"
   | "conta_bloqueada"
+  | "conta_desativada"
+  | "sem_permissao"
   | "muitas_tentativas"
   | "token_invalido"
   | "codigo_invalido"
@@ -25,6 +27,8 @@ const STATUS: Record<CodigoErro, number> = {
   credenciais_invalidas: 401,
   email_nao_confirmado: 403,
   conta_bloqueada: 423,
+  conta_desativada: 403,
+  sem_permissao: 403,
   muitas_tentativas: 429,
   token_invalido: 400,
   codigo_invalido: 401,
