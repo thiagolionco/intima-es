@@ -1,0 +1,39 @@
+name: Rondas
+
+# Na Vercel o servidor não fica ligado entre requisições, então quem dispara as rondas é este
+# agendamento. Precisa do segredo RONDA_TOKEN (o mesmo valor configurado na Vercel) e, se o
+# endereço não for o padrão, da variável APP_URL. Sem o segredo, os passos são pulados.
+on:
+  schedule:
+    # Avisos de prazo e Google Agenda: de hora em hora (cada conta escolhe a hora do e-mail).
+    - cron: "7 * * * *"
+    # Busca no Comunica e andamentos no DataJud: a cada 6 horas (horário UTC).
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: rondas
+  cancel-in-progress: false
+
+jobs:
+  rondas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_URL: ${{ vars.APP_URL || 'https://clepsa.vercel.app' }}
+      RONDA_TOKEN: ${{ secrets.RONDA_TOKEN }}
+    steps:
+      - name: Avisos de prazo
+        if: env.RONDA_TOKEN != ''
+        run: curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" "$APP_URL/api/rondas/avisos"
+      - name: Busca no Comunica
+        if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch') }}
+        run: curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" "$APP_URL/api/rondas/comunica"
+      - name: Andamentos no DataJud
+        if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch') }}
+        run: curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" "$APP_URL/api/rondas/datajud"
+      - name: Sem RONDA_TOKEN
+        if: env.RONDA_TOKEN == ''
+        run: echo "::notice::Configure o segredo RONDA_TOKEN no GitHub para ligar as rondas."

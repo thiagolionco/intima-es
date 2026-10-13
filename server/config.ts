@@ -14,7 +14,8 @@ export function lerConfiguracao() {
     producao,
     /** URL pública usada nos links dos e-mails. Sem ela, usamos a origem da requisição. */
     urlApp: env.APP_URL?.replace(/\/$/, ""),
-    diretorioDados: path.resolve(env.DATA_DIR || path.join(process.cwd(), ".data")),
+    // Na Vercel só /tmp aceita escrita (e é apagado a cada instância): ali o banco é obrigatório.
+    diretorioDados: path.resolve(env.DATA_DIR || (env.VERCEL ? "/tmp/clepsa" : path.join(process.cwd(), ".data"))),
     /** Com DATABASE_URL, os dados ficam no PostgreSQL; sem ela, em arquivos JSON em diretorioDados. */
     urlBanco: env.DATABASE_URL || undefined,
     email: {

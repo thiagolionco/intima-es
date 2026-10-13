@@ -3,7 +3,8 @@ import { container } from "@/server/container";
 import { iguaisSeguro } from "@/server/core/crypto";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 900;
+// 300 s é o teto do plano grátis da Vercel (fora dela o valor não tem efeito).
+export const maxDuration = 300;
 
 /**
  * Andamentos no DataJud de todos os processos, para um agendador externo (cron do provedor, GitHub Actions…).
