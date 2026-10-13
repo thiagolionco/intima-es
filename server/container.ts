@@ -35,6 +35,9 @@ import { ProcessoRepositoryPostgres } from "./infra/postgres/processos.ts";
 import { DocumentoRepositoryPostgres } from "./infra/postgres/documentos.ts";
 import { ParecerRepositoryPostgres } from "./infra/postgres/pareceres.ts";
 import { AnaliseRepositoryPostgres } from "./infra/postgres/analises.ts";
+import { MovimentacaoRepositoryPostgres } from "./infra/postgres/movimentacoes.ts";
+import { type MovimentacaoRepository, MovimentacaoRepositoryDocumentos, MovimentacoesService } from "./processos/movimentacoes.ts";
+import { criarConsultaDataJud } from "./processos/datajud.ts";
 import { type ArmazenamentoArquivos, ArquivosEmDisco, ArquivosSupabase } from "./infra/arquivos.ts";
 import { type DocumentoRepository, DocumentoRepositoryDocumentos, DocumentosService } from "./processos/documentos.ts";
 import { type ParecerRepository, ParecerRepositoryDocumentos, PareceresService } from "./processos/pareceres.ts";
@@ -142,6 +145,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       documentosRepo: new DocumentoRepositoryPostgres(db) as DocumentoRepository,
       pareceresRepo: new ParecerRepositoryPostgres(db) as ParecerRepository,
       analisesRepo: new AnaliseRepositoryPostgres(db) as AnaliseRepository,
+      movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -159,6 +163,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     documentosRepo: new DocumentoRepositoryDocumentos(arquivos) as DocumentoRepository,
     pareceresRepo: new ParecerRepositoryDocumentos(arquivos) as ParecerRepository,
     analisesRepo: new AnaliseRepositoryDocumentos(arquivos) as AnaliseRepository,
+    movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -174,7 +179,7 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
@@ -199,6 +204,15 @@ function montar() {
     analisador: config.resumos.chave ? new AnalisadorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
     clock,
     limitar: (usuarioId) => deps.limitador.consumir(`analise-risco:${usuarioId}`, LIMITES_ANALISE.porDia, DIA),
+  });
+  const movimentacoes = new MovimentacoesService({
+    repo: movimentacoesRepo,
+    processos: processosRepo,
+    consultar: criarConsultaDataJud({ base: config.datajud.url, chave: config.datajud.chave }),
+    clock,
+    limitar: (usuarioId) => deps.limitador.consumir(`datajud:${usuarioId}`, 60, HORA),
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    pausaMs: 1500,
   });
   const segredo = segredoDosLinks(config);
   const assinador = new AssinadorDeLinks(segredo);
@@ -260,6 +274,7 @@ function montar() {
         await documentosArquivos.excluirDaConta(id);
         await pareceres.excluirDaConta(id);
         await analises.excluirDaConta(id);
+        await movimentacoes.excluirDaConta(id);
         await processosRepo.excluirDoUsuario(id);
       },
       (id) => processosRepo.listar(id),
@@ -269,12 +284,14 @@ function montar() {
       async aposExcluirProcesso(usuarioId, processoId, caminhos) {
         await pareceres.excluirDoProcesso(usuarioId, processoId);
         await analises.excluirDoProcesso(usuarioId, processoId);
+        await movimentacoes.excluirDoProcesso(usuarioId, processoId);
         await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
       },
     }),
     documentosProcesso: documentosArquivos,
     pareceres,
     analises,
+    movimentacoes,
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { CHAVE_PUBLICA_DATAJUD } from "./processos/datajud.ts";
 
 export type ProvedorEmail = "console" | "smtp" | "resend";
 
@@ -48,6 +49,13 @@ export function lerConfiguracao() {
     },
     /** Google Agenda (OAuth). Sem as duas chaves, a opção não aparece. */
     google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } : undefined,
+    /** Andamentos dos processos pela API pública do DataJud (CNJ). */
+    datajud: {
+      url: env.DATAJUD_API_URL || "https://api-publica.datajud.cnj.jus.br",
+      chave: env.DATAJUD_API_KEY || CHAVE_PUBLICA_DATAJUD,
+      /** Consulta diária automática. Como a do Comunica: ligada em produção; em dev só com RONDA_DATAJUD=ligada. */
+      rondaLigada: env.RONDA_DATAJUD ? env.RONDA_DATAJUD === "ligada" : producao,
+    },
     comunica: {
       url: env.COMUNICA_API_URL || "https://comunicaapi.pje.jus.br/api/v1/comunicacao",
       /**

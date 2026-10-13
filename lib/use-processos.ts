@@ -2,18 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, ErroApi } from "./auth/api";
-import type { Processo } from "./processos";
+import type { Processo, UltimaMovimentacao } from "./processos";
 
 const mensagem = (e: unknown) => (e instanceof Error ? e.message : "Não foi possível carregar.");
 
 /** Processos do escritório, lidos do servidor. */
 export function useProcessos() {
   const [processos, setProcessos] = useState<Processo[]>();
+  const [ultimas, setUltimas] = useState<Record<string, UltimaMovimentacao>>({});
   const [erro, setErro] = useState<string>();
 
   const recarregar = useCallback(async () => {
     try {
-      setProcessos((await api<{ processos: Processo[] }>("/api/processos")).processos);
+      const r = await api<{ processos: Processo[]; ultimasMovimentacoes?: Record<string, UltimaMovimentacao> }>("/api/processos");
+      setProcessos(r.processos);
+      setUltimas(r.ultimasMovimentacoes ?? {});
       setErro(undefined);
     } catch (e) {
       setErro(mensagem(e));
@@ -24,7 +27,7 @@ export function useProcessos() {
     void recarregar();
   }, [recarregar]);
 
-  return { processos, erro, carregando: !processos && !erro, recarregar };
+  return { processos, ultimas, erro, carregando: !processos && !erro, recarregar };
 }
 
 /** Um processo; `processo` fica indefinido quando não existe (ou não é do escritório). */

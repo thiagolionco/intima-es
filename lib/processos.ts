@@ -199,3 +199,36 @@ export interface AnaliseRisco {
   autorNome: string;
   criadoEm: string;
 }
+
+/** Um andamento do processo, como o tribunal informou ao DataJud (CNJ). */
+export interface Movimentacao {
+  dataHora: string;
+  /** Código da tabela processual unificada do CNJ. */
+  codigo?: number;
+  nome: string;
+  /** Complementos tabelados (ex.: "tipo de conclusão: para despacho"). */
+  complementos?: string[];
+  /** Grau em que aconteceu (G1, G2, JE…), quando o processo tem mais de um. */
+  grau?: string;
+  orgao?: string;
+}
+
+/** Última consulta do processo no DataJud, com os andamentos da mais nova para a mais antiga. */
+export interface MovimentacoesProcesso {
+  processoId: string;
+  /** Quando o Clepsa consultou o DataJud pela última vez. */
+  consultadoEm: string;
+  /** Se o DataJud tem o processo. */
+  encontrado: boolean;
+  /** Última atualização do processo no DataJud (o tribunal envia com atraso de dias). */
+  atualizadoNoTribunal?: string;
+  movimentos: Movimentacao[];
+  /** Falha da última consulta; os andamentos são os da consulta anterior que deu certo. */
+  erro?: string;
+}
+
+/** Resumo para a lista de processos. */
+export type UltimaMovimentacao = Pick<Movimentacao, "dataHora" | "nome">;
+
+/** Andamentos dos últimos dias aparecem como novos. */
+export const DIAS_MOVIMENTACAO_NOVA = 7;

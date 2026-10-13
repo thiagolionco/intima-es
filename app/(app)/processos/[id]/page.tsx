@@ -9,6 +9,7 @@ import { AnaliseDoProcesso, CartaoRisco, SeloRisco, useAnalises } from "@/compon
 import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
 import { SeloResponsavel } from "@/components/equipe";
 import { IntimacaoCard } from "@/components/intimacao-card";
+import { CartaoMovimentacao, MovimentacoesDoProcesso, useMovimentacoes } from "@/components/movimentacoes-processo";
 import { ParecerDoProcesso, usePareceres } from "@/components/parecer-processo";
 import { ConfirmDialog } from "@/components/modal";
 import { ProcessoNaoEncontrado } from "@/components/processos";
@@ -29,7 +30,7 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-type Aba = "resumo" | "risco" | "parecer" | "documentos" | "intimacoes";
+type Aba = "resumo" | "andamentos" | "risco" | "parecer" | "documentos" | "intimacoes";
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,7 @@ export default function DetalheProcessoPage() {
   const docs = useDocumentos(id);
   const pareceres = usePareceres(id);
   const analises = useAnalises(id);
+  const andamentos = useMovimentacoes(id);
 
   if (!ready || carregando) return <Spinner />;
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
@@ -50,6 +52,7 @@ export default function DetalheProcessoPage() {
   const parecer = pareceres.pareceres?.[0];
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
+    { id: "andamentos", rotulo: "Andamentos", contagem: andamentos.dados?.movimentos.length || undefined },
     { id: "risco", rotulo: "Risco (IA)" },
     { id: "parecer", rotulo: "Parecer" },
     { id: "documentos", rotulo: "Documentos", contagem: docs.documentos?.length },
@@ -147,6 +150,7 @@ export default function DetalheProcessoPage() {
             )}
           </div>
           <div className="space-y-6">
+            <CartaoMovimentacao estado={andamentos} onVer={() => setAba("andamentos")} />
             <CartaoRisco estado={analises} temDocumentos={!!docs.documentos?.length} onVer={() => setAba("risco")} />
             <Card>
               <CardHeader title="Última intimação" />
@@ -167,6 +171,8 @@ export default function DetalheProcessoPage() {
           </div>
         </div>
       )}
+
+      {aba === "andamentos" && <MovimentacoesDoProcesso estado={andamentos} />}
 
       {aba === "risco" && <AnaliseDoProcesso processoId={p.id} estado={analises} documentos={docs.documentos} />}
 
@@ -209,7 +215,7 @@ export default function DetalheProcessoPage() {
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados, o parecer e as análises de risco serão apagados. As intimações continuam na lista de intimações.
+            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados, o parecer, as análises de risco e os andamentos guardados serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {

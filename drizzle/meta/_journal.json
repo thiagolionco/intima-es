@@ -50,6 +50,13 @@
       "when": 1791848668142,
       "tag": "0006_analises_de_risco",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791850329501,
+      "tag": "0007_movimentacoes_datajud",
+      "breakpoints": true
     }
   ]
 }
