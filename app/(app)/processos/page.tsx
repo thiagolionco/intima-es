@@ -12,7 +12,7 @@ import { formatDate, formatProcesso, normalizar } from "@/lib/utils";
 
 export default function ProcessosPage() {
   const { ready, intimacoes } = useStore();
-  const { processos, erro, carregando } = useProcessos();
+  const { processos, ultimas, erro, carregando } = useProcessos();
   const [busca, setBusca] = useState("");
 
   const linhas = useMemo(() => {
@@ -67,7 +67,14 @@ export default function ProcessosPage() {
                     </div>
                     <div className="flex shrink-0 items-center gap-4 text-xs text-slate-500">
                       <SeloResponsavel id={p.responsavelId} />
-                      <span>{ligadas.length ? `${ligadas.length} intimação(ões), última em ${formatDate(ligadas[0].dataDisponibilizacao)}` : "Sem intimações"}</span>
+                      <div className="text-right sm:max-w-xs">
+                        {ultimas[p.id] && (
+                          <p className="truncate text-slate-700" title={ultimas[p.id].nome}>
+                            Andamento em {new Date(ultimas[p.id].dataHora).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}: {ultimas[p.id].nome}
+                          </p>
+                        )}
+                        <p>{ligadas.length ? `${ligadas.length} intimação(ões), última em ${formatDate(ligadas[0].dataDisponibilizacao)}` : "Sem intimações"}</p>
+                      </div>
                     </div>
                   </Link>
                 </li>

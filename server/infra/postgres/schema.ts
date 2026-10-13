@@ -5,9 +5,9 @@
  *   o escritório (login, validação de sessão). Ficam com RLS ligado e sem política, então só o
  *   dono das tabelas (a conexão do app) as enxerga; nenhum outro papel do banco lê nada.
  * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres,
- *   processo_analises): RLS forçado por
+ *   processo_analises, processo_movimentacoes): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0006.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0007.
  */
 import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
@@ -188,6 +188,27 @@ export const processoAnalises = pgTable(
     criadoEm: instante("criado_em").notNull(),
   },
   (t) => [index("processo_analises_processo_idx").on(t.processoId), index("processo_analises_escritorio_idx").on(t.escritorioId)],
+);
+
+/** Última consulta do processo no DataJud (CNJ): uma linha por processo, regravada a cada consulta. */
+export const processoMovimentacoes = pgTable(
+  "processo_movimentacoes",
+  {
+    processoId: uuid("processo_id")
+      .primaryKey()
+      .references(() => processos.id, { onDelete: "cascade" }),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    consultadoEm: instante("consultado_em").notNull(),
+    encontrado: boolean("encontrado").notNull(),
+    atualizadoNoTribunal: instante("atualizado_no_tribunal"),
+    /** Andamentos, do mais novo para o mais antigo. */
+    movimentos: jsonb("movimentos").notNull(),
+    erro: text("erro"),
+    /** Último andamento, à parte para a lista de processos não ler a lista inteira. */
+    ultimaEm: instante("ultima_em"),
+    ultimaNome: text("ultima_nome"),
+  },
+  (t) => [index("processo_movimentacoes_escritorio_idx").on(t.escritorioId)],
 );
 
 /**

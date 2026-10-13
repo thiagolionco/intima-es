@@ -9,7 +9,7 @@ import { type BancoDeDados, conectar, migrar } from "../../server/infra/postgres
 export const URL_TESTE = process.env.TEST_DATABASE_URL;
 if (process.env.CI && !URL_TESTE) throw new Error("TEST_DATABASE_URL é obrigatória no CI.");
 
-const TABELAS = ["documentos", "processo_analises", "processo_pareceres", "processo_documentos", "processos", "auditoria", "desafios_dois_fatores", "tokens_verificacao", "sessoes", "espacos_trabalho", "membros", "escritorios", "usuarios"];
+const TABELAS = ["documentos", "processo_movimentacoes", "processo_analises", "processo_pareceres", "processo_documentos", "processos", "auditoria", "desafios_dois_fatores", "tokens_verificacao", "sessoes", "espacos_trabalho", "membros", "escritorios", "usuarios"];
 
 export interface BancoDeTeste {
   db: BancoDeDados;
