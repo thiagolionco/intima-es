@@ -32,7 +32,13 @@ export function useDocumentos(processoId: string) {
 
 const urlDocumento = (processoId: string, id: string) => `/api/processos/${processoId}/documentos/${id}`;
 
-export function DocumentosDoProcesso({ processoId, documentos, erro, recarregar }: { processoId: string } & ReturnType<typeof useDocumentos>) {
+export function DocumentosDoProcesso({
+  processoId,
+  documentos,
+  erro,
+  recarregar,
+  aoEnviar,
+}: { processoId: string; /** Chamado quando ao menos um PDF entrou. */ aoEnviar?: () => void } & ReturnType<typeof useDocumentos>) {
   const { toast } = useToast();
   const entrada = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState<{ atual: number; total: number }>();
@@ -61,7 +67,10 @@ export function DocumentosDoProcesso({ processoId, documentos, erro, recarregar 
     setEnviando(undefined);
     if (entrada.current) entrada.current.value = "";
     await recarregar();
-    if (enviados) toast(enviados === 1 ? "PDF anexado" : `${enviados} PDFs anexados`);
+    if (enviados) {
+      toast(enviados === 1 ? "PDF anexado" : `${enviados} PDFs anexados`);
+      aoEnviar?.();
+    }
     for (const f of falhas) toast(f, { tom: "error" });
   }
 

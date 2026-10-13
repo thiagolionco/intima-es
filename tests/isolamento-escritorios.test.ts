@@ -132,7 +132,7 @@ test("RLS está ligado em todas as tabelas e forçado nas do escritório", opcoe
   );
   assert.ok(rows.length >= 8);
   for (const r of rows) assert.ok(r.relrowsecurity, `RLS desligado em ${r.relname}`);
-  for (const t of ["escritorios", "membros", "espacos_trabalho", "processos", "processo_documentos", "processo_pareceres"]) {
+  for (const t of ["escritorios", "membros", "espacos_trabalho", "processos", "processo_documentos", "processo_pareceres", "processo_analises"]) {
     assert.ok(rows.find((r) => r.relname === t)?.relforcerowsecurity, `RLS não forçado em ${t}`);
   }
 });
