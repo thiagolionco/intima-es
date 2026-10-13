@@ -1,14 +1,16 @@
+import { type DiaCoberto, diaEmBrasilia, diasDaBusca, TIPOS_COM_COBERTURA } from "../../lib/cobertura.ts";
 import type { IntimacaoImportada } from "../../lib/comunica.ts";
 import { mesclarImportadas } from "../../lib/importacao.ts";
 import { somarDias } from "../../lib/prazos/datas.ts";
 import type { Intimacao, TermoMonitorado, TipoTermo } from "../../lib/types.ts";
-import { type BuscarPagina, buscarEmJanelas } from "../comunica/busca.ts";
+import { type BuscarPagina, buscarEmJanelas, janelasDoErro } from "../comunica/busca.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
 import type { EspacoTrabalhoRepository } from "../workspace/espaco-trabalho.ts";
+import type { CoberturaRepository } from "./cobertura.ts";
 
 /** Tipos de termo procurados sozinhos. Nomes de parte e de advogado são lentos demais no Comunica. */
-export const TIPOS_AUTOMATICOS: TipoTermo[] = ["oab", "processo"];
+export const TIPOS_AUTOMATICOS: TipoTermo[] = TIPOS_COM_COBERTURA;
 /** Na primeira ronda de um termo, quantos dias para trás procurar. */
 const DIAS_PRIMEIRA_RONDA = 7;
 /** Nunca procurar mais que isto para trás, mesmo depois de muito tempo sem ronda. */
@@ -35,14 +37,14 @@ export interface DepsRonda {
   novoId: () => string;
   /** Tempo total de busca por termo, em ms. */
   orcamentoPorTermoMs?: number;
+  /** Livro de cobertura: o estado de cada dia procurado. Sem ele, a ronda só guarda `ultimaRonda`. */
+  cobertura?: CoberturaRepository;
   /** Chamado com as intimações novas de cada conta, depois de gravadas (ex.: avisos). */
   aoEncontrar?: (novas: NovaNaRonda[]) => Promise<void>;
 }
 
 /** Data de hoje no fuso de Brasília, que é o das datas de disponibilização do DJEN. */
-export function hojeEmBrasilia(agora: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
-}
+export const hojeEmBrasilia = diaEmBrasilia;
 
 export function periodoDaRonda(t: Pick<TermoMonitorado, "ultimaRonda">, hoje: string): { inicio: string; fim: string } {
   const limite = somarDias(hoje, -DIAS_MAXIMOS);
@@ -101,6 +103,7 @@ export class RondaComunica {
     const agora = this.d.clock.agora();
     const hoje = hojeEmBrasilia(agora);
     const achados = new Map<string, { itens: IntimacaoImportada[]; ate?: string; erro?: string }>();
+    const cobertura: DiaCoberto[] = [];
     for (const t of termos) {
       const periodo = periodoDaRonda(t, hoje);
       try {
@@ -111,8 +114,10 @@ export class RondaComunica {
         });
         // Resultado incompleto: guarda o que veio, mas não avança a data, para a próxima ronda completar.
         achados.set(t.id, { itens: r.itens, ate: r.truncado ? t.ultimaRonda?.ate : hoje, erro: r.truncado ? r.aviso : undefined });
+        cobertura.push(...diasDaBusca(t.id, periodo, r.janelas, r.itens.map((i) => i.dataDisponibilizacao), agora.toISOString()));
       } catch (e) {
         achados.set(t.id, { itens: [], ate: t.ultimaRonda?.ate, erro: mensagem(e) });
+        cobertura.push(...diasDaBusca(t.id, periodo, janelasDoErro(e), [], agora.toISOString(), mensagem(e)));
       }
     }
 
@@ -136,6 +141,10 @@ export class RondaComunica {
       } catch (e) {
         if (e instanceof AppError && e.codigo === "conflito" && tentativa < 4) continue;
         throw e;
+      }
+      // Depois das intimações: um dia só é dado como verificado quando o que se achou nele já está gravado.
+      if (this.d.cobertura) {
+        await this.d.cobertura.registrar(usuarioId, cobertura).catch((e) => console.error("[ronda] falha ao gravar a cobertura:", mensagem(e)));
       }
       if (novasDaConta.length && this.d.aoEncontrar) {
         await this.d.aoEncontrar(novasDaConta.map((intimacao) => ({ usuarioId, intimacao }))).catch((e) => console.error("[ronda] falha ao avisar:", mensagem(e)));

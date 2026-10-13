@@ -5,11 +5,11 @@
  *   o escritório (login, validação de sessão). Ficam com RLS ligado e sem política, então só o
  *   dono das tabelas (a conexão do app) as enxerga; nenhum outro papel do banco lê nada.
  * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres,
- *   processo_analises, processo_movimentacoes): RLS forçado por
+ *   processo_analises, processo_movimentacoes, registro_cobertura): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0007.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008.
  */
-import { bigint, bigserial, boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
 
@@ -209,6 +209,28 @@ export const processoMovimentacoes = pgTable(
     ultimaNome: text("ultima_nome"),
   },
   (t) => [index("processo_movimentacoes_escritorio_idx").on(t.escritorioId)],
+);
+
+/**
+ * Livro de cobertura: o que a busca automática verificou no Comunica, por termo monitorado e dia
+ * de disponibilização. O termo vive no JSON de `espacos_trabalho`, por isso `termo_id` é texto.
+ */
+export const registroCobertura = pgTable(
+  "registro_cobertura",
+  {
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    termoId: text("termo_id").notNull(),
+    dia: date("dia", { mode: "string" }).notNull(),
+    /** NAO_VERIFICADO, VERIFICADO_COM_RESULTADOS, VERIFICADO_SEM_RESULTADOS, PARCIAL ou FALHOU. */
+    estado: text("estado").notNull(),
+    lidos: integer("lidos").notNull(),
+    esperados: integer("esperados"),
+    latenciaMs: integer("latencia_ms"),
+    erro: text("erro"),
+    tentativas: integer("tentativas").notNull(),
+    verificadoEm: instante("verificado_em").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.escritorioId, t.termoId, t.dia] }), index("registro_cobertura_dia_idx").on(t.escritorioId, t.dia)],
 );
 
 /**

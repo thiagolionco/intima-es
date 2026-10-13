@@ -7,6 +7,9 @@ import { useMemo, useState } from "react";
 import { BarList, ColumnChart, DonutChart, PALETA, type Ponto } from "@/components/charts";
 import { IntimacaoCard, PrazoTag } from "@/components/intimacao-card";
 import { Button, Card, CardHeader, EmptyState, PageHeader, Skeleton } from "@/components/ui";
+import { FaixaCobertura } from "@/components/vigilia";
+import { seloDeVigilia } from "@/lib/cobertura";
+import { useCobertura } from "@/lib/use-cobertura";
 import { useToast } from "@/components/toast";
 import { gerarDadosDemo } from "@/lib/demo";
 import { useStore } from "@/lib/store";
@@ -52,6 +55,10 @@ function StatCard({ titulo, valor, detalhe, icone: Icone, tom, href }: { titulo:
 
 export default function DashboardPage() {
   const { ready, intimacoes, termos, substituirTudo, atualizarIntimacao } = useStore();
+  const { cobertura } = useCobertura();
+  // "Nada pendente" só sem ressalvas quando a vigília verificou todos os dias.
+  const tomDaVigilia = cobertura ? seloDeVigilia(cobertura, new Date()).tom : "neutro";
+  const coberturaCompleta = tomDaVigilia === "ok" || tomDaVigilia === "neutro";
   const { toast } = useToast();
   const [periodo, setPeriodo] = useState<6 | 12>(6);
   const hoje = hojeISO();
@@ -108,6 +115,7 @@ export default function DashboardPage() {
     return (
       <>
         <PageHeader title="Painel" description="Resumo das intimações da sua carteira de clientes." />
+        <FaixaCobertura cobertura={cobertura} />
         <Card>
           <EmptyState
             icon={<Inbox className="h-6 w-6" />}
@@ -159,6 +167,8 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      <FaixaCobertura cobertura={cobertura} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard titulo="Total no acervo" valor={intimacoes.length} detalhe={`${dados.ultimos30} nos últimos 30 dias`} icone={ListChecks} tom="bg-slate-100 text-slate-600" href="/intimacoes" />
@@ -247,7 +257,9 @@ export default function DashboardPage() {
         <Card>
           <CardHeader title="Prazos a acompanhar" subtitle="Vencidos e próximos 7 dias" />
           {dados.vencidas.length + dados.proximas.length === 0 ? (
-            <p className="px-5 py-10 text-center text-sm text-slate-500">Nenhum prazo pendente. 🎉</p>
+            <p className="px-5 py-10 text-center text-sm text-slate-500">
+              {coberturaCompleta ? "Nenhum prazo pendente. 🎉" : "Nenhum prazo pendente entre as intimações já encontradas. Há dias sem verificação: veja o aviso acima."}
+            </p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {[...dados.vencidas, ...dados.proximas].slice(0, 8).map((i) => (

@@ -21,12 +21,29 @@ export interface OpcoesBusca {
   esperar?: (ms: number) => Promise<void>;
 }
 
+/** Como terminou a leitura de uma janela do período (base do livro de cobertura). */
+export interface JanelaLida {
+  inicio: string;
+  fim: string;
+  /** completa: todas as páginas lidas; parcial: parou no meio; falhou: nada confiável. */
+  estado: "completa" | "parcial" | "falhou";
+  /** Itens lidos nesta janela. */
+  lidos: number;
+  /** `count` informado pelo Comunica na primeira página. */
+  esperados?: number;
+  /** Tempo gasto na janela, em ms. */
+  ms: number;
+  erro?: string;
+}
+
 export interface ResultadoBusca {
   total: number;
   itens: IntimacaoImportada[];
   truncado: boolean;
   /** Explica por que o resultado veio incompleto, quando for o caso. */
   aviso?: string;
+  /** Janelas efetivamente consultadas. Dias fora delas não foram verificados. */
+  janelas: JanelaLida[];
 }
 
 /** Erro que interrompe a busca inteira (ex.: limite de requisições), sem resultado parcial útil. */
@@ -39,6 +56,12 @@ export class ErroComunica extends Error {
     this.status = status;
     this.temporario = temporario;
   }
+}
+
+/** Janelas já lidas quando a busca inteira falhou (a falha leva junto o que se verificou antes dela). */
+export function janelasDoErro(e: unknown): JanelaLida[] {
+  const j = (e as { janelas?: unknown } | null)?.janelas;
+  return Array.isArray(j) ? (j as JanelaLida[]) : [];
 }
 
 const ehTimeout = (e: unknown) => e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
@@ -76,6 +99,7 @@ export async function buscarEmJanelas(consulta: ConsultaComunica, buscarPagina: 
   let total = 0;
   let aviso: string | undefined;
   let ultimoErro: unknown;
+  const janelas: JanelaLida[] = [];
 
   while (fila.length) {
     if (itens.length >= op.maxItens) {
@@ -87,15 +111,30 @@ export async function buscarEmJanelas(consulta: ConsultaComunica, buscarPagina: 
       break;
     }
     const janela = fila.shift()!;
+    const comeco = agora();
+    const antes = itens.length;
+    let lidosJanela = 0;
+    let esperados: number | undefined;
+    let completa = false;
     try {
       for (let pagina = 1; ; pagina++) {
         const r = await comRepeticao({ ...consulta, dataInicio: janela.inicio, dataFim: janela.fim, pagina });
-        if (pagina === 1) total += r.total;
+        if (pagina === 1) {
+          total += r.total;
+          esperados = r.total;
+        }
+        lidosJanela += r.itens.length;
         itens.push(...r.itens.slice(0, op.maxItens - itens.length));
         const lidos = (pagina - 1) * COMUNICA_ITENS_POR_PAGINA + r.itens.length;
-        if (r.itens.length < COMUNICA_ITENS_POR_PAGINA || lidos >= r.total || itens.length >= op.maxItens) break;
+        if (r.itens.length < COMUNICA_ITENS_POR_PAGINA || lidos >= r.total) {
+          // Completa só se todos os itens da janela couberam no resultado.
+          completa = itens.length - antes === lidosJanela;
+          break;
+        }
+        if (itens.length >= op.maxItens) break;
         if (agora() >= prazo) break;
       }
+      janelas.push({ ...janela, estado: completa ? "completa" : "parcial", lidos: lidosJanela, esperados, ms: agora() - comeco });
     } catch (e) {
       if (ehPesada(e)) ultimoErro = e;
       if (ehPesada(e) && janela.inicio !== janela.fim) {
@@ -103,7 +142,8 @@ export async function buscarEmJanelas(consulta: ConsultaComunica, buscarPagina: 
         fila.unshift(...dividirPeriodo(janela.inicio, janela.fim, 1));
         continue;
       }
-      if (e instanceof ErroComunica && !itens.length) throw e;
+      janelas.push({ ...janela, estado: lidosJanela ? "parcial" : "falhou", lidos: lidosJanela, esperados, ms: agora() - comeco, erro: e instanceof Error ? e.message : String(e) });
+      if (e instanceof ErroComunica && !itens.length) throw Object.assign(e, { janelas });
       ultimoErro = e;
       aviso = ehPesada(e)
         ? "O Comunica PJe ficou sobrecarregado em parte do período; mostrando o que foi encontrado. Tente de novo mais tarde para completar."
@@ -113,7 +153,7 @@ export async function buscarEmJanelas(consulta: ConsultaComunica, buscarPagina: 
   }
 
   // Nada encontrado e período incompleto por falha: é erro, não "zero resultados".
-  if (!itens.length && aviso && ultimoErro) throw ultimoErro;
+  if (!itens.length && aviso && ultimoErro) throw ultimoErro instanceof Error ? Object.assign(ultimoErro, { janelas }) : ultimoErro;
   const truncado = !!aviso || itens.length < total;
-  return { total: Math.max(total, itens.length), itens, truncado, aviso };
+  return { total: Math.max(total, itens.length), itens, truncado, aviso, janelas };
 }

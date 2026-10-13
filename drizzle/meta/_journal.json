@@ -57,6 +57,13 @@
       "when": 1791850329501,
       "tag": "0007_movimentacoes_datajud",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791852121197,
+      "tag": "0008_livro_de_cobertura",
+      "breakpoints": true
     }
   ]
 }

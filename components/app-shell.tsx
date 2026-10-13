@@ -11,6 +11,8 @@ import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
 import { useStore } from "@/lib/store";
+import { CoberturaContexto, useLerCobertura } from "@/lib/use-cobertura";
+import { SeloVigilia } from "@/components/vigilia";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -104,65 +106,71 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const pathname = usePathname();
   const { erroPersistencia } = useStore();
+  const estadoCobertura = useLerCobertura();
+  const { cobertura } = estadoCobertura;
 
   useEffect(() => setMenuAberto(false), [pathname]);
 
   return (
-    <div className="min-h-screen">
-      {/* Barra lateral (desktop) */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
-        <Marca />
-        <Navegacao />
-        <div className="space-y-2 px-3">
-          <div className="px-3">
-            <IndicadorSincronizacao escuro />
-          </div>
-          <div className="border-t border-white/10 pt-2">
-            <MenuUsuario />
-          </div>
-        </div>
-      </aside>
-
-      {/* Barra superior (mobile) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
-        <Marca />
-        <div className="flex items-center gap-1">
-          <MenuUsuario compacto />
-          <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
-            <Menu className="h-5 w-5" />
-          </button>
-        </div>
-      </header>
-
-      {menuAberto && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuAberto(false)} aria-hidden />
-          <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col gap-6 bg-slate-900 py-5">
-            <div className="flex items-center justify-between pr-4">
-              <Marca />
-              <button onClick={() => setMenuAberto(false)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Fechar menu">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <Navegacao onNavigate={() => setMenuAberto(false)} />
-            <div className="px-6">
+    <CoberturaContexto.Provider value={estadoCobertura}>
+      <div className="min-h-screen">
+        {/* Barra lateral (desktop) */}
+        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
+          <Marca />
+          <Navegacao />
+          <div className="space-y-2 px-3">
+            <div className="space-y-1.5 px-3">
+              <SeloVigilia cobertura={cobertura} escuro />
               <IndicadorSincronizacao escuro />
             </div>
-          </div>
-        </div>
-      )}
-
-      <main className="lg:pl-64">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {erroPersistencia && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-              {erroPersistencia}
+            <div className="border-t border-white/10 pt-2">
+              <MenuUsuario />
             </div>
-          )}
-          <AvisoDadosLegados />
-          {children}
-        </div>
-      </main>
-    </div>
+          </div>
+        </aside>
+
+        {/* Barra superior (mobile) */}
+        <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
+          <Marca />
+          <div className="flex items-center gap-1">
+            <MenuUsuario compacto />
+            <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
+              <Menu className="h-5 w-5" />
+            </button>
+          </div>
+        </header>
+
+        {menuAberto && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuAberto(false)} aria-hidden />
+            <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col gap-6 bg-slate-900 py-5">
+              <div className="flex items-center justify-between pr-4">
+                <Marca />
+                <button onClick={() => setMenuAberto(false)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Fechar menu">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <Navegacao onNavigate={() => setMenuAberto(false)} />
+              <div className="space-y-1.5 px-6">
+                <SeloVigilia cobertura={cobertura} escuro />
+                <IndicadorSincronizacao escuro />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <main className="lg:pl-64">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+            {erroPersistencia && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                {erroPersistencia}
+              </div>
+            )}
+            <AvisoDadosLegados />
+            {children}
+          </div>
+        </main>
+      </div>
+    </CoberturaContexto.Provider>
   );
 }
