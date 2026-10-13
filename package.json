@@ -14,7 +14,8 @@
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "db:gerar": "drizzle-kit generate",
     "db:migrar": "node --experimental-strip-types scripts/migrar-banco.mts",
-    "db:importar": "node --experimental-strip-types scripts/importar-dados.mts"
+    "db:importar": "node --experimental-strip-types scripts/importar-dados.mts",
+    "admin:promover": "node --experimental-strip-types scripts/tornar-administrador.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

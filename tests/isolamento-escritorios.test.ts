@@ -137,6 +137,43 @@ test("RLS está ligado em todas as tabelas e forçado nas do escritório", opcoe
   }
 });
 
+test("administrador da plataforma só lê escritórios e membros de todos, e nada além disso", opcoes, async () => {
+  const leitura = (tx: Parameters<Parameters<typeof comEscritorio>[2]>[0]) =>
+    Promise.all([tx.select().from(escritorios), tx.select().from(membros), tx.select().from(espacosTrabalho)]);
+  // Conta comum: só o próprio escritório, mesmo pedindo a função de checagem.
+  await comEscritorio(banco.db, ana.id, async (tx) => {
+    const [lista] = await leitura(tx);
+    assert.deepEqual(lista.map((e) => e.id), [escritorioAna]);
+    const { rows } = await tx.execute<{ admin: boolean }>(sql`select app_usuario_e_administrador() as admin`);
+    assert.equal(rows[0].admin, false);
+  });
+
+  await banco.db.update(usuarios).set({ administrador: true }).where(eq(usuarios.id, ana.id));
+  try {
+    await comEscritorio(banco.db, ana.id, async (tx) => {
+      const [lista, filiacoes, espacos] = await leitura(tx);
+      assert.deepEqual(lista.map((e) => e.id).sort(), [escritorioAna, escritorioBeto].sort());
+      assert.deepEqual(filiacoes.map((m) => m.usuarioId).sort(), [ana.id, beto.id].sort());
+      assert.deepEqual(espacos.map((e) => e.escritorioId), [escritorioAna], "as intimações dos outros continuam fechadas");
+      const alterados = await tx.update(escritorios).set({ nome: "invadido" }).where(eq(escritorios.id, escritorioBeto)).returning();
+      assert.equal(alterados.length, 0, "a leitura liberada não vira escrita");
+    });
+    // O papel do app não consegue se promover: não tem acesso à tabela de usuários.
+    await assert.rejects(
+      comEscritorio(banco.db, beto.id, (tx) => tx.update(usuarios).set({ administrador: true }).where(eq(usuarios.id, beto.id))),
+      (e) => codigoPg(e) === "42501",
+    );
+    // Administrador desativado volta a ver só o próprio escritório.
+    await banco.db.update(usuarios).set({ desativadoEm: relogio.agora() }).where(eq(usuarios.id, ana.id));
+    await comEscritorio(banco.db, ana.id, async (tx) => {
+      const [lista] = await leitura(tx);
+      assert.deepEqual(lista.map((e) => e.id), [escritorioAna]);
+    });
+  } finally {
+    await banco.db.update(usuarios).set({ administrador: false, desativadoEm: null }).where(eq(usuarios.id, ana.id));
+  }
+});
+
 test("excluir a conta apaga o escritório que ficou sem ninguém", opcoes, async () => {
   const carla = usuario("Carla Dias", "carla@gama.adv.br");
   const repo = new UsuarioRepositoryPostgres(banco.db);

@@ -162,6 +162,25 @@ Em **Relatório por cliente** (ou pelo atalho "Relatório" em cada cliente monit
 | **Espaço próprio** | Intimações e clientes de cada conta ficam isolados no servidor; o usuário vem sempre do cookie de sessão, nunca do navegador. Gravação automática com controle de concorrência entre abas. |
 | **Central de exportação** | Modal com escopo (resultado filtrado, selecionadas, acervo), formato (Excel .xlsx, CSV, PDF/impressão, JSON), escolha e ordem das colunas, presets, formato de data, separador, nome do arquivo, pré-visualização ao vivo e "copiar como tabela". |
 
+### Administração da plataforma
+
+Contas marcadas como **administrador** veem o item **Administração** no menu (`/administracao`): a lista de todas as contas da Clepsa, de todos os escritórios, com o escritório e o papel de cada uma, a situação (ativa, desativada, e-mail não confirmado, bloqueada por senhas erradas) e se usa verificação em duas etapas. Dali o administrador:
+
+- **desativa** uma conta: ela sai na hora de todos os dispositivos, não consegue mais entrar e as rotinas automáticas dela (busca no Comunica, avisos, Agenda, DataJud) param. Nenhum dado é apagado;
+- **reativa** a conta;
+- **torna administrador** outra conta, ou retira esse papel.
+
+Ninguém altera a própria conta por ali (assim não dá para se trancar fora). Cada alteração fica no registro de atividade da conta alterada, com o nome de quem fez.
+
+Contas comuns não têm esse acesso, e a permissão não depende de esconder o menu: a API (`/api/admin/…`) recusa quem não é administrador, o serviço relê o cadastro a cada pedido e, no Postgres, o próprio banco só libera a leitura de escritórios e membros de outros escritórios para um administrador ativo (políticas de RLS da migração 0009). Mesmo o administrador não lê as intimações nem os processos dos outros escritórios.
+
+O primeiro administrador é criado pela linha de comando (com `DATABASE_URL` definida, ou sobre `.data/` sem ela):
+
+```bash
+npm run admin:promover -- pessoa@escritorio.com.br            # concede
+npm run admin:promover -- pessoa@escritorio.com.br --retirar  # retira
+```
+
 ### Segurança
 
 - Senhas com **scrypt** (sal aleatório, parâmetros versionados); política de senha única no navegador e no servidor.

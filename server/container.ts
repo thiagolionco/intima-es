@@ -37,6 +37,8 @@ import { ParecerRepositoryPostgres } from "./infra/postgres/pareceres.ts";
 import { AnaliseRepositoryPostgres } from "./infra/postgres/analises.ts";
 import { MovimentacaoRepositoryPostgres } from "./infra/postgres/movimentacoes.ts";
 import { CoberturaRepositoryPostgres } from "./infra/postgres/cobertura.ts";
+import { DiretorioDeContasPostgres } from "./infra/postgres/diretorio.ts";
+import { AdministracaoService, type DiretorioDeContas, DiretorioDeContasDocumentos } from "./admin/administracao.ts";
 import { type CoberturaRepository, CoberturaRepositoryDocumentos, CoberturaService } from "./rondas/cobertura.ts";
 import { type MovimentacaoRepository, MovimentacaoRepositoryDocumentos, MovimentacoesService } from "./processos/movimentacoes.ts";
 import { criarConsultaDataJud } from "./processos/datajud.ts";
@@ -149,6 +151,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       analisesRepo: new AnaliseRepositoryPostgres(db) as AnaliseRepository,
       movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
       coberturaRepo: new CoberturaRepositoryPostgres(db, clock) as CoberturaRepository,
+      diretorio: new DiretorioDeContasPostgres(db) as DiretorioDeContas,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -168,6 +171,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     analisesRepo: new AnaliseRepositoryDocumentos(arquivos) as AnaliseRepository,
     movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
     coberturaRepo: new CoberturaRepositoryDocumentos(arquivos, clock) as CoberturaRepository,
+    diretorio: new DiretorioDeContasDocumentos(arquivos) as DiretorioDeContas,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -183,7 +187,7 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
@@ -311,6 +315,7 @@ function montar() {
     avisos,
     resumos,
     agenda,
+    administracao: new AdministracaoService({ usuarios: deps.usuarios, sessoes: deps.sessoes, auditoria: deps.auditoria, diretorio, clock }),
     limitador: deps.limitador,
   };
 }

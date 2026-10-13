@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, Download, Fingerprint, KeyRound, LogIn, LogOut, MailCheck, MonitorX, ShieldOff, UserPlus, UserRound, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Download, Fingerprint, KeyRound, LogIn, LogOut, MailCheck, MonitorX, ShieldCheck, ShieldOff, UserCheck, UserPlus, UserRound, UserX, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Card, CardHeader, Skeleton } from "@/components/ui";
 import { api } from "@/lib/auth/api";
@@ -30,6 +30,10 @@ const EVENTOS: Record<string, { rotulo: string; icone: LucideIcon; tom: string; 
   "2fa.codigo_recuperacao_usado": { rotulo: "Código de recuperação usado", icone: Fingerprint, tom: "bg-amber-50 text-amber-600", grupo: "seguranca" },
   "perfil.atualizado": { rotulo: "Perfil atualizado", icone: UserRound, tom: "bg-slate-100 text-slate-600", grupo: "conta" },
   "dados.exportados": { rotulo: "Dados pessoais exportados", icone: Download, tom: "bg-slate-100 text-slate-600", grupo: "conta" },
+  "conta.desativada": { rotulo: "Conta desativada pela administração", icone: UserX, tom: "bg-red-50 text-red-600", grupo: "conta" },
+  "conta.reativada": { rotulo: "Conta reativada pela administração", icone: UserCheck, tom: "bg-emerald-50 text-emerald-600", grupo: "conta" },
+  "administrador.concedido": { rotulo: "Recebeu acesso de administrador", icone: ShieldCheck, tom: "bg-brand-50 text-brand-600", grupo: "seguranca" },
+  "administrador.removido": { rotulo: "Acesso de administrador retirado", icone: ShieldOff, tom: "bg-slate-100 text-slate-600", grupo: "seguranca" },
 };
 
 const FILTROS: { id: Grupo | "todos"; rotulo: string }[] = [

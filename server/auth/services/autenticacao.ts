@@ -3,7 +3,7 @@ import { sha256, tokenAleatorio } from "../../core/crypto.ts";
 import { AppError } from "../../core/errors.ts";
 import { type ContextoRequisicao, normalizarEmail, type Sessao, type Usuario } from "../model.ts";
 import type { DependenciasAuth } from "./dependencias.ts";
-import type { SessaoService } from "./sessoes.ts";
+import { contaDesativada, type SessaoService } from "./sessoes.ts";
 
 type Deps = Pick<DependenciasAuth, "usuarios" | "desafios" | "auditoria" | "hash" | "limitador" | "segundoFator" | "notificacoes" | "clock" | "links">;
 
@@ -63,6 +63,8 @@ export class AutenticacaoService {
 
     // Só revelamos que o e-mail não foi confirmado depois de a senha estar correta.
     if (!usuario.emailConfirmadoEm) throw new AppError("email_nao_confirmado", "Confirme seu e-mail antes de entrar. Enviamos um link quando você criou a conta.", { email });
+    // Também só depois da senha correta, para não revelar a situação da conta a quem não a conhece.
+    if (usuario.desativadoEm) throw contaDesativada();
 
     if (usuario.totpAtivo && usuario.totpSegredo) {
       const desafio = tokenAleatorio();

@@ -27,6 +27,8 @@ import {
 } from "../server/infra/postgres/repositorios.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "../server/workspace/espaco-trabalho.ts";
 import { type BancoDeTeste, criarBancoDeTeste, URL_TESTE } from "./apoio/postgres.ts";
+import { AdministracaoService, type DiretorioDeContas, DiretorioDeContasDocumentos } from "../server/admin/administracao.ts";
+import { DiretorioDeContasPostgres } from "../server/infra/postgres/diretorio.ts";
 
 const SENHA = "Tribunal#Seguro2026";
 const CTX = { ip: "10.0.0.1", userAgent: "Mozilla/5.0 (Windows NT 10.0) Chrome/130.0" };
@@ -46,6 +48,7 @@ function repositorios(backend: Backend, clock: { agora: () => Date }) {
       desafios: new DesafioRepositoryPostgres(db, clock),
       auditoria: new AuditoriaPostgres(db, clock),
       espacos: new EspacoTrabalhoRepositoryPostgres(db, clock) as EspacoTrabalhoRepository,
+      diretorio: new DiretorioDeContasPostgres(db) as DiretorioDeContas,
     };
   }
   const db = new ArmazenamentoEmMemoria();
@@ -56,6 +59,7 @@ function repositorios(backend: Backend, clock: { agora: () => Date }) {
     desafios: new DesafioRepositoryDocumentos(db, clock),
     auditoria: new AuditoriaDocumentos(db, clock),
     espacos: new EspacoTrabalhoRepositoryDocumentos(db, clock) as EspacoTrabalhoRepository,
+    diretorio: new DiretorioDeContasDocumentos(db) as DiretorioDeContas,
   };
 }
 
@@ -65,7 +69,7 @@ async function montar(backend: Backend) {
   let agora = new Date("2026-10-07T12:00:00Z").getTime();
   const clock = { agora: () => new Date(agora) };
   const avancar = (ms: number) => (agora += ms);
-  const { espacos: espacosRepo, ...repos } = repositorios(backend, clock);
+  const { espacos: espacosRepo, diretorio, ...repos } = repositorios(backend, clock);
   const enviados: { tipo: string; para: string; link?: string }[] = [];
   const notificacoes: NotificacoesDeConta = {
     confirmarEmail: async (u, link) => void enviados.push({ tipo: "confirmar", para: u.email, link }),
@@ -107,6 +111,8 @@ async function montar(backend: Backend) {
     doisFatores: new DoisFatoresService(deps),
     conta: new ContaService(deps, espacosRepo),
     espacos: new EspacoTrabalhoService(espacosRepo),
+    diretorio,
+    admin: new AdministracaoService({ usuarios: repos.usuarios, sessoes: repos.sessoes, auditoria: repos.auditoria, diretorio, clock }),
   };
 }
 
@@ -361,6 +367,75 @@ for (const backend of BACKENDS) {
       assert.equal(await s.deps.usuarios.porId(u.id), null);
       assert.equal((await s.espacos.carregar(u.id)).intimacoes.length, 0);
       assert.equal((await s.deps.auditoria.doUsuario(u.id)).length, 0);
+    });
+
+    test("conta comum não entra na administração da plataforma", async () => {
+      const s = await montar(backend);
+      const ana = await contaConfirmada(s);
+      const beto = await contaConfirmada(s, "beto@outro.adv.br", "Beto Lima");
+      await rejeita(s.admin.listar(ana.id), "sem_permissao");
+      await rejeita(s.admin.desativar(ana.id, beto.id, CTX), "sem_permissao");
+      await rejeita(s.admin.definirAdministrador(ana.id, ana.id, true, CTX), "sem_permissao");
+      // O diretório recusa por conta própria, mesmo chamado sem passar pelo serviço.
+      await rejeita(s.diretorio.listar(ana.id), "sem_permissao");
+      assert.equal((await s.deps.usuarios.porId(ana.id))!.administrador, undefined);
+    });
+
+    test("administrador lista todas as contas, desativa e reativa", async () => {
+      const s = await montar(backend);
+      const ana = await contaConfirmada(s);
+      const beto = await contaConfirmada(s, "beto@outro.adv.br", "Beto Lima");
+      await s.deps.usuarios.atualizar(ana.id, { administrador: true });
+
+      const contas = await s.admin.listar(ana.id);
+      assert.deepEqual(contas.map((c) => c.email), ["ana@escritorio.com.br", "beto@outro.adv.br"]);
+      const linhaBeto = contas.find((c) => c.id === beto.id)!;
+      assert.equal(linhaBeto.escritorios.length, 1);
+      assert.equal(linhaBeto.escritorios[0].papel, "dono");
+      assert.equal(linhaBeto.escritorios[0].nome, "Beto Lima");
+      assert.equal(linhaBeto.ativa, true);
+      assert.ok(contas.find((c) => c.id === ana.id)!.voceMesmo);
+      assert.ok(!JSON.stringify(contas).includes("scrypt$"), "sem hash de senha");
+
+      const login = await s.auth.entrar({ email: beto.email, senha: SENHA }, CTX);
+      assert.equal(login.tipo, "sessao");
+      const token = login.tipo === "sessao" ? login.token : "";
+      assert.ok(await s.sessoes.validar(token));
+
+      await s.admin.desativar(ana.id, beto.id, CTX);
+      assert.equal(await s.sessoes.validar(token), null, "a sessão aberta cai na hora");
+      await rejeita(s.auth.entrar({ email: beto.email, senha: SENHA }, CTX), "conta_desativada");
+      await rejeita(s.auth.entrar({ email: beto.email, senha: SENHA + "x" }, CTX), "credenciais_invalidas");
+      assert.deepEqual(await s.deps.usuarios.listarConfirmados(), [ana.id], "rotinas automáticas param");
+      assert.equal((await s.admin.listar(ana.id)).find((c) => c.id === beto.id)!.ativa, false);
+      assert.ok((await s.deps.auditoria.doUsuario(beto.id)).some((e) => e.tipo === "conta.desativada" && e.detalhe?.includes(ana.email)));
+
+      await s.admin.reativar(ana.id, beto.id, CTX);
+      assert.equal((await s.auth.entrar({ email: beto.email, senha: SENHA }, CTX)).tipo, "sessao");
+      assert.equal((await s.deps.usuarios.listarConfirmados()).length, 2);
+    });
+
+    test("administrador concede e retira o papel, mas não mexe na própria conta", async () => {
+      const s = await montar(backend);
+      const ana = await contaConfirmada(s);
+      const beto = await contaConfirmada(s, "beto@outro.adv.br", "Beto Lima");
+      await s.deps.usuarios.atualizar(ana.id, { administrador: true });
+
+      await rejeita(s.admin.desativar(ana.id, ana.id, CTX), "conflito");
+      await rejeita(s.admin.definirAdministrador(ana.id, ana.id, false, CTX), "conflito");
+      await rejeita(s.admin.definirAdministrador(ana.id, beto.id, "sim", CTX), "dados_invalidos");
+      await rejeita(s.admin.desativar(ana.id, "00000000-0000-4000-8000-000000000000", CTX), "nao_encontrado");
+
+      await s.admin.definirAdministrador(ana.id, beto.id, true, CTX);
+      assert.equal((await s.admin.listar(beto.id)).length, 2, "Beto passa a ver todas as contas");
+      await s.admin.definirAdministrador(ana.id, beto.id, false, CTX);
+      await rejeita(s.admin.listar(beto.id), "sem_permissao");
+
+      // Administrador desativado perde o acesso, mesmo com a marca de administrador.
+      await s.admin.definirAdministrador(ana.id, beto.id, true, CTX);
+      await s.admin.desativar(ana.id, beto.id, CTX);
+      await rejeita(s.admin.listar(beto.id), "sem_permissao");
+      await rejeita(s.admin.desativar(beto.id, ana.id, CTX), "sem_permissao");
     });
   });
 }

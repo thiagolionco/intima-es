@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gt, isNotNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNotNull, isNull, lte, ne, sql } from "drizzle-orm";
 import type { DesafioDoisFatores, EventoAuditoria, FinalidadeToken, Sessao, TipoEvento, TokenVerificacao, Usuario } from "../../auth/model.ts";
 import type { Auditoria, DesafioRepository, SessaoRepository, TokenRepository, UsuarioRepository } from "../../auth/ports.ts";
 import type { Clock } from "../../core/clock.ts";
@@ -25,7 +25,7 @@ const violaUnicidade = (e: unknown) => (e as { code?: string; cause?: { code?: s
 
 type LinhaUsuario = typeof usuarios.$inferSelect;
 
-function paraUsuario(l: LinhaUsuario): Usuario {
+export function paraUsuario(l: LinhaUsuario): Usuario {
   return semNulos({
     id: l.id,
     nome: l.nome,
@@ -42,19 +42,22 @@ function paraUsuario(l: LinhaUsuario): Usuario {
     bloqueadoAte: isoOuNada(l.bloqueadoAte),
     senhaAlteradaEm: iso(l.senhaAlteradaEm),
     aceitouTermosEm: iso(l.aceitouTermosEm),
+    administrador: l.administrador || undefined,
+    desativadoEm: isoOuNada(l.desativadoEm),
     criadoEm: iso(l.criadoEm),
     atualizadoEm: iso(l.atualizadoEm),
   }) as Usuario;
 }
 
-const CAMPOS_DATA = new Set<keyof Usuario>(["emailConfirmadoEm", "bloqueadoAte", "senhaAlteradaEm", "aceitouTermosEm", "criadoEm", "atualizadoEm"]);
+const CAMPOS_DATA = new Set<keyof Usuario>(["emailConfirmadoEm", "bloqueadoAte", "senhaAlteradaEm", "aceitouTermosEm", "desativadoEm", "criadoEm", "atualizadoEm"]);
 
 /** Converte alterações parciais do domínio em valores de coluna. `undefined` explícito apaga o campo. */
 function paraColunas(alteracoes: Partial<Usuario>): Partial<typeof usuarios.$inferInsert> {
   const colunas: Record<string, unknown> = {};
   for (const [chave, valor] of Object.entries(alteracoes) as [keyof Usuario, unknown][]) {
     if (chave === "id") continue;
-    colunas[chave] = CAMPOS_DATA.has(chave) ? dataOuNull(valor as string | undefined) : (valor ?? null);
+    if (chave === "administrador") colunas[chave] = !!valor;
+    else colunas[chave] = CAMPOS_DATA.has(chave) ? dataOuNull(valor as string | undefined) : (valor ?? null);
   }
   return colunas as Partial<typeof usuarios.$inferInsert>;
 }
@@ -76,7 +79,10 @@ export class UsuarioRepositoryPostgres implements UsuarioRepository {
   }
 
   async listarConfirmados() {
-    const linhas = await this.db.select({ id: usuarios.id }).from(usuarios).where(isNotNull(usuarios.emailConfirmadoEm));
+    const linhas = await this.db
+      .select({ id: usuarios.id })
+      .from(usuarios)
+      .where(and(isNotNull(usuarios.emailConfirmadoEm), isNull(usuarios.desativadoEm)));
     return linhas.map((l) => l.id);
   }
 
