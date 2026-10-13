@@ -36,6 +36,8 @@ import { DocumentoRepositoryPostgres } from "./infra/postgres/documentos.ts";
 import { ParecerRepositoryPostgres } from "./infra/postgres/pareceres.ts";
 import { AnaliseRepositoryPostgres } from "./infra/postgres/analises.ts";
 import { MovimentacaoRepositoryPostgres } from "./infra/postgres/movimentacoes.ts";
+import { CoberturaRepositoryPostgres } from "./infra/postgres/cobertura.ts";
+import { type CoberturaRepository, CoberturaRepositoryDocumentos, CoberturaService } from "./rondas/cobertura.ts";
 import { type MovimentacaoRepository, MovimentacaoRepositoryDocumentos, MovimentacoesService } from "./processos/movimentacoes.ts";
 import { criarConsultaDataJud } from "./processos/datajud.ts";
 import { type ArmazenamentoArquivos, ArquivosEmDisco, ArquivosSupabase } from "./infra/arquivos.ts";
@@ -146,6 +148,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       pareceresRepo: new ParecerRepositoryPostgres(db) as ParecerRepository,
       analisesRepo: new AnaliseRepositoryPostgres(db) as AnaliseRepository,
       movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
+      coberturaRepo: new CoberturaRepositoryPostgres(db, clock) as CoberturaRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -164,6 +167,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     pareceresRepo: new ParecerRepositoryDocumentos(arquivos) as ParecerRepository,
     analisesRepo: new AnaliseRepositoryDocumentos(arquivos) as AnaliseRepository,
     movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
+    coberturaRepo: new CoberturaRepositoryDocumentos(arquivos, clock) as CoberturaRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -179,7 +183,7 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
@@ -247,6 +251,7 @@ function montar() {
     buscarPagina: criarBuscadorComunica({ base: config.comunica.url, timeoutMs: 40_000, urlApp: config.urlApp }),
     clock,
     novoId,
+    cobertura: coberturaRepo,
     // Com resumo ligado, o que a ronda trouxe já chega resumido.
     aoEncontrar: resumos.disponivel
       ? async (novas) => {
@@ -275,6 +280,7 @@ function montar() {
         await pareceres.excluirDaConta(id);
         await analises.excluirDaConta(id);
         await movimentacoes.excluirDaConta(id);
+        await coberturaRepo.excluirDoUsuario(id);
         await processosRepo.excluirDoUsuario(id);
       },
       (id) => processosRepo.listar(id),
@@ -295,6 +301,13 @@ function montar() {
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
     usuarios: deps.usuarios,
     rondaComunica,
+    cobertura: new CoberturaService({
+      repo: coberturaRepo,
+      espacos: espacosRepo,
+      clock,
+      rondaLigada: config.comunica.rondaLigada,
+      intervaloHoras: config.comunica.rondaIntervaloHoras,
+    }),
     avisos,
     resumos,
     agenda,

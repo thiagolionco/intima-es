@@ -1,4 +1,4 @@
-import { interpretarResposta, montarParametros } from "../../lib/comunica.ts";
+import { conferirEco, interpretarResposta, montarParametros } from "../../lib/comunica.ts";
 import { type BuscarPagina, ErroComunica } from "./busca.ts";
 
 export interface OpcoesCliente {
@@ -37,6 +37,10 @@ export function criarBuscadorComunica(op: OpcoesCliente): BuscarPagina {
       }
       throw new ErroComunica(`O Comunica PJe respondeu com erro ${resp.status}. ${corpo.slice(0, 200)}`.trim(), 502);
     }
-    return interpretarResposta(await resp.json());
+    const r = interpretarResposta(await resp.json());
+    // Verificação de eco: o que voltou precisa corresponder ao que foi pedido.
+    const recusa = conferirEco(c, r);
+    if (recusa) throw new ErroComunica(recusa, 502);
+    return r;
   };
 }

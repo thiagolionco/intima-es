@@ -15,6 +15,8 @@ import { SeloResponsavel, SeletorResponsavel } from "@/components/equipe";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
+import { useCobertura } from "@/lib/use-cobertura";
+import { FaixaCobertura } from "@/components/vigilia";
 import type { FiltrosIntimacao, StatusIntimacao } from "@/lib/types";
 import { addDays, formatDate, hojeISO, resumo, STATUS_LABEL, STATUS_ORDER, TIPOS_COMUNICACAO_PADRAO } from "@/lib/utils";
 
@@ -26,6 +28,7 @@ function unicos(valores: string[]): string[] {
 
 function ListaIntimacoes() {
   const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes } = useStore();
+  const { cobertura } = useCobertura();
   const { toast } = useToast();
   const params = useSearchParams();
   const router = useRouter();
@@ -168,6 +171,8 @@ function ListaIntimacoes() {
           </>
         }
       />
+
+      <FaixaCobertura cobertura={cobertura} />
 
       {/* Barra de busca e ações */}
       <Card className="p-3 sm:p-4">

@@ -43,6 +43,12 @@ Cabeçalhos enviados: `Accept: application/json` e `User-Agent: Clepsa/2.0 (+APP
 Os cabeçalhos `Origin` e `Referer` que imitavam o site oficial foram removidos. Se o acesso
 quebrar sem eles, o trabalho para e o problema é reportado; não se contorna.
 
+**Verificação de eco** (`conferirEco` em `lib/comunica.ts`, aplicada em `server/comunica/cliente.ts`):
+cada resposta é conferida contra o que foi pedido. Se um item vier de outro processo, de outro
+tribunal ou de fora do período, ou se o `count` estiver perto do teto de 10.000 (sinal de filtro
+ignorado), a resposta inteira é recusada como erro. Nada é descartado em silêncio. A conferência
+por OAB e por nome ainda não é feita: depende do teste de contrato confirmar como esses campos voltam.
+
 ## Ronda automática
 
 O servidor procura sozinho as comunicações dos clientes monitorados por **número de OAB** e
@@ -50,6 +56,20 @@ O servidor procura sozinho as comunicações dos clientes monitorados por **núm
 manuais, porque são lentas no Comunica. Cada termo guarda até que dia já foi consultado
 (`ultimaRonda.ate`); a ronda seguinte repete o último dia e vai até hoje (no máximo 30 dias para
 trás). Detalhes de agendamento no README.
+
+### Livro de cobertura
+
+Cada ronda grava, por termo e por dia de disponibilização, se o dia foi verificado
+(tabela `registro_cobertura`, migração 0008; sem banco, em `DATA_DIR`). Estados:
+`VERIFICADO_COM_RESULTADOS`, `VERIFICADO_SEM_RESULTADOS`, `PARCIAL`, `FALHOU` e
+`NAO_VERIFICADO`. Um dia já verificado não volta a ser lacuna se uma repetição falhar.
+Enquanto houver lacuna, a data do termo não avança e a ronda seguinte repete o período.
+
+O **Selo de Vigília** (barra lateral) e a faixa de aviso no Painel, em Intimações e em Clientes
+monitorados mostram a última ronda e os dias sem verificação dos últimos 30 dias. "Nenhum prazo
+pendente" só aparece sem ressalva quando todos os dias foram verificados.
+
+Pendente: teste de contrato contra a API real, rodando de uma máquina no Brasil.
 
 ## Termos de uso e limites
 

@@ -15,12 +15,16 @@ aprovação entre elas; cada decisão relevante vira um registro curto em `decis
 | Fase | Tema | Estado |
 | --- | --- | --- |
 | 0 | Fundação: repositório único, CI, documentação | concluída |
-| 1 | Postgres com isolamento por escritório (RLS) | em andamento |
-| 2 | Adaptador de fonte e livro de cobertura | não iniciada |
-| 3 | Rondas, alertas e monitoramentos combináveis | não iniciada |
-| 4 | Motor de prazos e processos sigilosos | não iniciada |
+| 1 | Postgres com isolamento por escritório (RLS) | concluída (migrações 0000 a 0007 no Supabase) |
+| 2 | Adaptador de fonte e livro de cobertura | em andamento |
+| 3 | Rondas, alertas e monitoramentos combináveis | parcial: ronda automática e avisos por e-mail prontos; monitoramento combinado e alerta de ronda parada faltam |
+| 4 | Motor de prazos e processos sigilosos | parcial: cálculo de prazos com calendário forense pronto; processos sigilosos faltam |
 | 5 | Caixa de entrada e Mesa de Prazo | não iniciada |
-| 6 | Sugestão de prazo assistida por IA | não iniciada |
+| 6 | Sugestão de prazo assistida por IA | não iniciada (o prazo é sugerido por regras; a IA hoje só resume e analisa risco) |
+
+Fora do roteiro original, já no `main`: processos com PDFs, pareceres com versões, análise de
+risco por IA (ver [decisão 0007](decisoes/0007-analise-de-risco-por-ia.md)) e andamentos pelo
+DataJud.
 
 ## Perguntas em aberto
 

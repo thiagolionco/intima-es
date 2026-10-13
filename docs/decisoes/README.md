@@ -11,3 +11,5 @@ Uma decisão substituída não é apagada: o registro novo diz qual substitui.
 | [0004](0004-hospedagem.md) | Banco no Supabase em São Paulo; hospedagem do app em aberto | 10/10/2026 |
 | [0005](0005-next-15.md) | Next 15 e React 19; auditoria volta a bloquear | 10/10/2026 |
 | [0006](0006-postgres-e-rls.md) | PostgreSQL com isolamento por escritório (RLS) | 10/10/2026 |
+| [0007](0007-analise-de-risco-por-ia.md) | Análise de risco do processo pela IA, com citação de página | 13/10/2026 |
+| [0008](0008-livro-de-cobertura.md) | Livro de cobertura por termo e dia; Selo de Vigília | 13/10/2026 |

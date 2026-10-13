@@ -140,6 +140,39 @@ export function interpretarResposta(json: unknown): RespostaComunica {
   return { total, itens };
 }
 
+/**
+ * Teto do Comunica: quando um parâmetro é ignorado, a API devolve tudo até 10.000 itens.
+ * Um `count` nessa faixa significa consulta ampla demais, não um resultado de verdade.
+ */
+export const COMUNICA_TETO = 10_000;
+const LIMIAR_AMPLA = Math.floor(COMUNICA_TETO * 0.95);
+
+/**
+ * Confere se a resposta é eco da consulta: os itens precisam bater com o processo, o tribunal e o
+ * período pedidos, e o total não pode estar no teto. Devolve o motivo da recusa, ou null se está ok.
+ * Não descarta itens soltos: se um não bate, a resposta inteira é suspeita (pode ser filtro ignorado).
+ */
+export function conferirEco(c: ConsultaComunica, r: RespostaComunica): string | null {
+  if (r.total >= LIMIAR_AMPLA) {
+    return `O Comunica PJe devolveu ${r.total.toLocaleString("pt-BR")} comunicações, perto do limite de ${COMUNICA_TETO.toLocaleString("pt-BR")}: a consulta ficou ampla demais (algum filtro pode ter sido ignorado). Reduza o período ou confira o termo.`;
+  }
+  const processo = c.termo.tipo === "processo" ? c.termo.valor.replace(/\D/g, "") : "";
+  const tribunal = c.termo.tribunal?.trim().toUpperCase();
+  for (const i of r.itens) {
+    if (processo && i.numeroProcesso && i.numeroProcesso.replace(/\D/g, "") !== processo) {
+      return `O Comunica PJe devolveu o processo ${i.numeroProcesso}, que não é o consultado. A resposta foi descartada.`;
+    }
+    if (tribunal && i.tribunal && i.tribunal.toUpperCase() !== tribunal) {
+      return `O Comunica PJe devolveu comunicação do ${i.tribunal}, fora do tribunal pedido (${tribunal}). A resposta foi descartada.`;
+    }
+    const dia = i.dataDisponibilizacao;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dia) && c.dataInicio && c.dataFim && (dia < c.dataInicio || dia > c.dataFim)) {
+      return `O Comunica PJe devolveu comunicação de ${dia}, fora do período pedido. A resposta foi descartada.`;
+    }
+  }
+  return null;
+}
+
 /** Chave usada para evitar importar a mesma comunicação duas vezes. */
 export function chaveDeduplicacao(i: Pick<Intimacao, "comunicaId" | "hash" | "numeroProcesso" | "dataDisponibilizacao" | "texto">): string {
   if (i.hash) return `h:${i.hash}`;

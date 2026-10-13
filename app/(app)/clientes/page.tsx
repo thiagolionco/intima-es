@@ -11,24 +11,39 @@ import { useStore } from "@/lib/store";
 import type { TermoMonitorado, TipoTermo } from "@/lib/types";
 import { api } from "@/lib/auth/api";
 import { formatDateTime, TIPO_TERMO_LABEL, UFS } from "@/lib/utils";
+import type { Lacuna } from "@/lib/cobertura";
+import { dataBR } from "@/lib/prazos/datas";
+import { useCobertura } from "@/lib/use-cobertura";
 
 /** Tipos procurados sozinhos pelo servidor (ver server/rondas/ronda-comunica.ts). */
 const AUTOMATICOS: TipoTermo[] = ["oab", "processo"];
 
-function StatusRonda({ t }: { t: TermoMonitorado }) {
+function StatusRonda({ t, lacunas }: { t: TermoMonitorado; lacunas: Lacuna[] }) {
   if (!AUTOMATICOS.includes(t.tipo)) return null;
   const r = t.ultimaRonda;
+  const dias = lacunas.filter((l) => l.termoId === t.id).map((l) => dataBR(l.dia));
   return (
-    <p className={clsx("mt-3 flex items-start gap-1.5 text-xs", r?.erro ? "text-amber-800" : "text-slate-500")}>
-      {r?.erro ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> : <Timer className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />}
-      <span>
-        {!t.ativo
-          ? "Busca automática pausada."
-          : !r
-            ? "Busca automática ligada; ainda não rodou."
-            : `Busca automática em ${formatDateTime(r.em)}: ${r.novas} nova(s).${r.erro ? ` ${r.erro}` : ""}`}
-      </span>
-    </p>
+    <>
+      <p className={clsx("mt-3 flex items-start gap-1.5 text-xs", r?.erro ? "text-amber-800" : "text-slate-500")}>
+        {r?.erro ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden /> : <Timer className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />}
+        <span>
+          {!t.ativo
+            ? "Busca automática pausada."
+            : !r
+              ? "Busca automática ligada; ainda não rodou."
+              : `Busca automática em ${formatDateTime(r.em)}: ${r.novas} nova(s).${r.erro ? ` ${r.erro}` : ""}`}
+        </span>
+      </p>
+      {t.ativo && dias.length > 0 && (
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-800">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            {dias.length} dia(s) sem verificação: {dias.slice(0, 5).join(", ")}
+            {dias.length > 5 && ` e mais ${dias.length - 5}`}. A busca automática tenta de novo sozinha.
+          </span>
+        </p>
+      )}
+    </>
   );
 }
 import { validarTermo } from "@/lib/validacao";
@@ -59,7 +74,13 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
     e.preventDefault();
     setTentou(true);
     if (Object.keys(validarTermo(r)).length) return;
-    onSalvar({ ...r, apelido: r.apelido.trim(), valor: r.valor.trim(), tribunal: r.tribunal?.trim().toUpperCase() || undefined, ufOab: r.tipo === "oab" ? r.ufOab : undefined });
+    onSalvar({
+      ...r,
+      apelido: r.apelido.trim(),
+      valor: r.valor.trim(),
+      tribunal: r.tribunal?.trim().toUpperCase() || undefined,
+      ufOab: r.tipo === "oab" ? r.ufOab : undefined,
+    });
   }
 
   return (
@@ -104,7 +125,12 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
         <Input id="trib" value={r.tribunal ?? ""} onChange={(e) => setR({ ...r, tribunal: e.target.value.toUpperCase() })} invalid={!!erros.tribunal} />
       </Field>
       <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input type="checkbox" checked={r.ativo} onChange={(e) => setR({ ...r, ativo: e.target.checked })} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600" />
+        <input
+          type="checkbox"
+          checked={r.ativo}
+          onChange={(e) => setR({ ...r, ativo: e.target.checked })}
+          className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600"
+        />
         Incluir nas buscas automáticas (&quot;Buscar todos&quot;)
       </label>
       <div className="flex justify-end gap-2 pt-2">
@@ -120,6 +146,7 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
 export default function ClientesPage() {
   const { ready, termos, intimacoes, adicionarTermo, atualizarTermo, excluirTermo, recarregar } = useStore();
   const { toast } = useToast();
+  const { cobertura, recarregar: recarregarCobertura } = useCobertura();
   const [buscando, setBuscando] = useState(false);
   const temAutomaticos = termos.some((t) => t.ativo && AUTOMATICOS.includes(t.tipo));
 
@@ -129,6 +156,7 @@ export default function ClientesPage() {
       await recarregar();
       const r = await api<{ termos: { novas: number; erro?: string }[] }>("/api/comunica/ronda", { method: "POST" });
       await recarregar();
+      await recarregarCobertura();
       const novas = r.termos.reduce((s, x) => s + x.novas, 0);
       const erros = r.termos.filter((x) => x.erro).length;
       toast(novas ? `${novas} intimação(ões) nova(s)` : "Nenhuma intimação nova", {
@@ -214,7 +242,7 @@ export default function ClientesPage() {
                   {t.valor}
                   {t.tipo === "oab" && t.ufOab && `/${t.ufOab}`}
                 </p>
-                <StatusRonda t={t} />
+                <StatusRonda t={t} lacunas={cobertura?.lacunas ?? []} />
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {t.tribunal && <Badge className="bg-brand-50 text-brand-700">{t.tribunal}</Badge>}
                   <Link href={`/intimacoes?cliente=${encodeURIComponent(t.apelido)}`}>
@@ -230,7 +258,11 @@ export default function ClientesPage() {
                       Buscar agora
                     </Button>
                   </Link>
-                  <button onClick={() => setEditando(t)} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label="Editar">
+                  <button
+                    onClick={() => setEditando(t)}
+                    className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                    aria-label="Editar"
+                  >
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button onClick={() => setExcluir(t)} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label="Excluir">
