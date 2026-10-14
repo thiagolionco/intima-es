@@ -1,0 +1,32 @@
+name: Vigília
+
+# Alarme de fora do app: de hora em hora pergunta ao Clepsa se a busca automática continua rodando.
+# Se o app estiver fora do ar, protegido sem o bypass ou com a ronda parada, a execução falha e o
+# GitHub avisa por e-mail. Usa os mesmos segredos de rondas.yml (RONDA_TOKEN e VERCEL_BYPASS).
+on:
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: vigilia
+  cancel-in-progress: true
+
+jobs:
+  vigilia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      APP_URL: ${{ vars.APP_URL || 'https://clepsa.vercel.app' }}
+      RONDA_TOKEN: ${{ secrets.RONDA_TOKEN }}
+      VERCEL_BYPASS: ${{ secrets.VERCEL_BYPASS }}
+    steps:
+      - name: Conferir a vigília
+        if: env.RONDA_TOKEN != ''
+        run: >-
+          curl -fsS --max-time 60 -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/saude"
+      - name: Sem RONDA_TOKEN
+        if: env.RONDA_TOKEN == ''
+        run: echo "::notice::Configure o segredo RONDA_TOKEN no GitHub para ligar o alarme de vigília."

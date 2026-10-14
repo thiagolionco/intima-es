@@ -16,6 +16,7 @@ import { useStore } from "@/lib/store";
 import { hojeISO } from "@/lib/utils";
 import { CoberturaContexto, useLerCobertura } from "@/lib/use-cobertura";
 import { SeloVigilia } from "@/components/vigilia";
+import { Sino } from "@/components/sino";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -131,7 +132,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="min-h-screen">
         {/* Barra lateral (desktop) */}
         <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
-          <Marca />
+          <div className="flex items-center justify-between pr-3">
+            <Marca />
+            <Sino />
+          </div>
           <Navegacao />
           <div className="space-y-2 px-3">
             <div className="space-y-1.5 px-3">
@@ -148,6 +152,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
           <Marca />
           <div className="flex items-center gap-1">
+            <Sino />
             <MenuUsuario compacto />
             <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
               <Menu className="h-5 w-5" />
