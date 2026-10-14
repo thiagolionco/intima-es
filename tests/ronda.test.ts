@@ -112,3 +112,24 @@ test("se alguém gravar durante a busca, relê e grava por cima sem perder nada"
   assert.ok(ids.includes("manual"));
   assert.equal(ids.length, 2);
 });
+
+test("saúde: ronda recente está bem, passou o dobro do intervalo está atrasada, sem termos não alarma", async () => {
+  const { repo, ronda } = montar(() => []);
+  assert.deepEqual(await ronda.saude(6), { contas: 1, termos: 0, ultimaRonda: undefined, atrasada: false });
+
+  // clock = 11/10 04:00 UTC. 1 h atrás: ok.
+  await repo.salvar(USUARIO, { intimacoes: [], termos: [termo({ ultimaRonda: { em: "2026-10-11T03:00:00Z", ate: "2026-10-11", novas: 0 } })] }, 0);
+  const ok = await ronda.saude(6);
+  assert.equal(ok.atrasada, false);
+  assert.equal(ok.termos, 1);
+
+  // 13 h atrás (mais que 2 × 6 h): atrasada.
+  const e = await repo.ler(USUARIO);
+  await repo.salvar(USUARIO, { intimacoes: [], termos: [termo({ ultimaRonda: { em: "2026-10-10T15:00:00Z", ate: "2026-10-10", novas: 0 } })] }, e.revisao);
+  assert.equal((await ronda.saude(6)).atrasada, true);
+
+  // Nunca rodou: ainda não dá para dizer que parou.
+  const e2 = await repo.ler(USUARIO);
+  await repo.salvar(USUARIO, { intimacoes: [], termos: [termo({})] }, e2.revisao);
+  assert.equal((await ronda.saude(6)).atrasada, false);
+});

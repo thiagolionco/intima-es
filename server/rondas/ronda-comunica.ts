@@ -1,4 +1,4 @@
-import { type DiaCoberto, diaEmBrasilia, diasDaBusca, TIPOS_COM_COBERTURA } from "../../lib/cobertura.ts";
+import { type DiaCoberto, diaEmBrasilia, diasDaBusca, rondaAtrasada, TIPOS_COM_COBERTURA } from "../../lib/cobertura.ts";
 import type { IntimacaoImportada } from "../../lib/comunica.ts";
 import { mesclarImportadas } from "../../lib/importacao.ts";
 import { somarDias } from "../../lib/prazos/datas.ts";
@@ -21,6 +21,17 @@ export interface ResultadoRondaTermo {
   apelido: string;
   novas: number;
   erro?: string;
+}
+
+/** Saúde da busca automática na plataforma toda (para o alarme de fora do app). */
+export interface SaudeDaRonda {
+  contas: number;
+  /** Termos ativos que a ronda procura, somando todas as contas. */
+  termos: number;
+  /** Última ronda (ISO) entre todos os termos. */
+  ultimaRonda?: string;
+  /** Passou mais que o dobro do intervalo sem nenhuma ronda. */
+  atrasada: boolean;
 }
 
 export interface NovaNaRonda {
@@ -93,6 +104,23 @@ export class RondaComunica {
       }
     }
     return { contas: ids.length, novas, erros };
+  }
+
+  /** Quando foi a última ronda em qualquer conta e se a busca automática parou. */
+  async saude(intervaloHoras: number): Promise<SaudeDaRonda> {
+    const ids = await this.d.listarUsuarios();
+    let termos = 0;
+    let ultimaRonda: string | undefined;
+    for (const id of ids) {
+      const espaco = await this.d.espacos.ler(id);
+      for (const t of espaco.termos) {
+        if (!t.ativo || !TIPOS_AUTOMATICOS.includes(t.tipo)) continue;
+        termos++;
+        const em = t.ultimaRonda?.em;
+        if (em && (!ultimaRonda || em > ultimaRonda)) ultimaRonda = em;
+      }
+    }
+    return { contas: ids.length, termos, ultimaRonda, atrasada: termos > 0 && rondaAtrasada({ ultimaRonda, intervaloHoras }, this.d.clock.agora()) };
   }
 
   private async executar(usuarioId: string): Promise<ResultadoRondaTermo[]> {
