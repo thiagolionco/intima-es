@@ -1,9 +1,10 @@
 "use client";
 
 import clsx from "clsx";
-import { Plus, UserRoundX, UsersRound } from "lucide-react";
+import { KeyRound, Plus, Send, UserRoundX, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { AcessoEscritorio, type PedidoConvite, SeloPapel, useEscritorio } from "@/components/acesso-escritorio";
 import { Avatar } from "@/components/equipe";
 import { PrazoTag } from "@/components/intimacao-card";
 import { useToast } from "@/components/toast";
@@ -72,8 +73,30 @@ function CartaoPessoa({ l }: { l: LinhaPainel }) {
 }
 
 export default function EquipePage() {
-  const { ready, intimacoes, suspensoes, equipe, salvarEquipe, delegarIntimacoes } = useStore();
+  const { ready, intimacoes, suspensoes, equipe, salvarEquipe, delegarIntimacoes, gerenciaEquipe } = useStore();
   const { toast } = useToast();
+  const escritorio = useEscritorio();
+  const [pedido, setPedido] = useState<PedidoConvite>();
+  const atendido = useCallback(() => setPedido(undefined), []);
+  const contas = useMemo(() => new Map((escritorio.resumo?.membros ?? []).map((m) => [m.usuarioId, m])), [escritorio.resumo]);
+  const convidados = useMemo(() => new Set((escritorio.resumo?.convites ?? []).map((c) => c.email.toLowerCase())), [escritorio.resumo]);
+  const podeConvidar = gerenciaEquipe && !!escritorio.resumo?.convitesDisponiveis;
+
+  // Quem já tem conta no escritório e está na lista com o mesmo e-mail (ex.: o próprio dono) fica ligado à conta.
+  useEffect(() => {
+    if (!ready || !gerenciaEquipe || !escritorio.resumo) return;
+    const ligadas = new Set(equipe.map((p) => p.usuarioId).filter(Boolean));
+    const porEmail = new Map(escritorio.resumo.membros.map((m) => [m.email.toLowerCase(), m.usuarioId]));
+    let mudou = false;
+    const nova = equipe.map((p) => {
+      const id = !p.usuarioId && p.email ? porEmail.get(p.email.trim().toLowerCase()) : undefined;
+      if (!id || ligadas.has(id)) return p;
+      ligadas.add(id);
+      mudou = true;
+      return { ...p, usuarioId: id };
+    });
+    if (mudou) salvarEquipe(nova);
+  }, [ready, gerenciaEquipe, escritorio.resumo, equipe, salvarEquipe]);
   const [nova, setNova] = useState({ nome: "", email: "" });
   const [tentou, setTentou] = useState(false);
 
@@ -106,7 +129,9 @@ export default function EquipePage() {
 
   return (
     <>
-      <PageHeader title="Equipe" description="Quem cuida de cada intimação e como está a carga de cada pessoa. Entregue intimações pela lista (selecionando várias) ou no detalhe de cada uma." />
+      <PageHeader title="Equipe" description="Quem tem acesso ao escritório, quem cuida de cada intimação e como está a carga de cada pessoa. Entregue intimações pela lista (selecionando várias) ou no detalhe de cada uma." />
+
+      <AcessoEscritorio {...escritorio} pedido={pedido} onPedidoAtendido={atendido} />
 
       {equipe.length > 0 && (
         <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -117,7 +142,11 @@ export default function EquipePage() {
       )}
 
       <Card>
-        <CardHeader title="Pessoas da equipe" subtitle="O e-mail fica guardado para os próximos passos (avisos para o responsável); por enquanto nada é enviado a ele." />
+        <CardHeader
+          title="Pessoas da equipe"
+          subtitle="Quem pode ser responsável por uma intimação ou processo. Quem tem acesso ao Clepsa recebe por e-mail os avisos dos prazos que são dele; os de quem não tem acesso vão para o dono."
+        />
+        {gerenciaEquipe && (
         <form onSubmit={adicionar} noValidate className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-[1fr_1fr_auto]">
           <Field label="Nome" htmlFor="pessoa-nome" required error={tentou ? erros.nome : undefined}>
             <Input id="pessoa-nome" placeholder="Ex.: Ana Souza" value={nova.nome} onChange={(e) => setNova({ ...nova, nome: e.target.value })} invalid={tentou && !!erros.nome} />
@@ -131,10 +160,13 @@ export default function EquipePage() {
             </Button>
           </div>
         </form>
+        )}
         {equipe.length ? (
           <ul className="divide-y divide-slate-100">
             {equipe.map((p) => {
               const abertas = painel.find((l) => l.pessoa?.id === p.id)?.abertas ?? 0;
+              const conta = p.usuarioId ? contas.get(p.usuarioId) : undefined;
+              const convidada = !!p.email && convidados.has(p.email.toLowerCase());
               return (
                 <li key={p.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                   <Avatar pessoa={p} className={p.inativa ? "opacity-40" : undefined} />
@@ -147,18 +179,36 @@ export default function EquipePage() {
                       {p.email || "Sem e-mail"} · {abertas} em aberto
                     </p>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => salvarEquipe(equipe.map((x) => (x.id === p.id ? { ...x, inativa: !x.inativa || undefined } : x)))}>
-                    {p.inativa ? "Reativar" : "Desativar"}
-                  </Button>
-                  <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => remover(p)}>
-                    Remover
-                  </Button>
+                  {conta ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+                      <KeyRound className="h-3.5 w-3.5 text-brand-600" aria-hidden /> Com acesso <SeloPapel papel={conta.papel} />
+                    </span>
+                  ) : convidada ? (
+                    <span className="text-xs text-amber-700">Convite enviado</span>
+                  ) : (
+                    podeConvidar &&
+                    !p.inativa && (
+                      <Button size="sm" variant="secondary" icon={<Send className="h-3.5 w-3.5" />} onClick={() => setPedido({ email: p.email ?? "", pessoaId: p.id, nome: p.nome })}>
+                        Dar acesso
+                      </Button>
+                    )
+                  )}
+                  {gerenciaEquipe && !conta && (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => salvarEquipe(equipe.map((x) => (x.id === p.id ? { ...x, inativa: !x.inativa || undefined } : x)))}>
+                        {p.inativa ? "Reativar" : "Desativar"}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => remover(p)}>
+                        Remover
+                      </Button>
+                    </>
+                  )}
                 </li>
               );
             })}
           </ul>
         ) : (
-          <EmptyState icon={<UsersRound className="h-6 w-6" />} title="Ninguém na equipe ainda" description="Cadastre quem trabalha no escritório para entregar intimações e acompanhar a carga de cada um." />
+          <EmptyState icon={<UsersRound className="h-6 w-6" />} title="Ninguém na equipe ainda" description="Cadastre quem trabalha no escritório para entregar intimações e acompanhar a carga de cada um. Quem você convidar para o Clepsa entra aqui sozinho." />
         )}
       </Card>
     </>

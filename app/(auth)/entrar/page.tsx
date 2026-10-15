@@ -57,6 +57,8 @@ function Entrar() {
       ? { tom: "sucesso" as const, texto: "Você saiu com segurança." }
       : params.get("confirmado")
         ? { tom: "sucesso" as const, texto: "E-mail confirmado! Agora é só entrar." }
+        : params.get("convite")
+          ? { tom: "sucesso" as const, texto: "Acesso criado e convite aceito! Entre com a senha que você acabou de criar." }
         : params.get("redefinida")
           ? { tom: "sucesso" as const, texto: "Senha redefinida. Por segurança, todas as sessões anteriores foram encerradas." }
           : params.get("excluida")

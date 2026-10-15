@@ -13,7 +13,7 @@ import { CartaoMovimentacao, MovimentacoesDoProcesso, useMovimentacoes } from "@
 import { ParecerDoProcesso, usePareceres } from "@/components/parecer-processo";
 import { ConfirmDialog } from "@/components/modal";
 import { ProcessoNaoEncontrado } from "@/components/processos";
-import { ModalProtocolo, SeloPrescricao } from "@/components/quadro-processos";
+import { ModalProtocolo, SeloParticular, SeloPrescricao } from "@/components/quadro-processos";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Spinner } from "@/components/ui";
 import { api } from "@/lib/auth/api";
@@ -36,7 +36,7 @@ type Aba = "resumo" | "andamentos" | "risco" | "parecer" | "documentos" | "intim
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { ready, intimacoes, atualizarIntimacao } = useStore();
+  const { ready, intimacoes, atualizarIntimacao, podeExcluir } = useStore();
   const { processo: p, erro, carregando, substituir } = useProcesso(id);
   const { toast } = useToast();
   const [aba, setAba] = useState<Aba>("resumo");
@@ -76,6 +76,7 @@ export default function DetalheProcessoPage() {
             {p.tribunal && <Badge className="bg-brand-50 text-brand-700">{p.tribunal}</Badge>}
             <Badge>{POLO_CLIENTE_LABEL[p.polo]}</Badge>
             <SeloPrescricao prescricao={p.prescricao} />
+            <SeloParticular particular={p.particular} />
             <SeloResponsavel id={p.responsavelId} />
             {analises.analises?.[0] && <SeloRisco nivel={analises.analises[0].nivel} />}
           </div>
@@ -102,9 +103,11 @@ export default function DetalheProcessoPage() {
               Editar
             </Button>
           </Link>
-          <Button variant="secondary" className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar(true)}>
-            Excluir
-          </Button>
+          {podeExcluir && (
+            <Button variant="secondary" className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar(true)}>
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
 

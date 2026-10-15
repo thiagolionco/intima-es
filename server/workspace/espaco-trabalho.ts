@@ -1,3 +1,4 @@
+import { type PapelNoEscritorio, pode, ROTULO_PAPEL } from "../../lib/escritorio.ts";
 import type { Intimacao, Preferencias, Suspensao, TermoMonitorado } from "../../lib/types.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
@@ -82,7 +83,8 @@ function validarPreferencias(v: unknown): void {
       equipe.length <= 200 &&
       equipe.every(
         (p) =>
-          p && typeof p === "object" && typeof p.id === "string" && p.id.length <= 64 && typeof p.nome === "string" && p.nome.trim().length > 0 && p.nome.length <= 120 && (p.email === undefined || (typeof p.email === "string" && p.email.length <= 254)),
+          p && typeof p === "object" && typeof p.id === "string" && p.id.length <= 64 && typeof p.nome === "string" && p.nome.trim().length > 0 && p.nome.length <= 120 && (p.email === undefined || (typeof p.email === "string" && p.email.length <= 254)) &&
+          (p.usuarioId === undefined || (typeof p.usuarioId === "string" && p.usuarioId.length <= 64)),
       );
     if (!ok) throw new AppError("dados_invalidos", "Lista da equipe inválida.");
   }
@@ -104,15 +106,21 @@ function validarPreferencias(v: unknown): void {
 export class EspacoTrabalhoService {
   private readonly repo: EspacoTrabalhoRepository;
   private readonly aoSalvar?: (usuarioId: string) => void;
+  private readonly papelDe?: (usuarioId: string) => Promise<PapelNoEscritorio | null>;
 
-  /** `aoSalvar` é avisado depois de cada gravação feita pela tela (ex.: atualizar a Google Agenda). */
-  constructor(repo: EspacoTrabalhoRepository, aoSalvar?: (usuarioId: string) => void) {
+  /**
+   * `aoSalvar` é avisado depois de cada gravação feita pela tela (ex.: atualizar a Google Agenda).
+   * `papelDe` diz o papel da conta no escritório, para conferir o que ela pode alterar.
+   */
+  constructor(repo: EspacoTrabalhoRepository, aoSalvar?: (usuarioId: string) => void, papelDe?: (usuarioId: string) => Promise<PapelNoEscritorio | null>) {
     this.repo = repo;
     this.aoSalvar = aoSalvar;
+    this.papelDe = papelDe;
   }
 
-  carregar(usuarioId: string) {
-    return this.repo.ler(usuarioId);
+  async carregar(usuarioId: string): Promise<EspacoTrabalho & { papel?: PapelNoEscritorio }> {
+    const [espaco, papel] = await Promise.all([this.repo.ler(usuarioId), this.papelDe?.(usuarioId)]);
+    return papel ? { ...espaco, papel } : espaco;
   }
 
   async salvar(usuarioId: string, corpo: unknown) {
@@ -122,8 +130,33 @@ export class EspacoTrabalhoService {
     if (c.suspensoes !== undefined) listaDeObjetosComId(c.suspensoes, "suspensoes");
     if (c.preferencias !== undefined) validarPreferencias(c.preferencias);
     if (typeof c.revisao !== "number" || !Number.isInteger(c.revisao) || c.revisao < 0) throw new AppError("dados_invalidos", "Revisão inválida.");
-    const salvo = await this.repo.salvar(usuarioId, { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined }, c.revisao);
+    const dados: DadosEspaco = { intimacoes: c.intimacoes as Intimacao[], termos: c.termos as TermoMonitorado[], suspensoes: c.suspensoes as Suspensao[] | undefined, preferencias: c.preferencias as Preferencias | undefined };
+    const salvo = await this.repo.salvar(usuarioId, await this.conferirPermissoes(usuarioId, dados, c.revisao), c.revisao);
     this.aoSalvar?.(usuarioId);
     return salvo;
+  }
+
+  /**
+   * Compara com a versão gravada: só quem pode excluir tira intimações, e a lista da equipe só muda
+   * pela mão de quem a gerencia (para os outros, vale a que está gravada). Se a revisão já mudou, o
+   * próprio repositório recusa a gravação (conflito) e a tela mescla e tenta de novo.
+   */
+  private async conferirPermissoes(usuarioId: string, dados: DadosEspaco, revisao: number): Promise<DadosEspaco> {
+    const papel = await this.papelDe?.(usuarioId);
+    if (!papel || (pode(papel, "excluir") && pode(papel, "gerenciar_equipe"))) return dados;
+    const atual = await this.repo.ler(usuarioId);
+    if (atual.revisao !== revisao) return dados;
+    if (!pode(papel, "excluir")) {
+      const enviadas = new Set(dados.intimacoes.map((i) => i.id));
+      if (atual.intimacoes.some((i) => !enviadas.has(i.id))) {
+        throw new AppError("sem_permissao", `Como ${ROTULO_PAPEL[papel].toLowerCase()}, você não pode excluir intimações. Arquive ou peça a um advogado.`);
+      }
+    }
+    if (!pode(papel, "gerenciar_equipe") && dados.preferencias !== undefined) {
+      const { equipe: _ignorada, ...resto } = dados.preferencias;
+      const equipe = atual.preferencias?.equipe;
+      return { ...dados, preferencias: equipe ? { ...resto, equipe } : resto };
+    }
+    return dados;
   }
 }

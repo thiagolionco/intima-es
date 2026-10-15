@@ -43,6 +43,11 @@ export interface DepsRonda {
   espacos: EspacoTrabalhoRepository;
   /** Contas que entram na ronda. */
   listarUsuarios: () => Promise<string[]>;
+  /**
+   * Escritório de cada conta: membros do mesmo escritório têm os mesmos clientes monitorados, então a
+   * ronda passa uma vez só por escritório. Sem isto, cada conta conta como um escritório.
+   */
+  escritorioDe?: (usuarioId: string) => Promise<string | null>;
   buscarPagina: BuscarPagina;
   clock: Clock;
   novoId: () => string;
@@ -88,11 +93,26 @@ export class RondaComunica {
     }
   }
 
-  /** Roda para todas as contas, uma de cada vez para não sobrecarregar o Comunica. */
+  /** Uma conta por escritório (a primeira de cada um, na ordem de `listarUsuarios`). */
+  private async umaPorEscritorio(): Promise<string[]> {
+    const ids = await this.d.listarUsuarios();
+    if (!this.d.escritorioDe) return ids;
+    const vistos = new Set<string>();
+    const escolhidos: string[] = [];
+    for (const id of ids) {
+      const e = (await this.d.escritorioDe(id).catch(() => null)) ?? `conta:${id}`;
+      if (vistos.has(e)) continue;
+      vistos.add(e);
+      escolhidos.push(id);
+    }
+    return escolhidos;
+  }
+
+  /** Roda para todos os escritórios, um de cada vez para não sobrecarregar o Comunica. */
   async todos(): Promise<{ contas: number; novas: number; erros: number }> {
     let novas = 0;
     let erros = 0;
-    const ids = await this.d.listarUsuarios();
+    const ids = await this.umaPorEscritorio();
     for (const id of ids) {
       try {
         const r = await this.doUsuario(id);
@@ -108,7 +128,7 @@ export class RondaComunica {
 
   /** Quando foi a última ronda em qualquer conta e se a busca automática parou. */
   async saude(intervaloHoras: number): Promise<SaudeDaRonda> {
-    const ids = await this.d.listarUsuarios();
+    const ids = await this.umaPorEscritorio();
     let termos = 0;
     let ultimaRonda: string | undefined;
     for (const id of ids) {
