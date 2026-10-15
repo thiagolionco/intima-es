@@ -7,9 +7,10 @@
  * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres,
  *   processo_analises, processo_movimentacoes, registro_cobertura): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008.
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas).
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import type { AreaAtuacao, FaseProcesso, TipoDemanda } from "../../../lib/processos.ts";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
 
@@ -122,7 +123,16 @@ export const processos = pgTable(
   {
     id: uuid("id").primaryKey(),
     escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
-    numero: text("numero").notNull(),
+    /** Fica vazio até o protocolo. */
+    numero: text("numero"),
+    fase: text("fase").notNull().default("triagem").$type<FaseProcesso>(),
+    area: text("area").$type<AreaAtuacao>(),
+    tipo: text("tipo").$type<TipoDemanda>(),
+    dataAtendimento: date("data_atendimento", { mode: "string" }),
+    dataInicio: date("data_inicio", { mode: "string" }),
+    prescricao: date("prescricao", { mode: "string" }),
+    dataProtocolo: date("data_protocolo", { mode: "string" }),
+    comarca: text("comarca"),
     cliente: text("cliente").notNull(),
     parteContraria: text("parte_contraria"),
     polo: text("polo").notNull().$type<"ativo" | "passivo">(),

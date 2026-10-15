@@ -71,6 +71,13 @@
       "when": 1791926402764,
       "tag": "0009_administracao_da_plataforma",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792027100038,
+      "tag": "0010_gestao_de_processos",
+      "breakpoints": true
     }
   ]
 }

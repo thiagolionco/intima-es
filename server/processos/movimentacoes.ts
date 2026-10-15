@@ -123,6 +123,7 @@ export class MovimentacoesService {
   async atualizar(usuarioId: string, processoId: string): Promise<{ movimentacoes: MovimentacoesProcesso; novos: number }> {
     if (!this.d.consultar) throw new AppError("indisponivel", "A consulta ao DataJud está desligada neste servidor.");
     const p = await this.exigirProcesso(usuarioId, processoId);
+    if (!p.numero) throw new AppError("dados_invalidos", "Informe o número do processo para consultar os andamentos.");
     if (!indiceDataJud(p.numero)) throw new AppError("dados_invalidos", "O DataJud não tem processos deste tribunal (STF e CNJ ficam de fora).");
     if (this.emAndamento.has(processoId)) throw new AppError("conflito", "Já há uma consulta deste processo em andamento.");
     this.d.limitar?.(usuarioId);
@@ -136,7 +137,7 @@ export class MovimentacoesService {
       const consultadoEm = this.d.clock.agora().toISOString();
       let m: MovimentacoesProcesso;
       try {
-        const r = await this.d.consultar!(p.numero);
+        const r = await this.d.consultar!(p.numero!);
         m = { processoId: p.id, consultadoEm, encontrado: r.encontrado, movimentos: r.movimentos, ...(r.atualizadoNoTribunal ? { atualizadoNoTribunal: r.atualizadoNoTribunal } : {}) };
       } catch (e) {
         console.error(`[datajud] processo ${p.id}:`, mensagem(e));
@@ -165,7 +166,7 @@ export class MovimentacoesService {
       try {
         const [processos, resumos] = await Promise.all([this.d.processos.listar(usuarioId), this.d.repo.resumos(usuarioId)]);
         for (const p of processos) {
-          if (feitos.has(p.id) || this.emAndamento.has(p.id) || !indiceDataJud(p.numero)) continue;
+          if (feitos.has(p.id) || this.emAndamento.has(p.id) || !p.numero || !indiceDataJud(p.numero)) continue;
           feitos.add(p.id);
           const visto = resumos[p.id]?.consultadoEm;
           if (visto && Date.parse(visto) > limite) continue;

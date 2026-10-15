@@ -54,5 +54,6 @@ export function useProcesso(id: string) {
     return () => controle.abort();
   }, [id]);
 
-  return { processo, erro, carregando };
+  /** `substituir` troca o processo na tela depois de uma gravação feita aqui. */
+  return { processo, erro, carregando, substituir: setProcesso };
 }

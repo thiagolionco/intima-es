@@ -14,6 +14,14 @@ function paraProcesso(l: Linha): Processo {
   return semNulos({
     id: l.id,
     numero: l.numero,
+    fase: l.fase,
+    area: l.area,
+    tipo: l.tipo,
+    dataAtendimento: l.dataAtendimento,
+    dataInicio: l.dataInicio,
+    prescricao: l.prescricao,
+    dataProtocolo: l.dataProtocolo,
+    comarca: l.comarca,
     cliente: l.cliente,
     parteContraria: l.parteContraria,
     polo: l.polo,
@@ -31,7 +39,15 @@ function paraProcesso(l: Linha): Processo {
 /** Colunas dos dados editáveis; campo ausente vira NULL (a edição manda o processo inteiro). */
 function colunas(d: DadosProcesso) {
   return {
-    numero: d.numero,
+    numero: d.numero ?? null,
+    fase: d.fase,
+    area: d.area ?? null,
+    tipo: d.tipo ?? null,
+    dataAtendimento: d.dataAtendimento ?? null,
+    dataInicio: d.dataInicio ?? null,
+    prescricao: d.prescricao ?? null,
+    dataProtocolo: d.dataProtocolo ?? null,
+    comarca: d.comarca ?? null,
     cliente: d.cliente,
     parteContraria: d.parteContraria ?? null,
     polo: d.polo,
@@ -46,7 +62,8 @@ function colunas(d: DadosProcesso) {
 
 const violaUnicidade = (e: unknown) => (e as { code?: string }).code === "23505" || (e as { cause?: { code?: string } }).cause?.code === "23505";
 
-async function idComNumero(tx: Transacao, escritorioId: string, numero: string, exceto?: string) {
+async function idComNumero(tx: Transacao, escritorioId: string, numero: string | undefined, exceto?: string) {
+  if (!numero) return undefined;
   const [l] = await tx
     .select({ id: processos.id })
     .from(processos)
