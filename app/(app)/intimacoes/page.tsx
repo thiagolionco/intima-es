@@ -120,6 +120,13 @@ function ListaIntimacoes() {
     });
   }
 
+  const todasDoResultadoSelecionadas = resultado.length > 0 && resultado.every((i) => selecionadas.has(i.id));
+  const idsDoResultado = useMemo(() => new Set(resultado.map((i) => i.id)), [resultado]);
+  const foraDoFiltro = useMemo(() => [...selecionadas].filter((id) => !idsDoResultado.has(id)).length, [selecionadas, idsDoResultado]);
+  function selecionarResultado() {
+    setSelecionadas((s) => new Set([...s, ...resultado.map((i) => i.id)]));
+  }
+
   const conjuntosExportacao = useMemo(
     () => [
       { id: "filtradas", rotulo: "Resultado atual", descricao: ativos || filtros.busca ? `${ativos} filtro(s) ativo(s)${filtros.busca ? ` · busca "${filtros.busca}"` : ""}` : "Sem filtros, na ordem da lista", itens: resultado },
@@ -309,9 +316,20 @@ function ListaIntimacoes() {
             <input type="checkbox" checked={todasVisiveisSelecionadas} onChange={alternarTodas} className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-600" />
             Selecionar página
           </label>
+          {resultado.length > visiveis.length &&
+            (todasDoResultadoSelecionadas ? (
+              <span className="text-slate-600">Todas as {resultado.length} do resultado estão selecionadas.</span>
+            ) : (
+              <button onClick={selecionarResultado} className="font-medium text-brand-700 hover:underline">
+                Selecionar todas as {resultado.length} do resultado
+              </button>
+            ))}
           {selecionadas.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-brand-50 px-3 py-1.5 animate-fade-in">
-              <span className="font-medium text-brand-800">{selecionadas.size} selecionada(s)</span>
+              <span className="font-medium text-brand-800">
+                {selecionadas.size} selecionada(s)
+                {foraDoFiltro > 0 && <span className="font-normal text-brand-700"> · {foraDoFiltro} fora do filtro atual</span>}
+              </span>
               <Select
                 value=""
                 onChange={(e) => e.target.value && mudarStatusLote(e.target.value as StatusIntimacao)}
@@ -473,7 +491,11 @@ function ListaIntimacoes() {
         open={!!confirmar}
         onClose={() => setConfirmar(null)}
         title={confirmar && confirmar.ids.length > 1 ? `Excluir ${confirmar.ids.length} intimações?` : "Excluir intimação?"}
-        description="Esta ação não pode ser desfeita. Se a intimação veio do Comunica, ela poderá ser importada de novo numa próxima busca."
+        description={
+          confirmar && confirmar.ids.length > 1
+            ? "Esta ação não pode ser desfeita. Se quiser só tirá-las da frente sem apagar, use \"Alterar status\" e escolha Arquivada. As que vieram do Comunica podem voltar se você buscar de novo o mesmo período."
+            : "Esta ação não pode ser desfeita. Se a intimação veio do Comunica, ela poderá ser importada de novo numa próxima busca."
+        }
         onConfirm={() => {
           if (!confirmar) return;
           if (confirmar.ids.length === 1) excluirIntimacao(confirmar.ids[0]);

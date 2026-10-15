@@ -1,12 +1,10 @@
 "use client";
 
-import { Download, FileJson, FileSpreadsheet, HardDrive, Sparkles, Trash2, Upload } from "lucide-react";
+import { Download, FileJson, FileSpreadsheet, HardDrive, Upload } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
-import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, PageHeader, Spinner } from "@/components/ui";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
-import { gerarDadosDemo } from "@/lib/demo";
 import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { useStore } from "@/lib/store";
 import type { Intimacao, Suspensao, TermoMonitorado } from "@/lib/types";
@@ -36,7 +34,6 @@ export default function DadosPage() {
   const { ready, intimacoes, termos, suspensoes, substituirTudo, salvarSuspensoes } = useStore();
   const { toast } = useToast();
   const arquivo = useRef<HTMLInputElement>(null);
-  const [confirmar, setConfirmar] = useState<"limpar" | "demo" | null>(null);
   const [exportando, setExportando] = useState(false);
 
   if (!ready) return <Spinner />;
@@ -95,42 +92,9 @@ export default function DadosPage() {
           </Button>
           <input ref={arquivo} type="file" accept="application/json,.json" className="hidden" onChange={(e) => e.target.files?.[0] && importarJSON(e.target.files[0])} />
         </Bloco>
-
-        <Bloco icone={<Sparkles className="h-5 w-5" />} titulo="Dados de demonstração" descricao="Substitui o acervo por 30 intimações fictícias para testar o painel, filtros e exportação.">
-          <Button variant="secondary" onClick={() => setConfirmar("demo")}>
-            Carregar exemplo
-          </Button>
-          <Button variant="danger" icon={<Trash2 className="h-4 w-4" />} disabled={!intimacoes.length && !termos.length} onClick={() => setConfirmar("limpar")}>
-            Apagar tudo
-          </Button>
-        </Bloco>
       </div>
 
       <DialogoExportacao aberto={exportando} onFechar={() => setExportando(false)} conjuntos={[{ id: "todas", rotulo: "Acervo completo", descricao: "Todas as intimações da conta", itens: intimacoes }]} />
-
-      <ConfirmDialog
-        open={confirmar === "demo"}
-        onClose={() => setConfirmar(null)}
-        title="Carregar dados de exemplo?"
-        description="As intimações atuais serão substituídas pelos dados fictícios. Os clientes cadastrados também serão substituídos se ainda não houver nenhum."
-        confirmLabel="Carregar"
-        onConfirm={() => {
-          const demo = gerarDadosDemo();
-          substituirTudo(demo.intimacoes, termos.length ? undefined : demo.termos);
-          toast("Dados de exemplo carregados");
-        }}
-      />
-      <ConfirmDialog
-        open={confirmar === "limpar"}
-        onClose={() => setConfirmar(null)}
-        title="Apagar todos os dados?"
-        description="Todas as intimações e clientes da sua conta serão apagados. Considere exportar um backup antes."
-        confirmLabel="Apagar tudo"
-        onConfirm={() => {
-          substituirTudo([], []);
-          toast("Dados apagados");
-        }}
-      />
     </>
   );
 }
