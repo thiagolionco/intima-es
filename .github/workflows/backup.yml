@@ -1,0 +1,66 @@
+name: Backup do banco
+
+# Todo dia, às 03:17 de Brasília, copia o banco dos clientes (Supabase), restaura a cópia num
+# Postgres vazio, confere tabela a tabela e guarda o arquivo cifrado por 30 dias nos artefatos
+# desta execução. Se qualquer passo falhar, a execução fica vermelha e o GitHub avisa por e-mail.
+# Segredos: BANCO_PRODUCAO_URL (Session pooler do Supabase, usuário postgres) e BACKUP_SENHA.
+# O repositório é público: o arquivo só sai daqui cifrado e o log não mostra dados nem quantidades.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # O mesmo grupo de migrar-producao.yml: backup e migração nunca rodam ao mesmo tempo.
+  group: banco-producao
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      copia:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BANCO_URL: ${{ secrets.BANCO_PRODUCAO_URL }}
+      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+      COPIA_URL: postgres://postgres:postgres@localhost:5432/postgres
+      SAIDA: backup
+    steps:
+      - name: Conferir os segredos
+        run: |
+          if [ -z "$BANCO_URL" ] || [ -z "$BACKUP_SENHA" ]; then
+            echo "::error::Faltam os segredos BANCO_PRODUCAO_URL e/ou BACKUP_SENHA. Sem eles não há backup."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - name: Instalar o cliente do Postgres 17
+        run: |
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Fazer, restaurar, conferir e cifrar
+        run: scripts/banco/fazer-backup.sh
+      - name: Guardar o backup cifrado
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ github.run_id }}
+          path: |
+            backup/*.gpg
+            backup/*.sha256
+          retention-days: 30
+          if-no-files-found: error

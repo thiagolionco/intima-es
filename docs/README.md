@@ -8,7 +8,7 @@ aprovação entre elas; cada decisão relevante vira um registro curto em `decis
 | --- | --- |
 | [`decisoes/`](decisoes/) | Registros de decisão (o que foi decidido, por quê e o que fica em aberto). |
 | [`fontes/`](fontes/) | O que se sabe sobre cada fonte de comunicações (hoje, só o DJEN). |
-| [`seguranca/`](seguranca/) | Runbook de incidente e notas de segurança. |
+| [`seguranca/`](seguranca/) | Runbook de incidente, [mudanças seguras](seguranca/mudancas-seguras.md) e [backup e restauração](seguranca/backup-e-restauracao.md). |
 
 ## Fases da versão 4
 
