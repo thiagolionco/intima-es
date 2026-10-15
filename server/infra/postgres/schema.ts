@@ -7,10 +7,11 @@
  * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres,
  *   processo_analises, processo_movimentacoes, registro_cobertura): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas).
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001, 0003 a 0008 e 0011 (0010 só acrescenta colunas).
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { AreaAtuacao, FaseProcesso, TipoDemanda } from "../../../lib/processos.ts";
+import type { MarcaItem, TipoEvento } from "../../../lib/fluxo/modelo.ts";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
 
@@ -254,3 +255,39 @@ export const documentos = pgTable("documentos", {
   valor: jsonb("valor").notNull(),
   atualizadoEm: instante("atualizado_em").notNull().defaultNow(),
 });
+
+/** Estado de cada processo na Central de casos: desde quando está na etapa e o checklist marcado. */
+export const processoFluxo = pgTable(
+  "processo_fluxo",
+  {
+    processoId: uuid("processo_id").primaryKey().references(() => processos.id, { onDelete: "cascade" }),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    etapa: text("etapa").notNull().$type<FaseProcesso>(),
+    etapaDesde: instante("etapa_desde").notNull(),
+    checklist: jsonb("checklist").notNull().$type<Record<string, MarcaItem>>(),
+    /** Sobe a cada gravação (controle de concorrência otimista). */
+    versao: integer("versao").notNull(),
+    atualizadoEm: instante("atualizado_em").notNull(),
+  },
+  (t) => [index("processo_fluxo_escritorio_idx").on(t.escritorioId)],
+);
+
+/** Trilha de auditoria da Central: só se acrescenta, nunca se altera. */
+export const processoEventos = pgTable(
+  "processo_eventos",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    processoId: uuid("processo_id").notNull().references(() => processos.id, { onDelete: "cascade" }),
+    tipo: text("tipo").notNull().$type<TipoEvento>(),
+    de: text("de").$type<FaseProcesso>(),
+    para: text("para").$type<FaseProcesso>(),
+    item: text("item"),
+    motivo: text("motivo"),
+    /** Sem chave estrangeira: o registro continua se o autor sair do escritório. */
+    autorId: uuid("autor_id").notNull(),
+    autorNome: text("autor_nome").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+  },
+  (t) => [index("processo_eventos_processo_idx").on(t.processoId, t.criadoEm), index("processo_eventos_escritorio_idx").on(t.escritorioId)],
+);

@@ -78,6 +78,13 @@
       "when": 1792027100038,
       "tag": "0010_gestao_de_processos",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792031687327,
+      "tag": "0011_central_de_casos",
+      "breakpoints": true
     }
   ]
 }

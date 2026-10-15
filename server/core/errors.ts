@@ -17,6 +17,7 @@ export type CodigoErro =
   | "senha_fraca"
   | "senha_atual_incorreta"
   | "conflito"
+  | "transicao_bloqueada"
   | "nao_encontrado"
   | "origem_invalida"
   | "indisponivel";
@@ -36,6 +37,7 @@ const STATUS: Record<CodigoErro, number> = {
   senha_fraca: 400,
   senha_atual_incorreta: 400,
   conflito: 409,
+  transicao_bloqueada: 422,
   nao_encontrado: 404,
   origem_invalida: 403,
   indisponivel: 404,
