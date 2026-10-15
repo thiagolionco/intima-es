@@ -81,7 +81,7 @@ test("Claude: envia os PDFs, os dados do processo e pede o formato fixo", async 
   }) as typeof fetch;
   const a = new AnalisadorClaude({ chave: "teste", modelo: "claude-opus-5-5", fetch: fetchFalso });
   const r = await a.analisar({
-    processo: { id: novoId(), numero: cnj("111"), cliente: "Construtora Alfa", polo: "ativo", parteContraria: "Banco Beta", criadoEm: "", atualizadoEm: "" },
+    processo: { id: novoId(), numero: cnj("111"), cliente: "Construtora Alfa", polo: "ativo", fase: "protocolado", parteContraria: "Banco Beta", criadoEm: "", atualizadoEm: "" },
     documentos: [{ nome: "Inicial.pdf", bytes: pdf("inicial") }],
   });
   assert.deepEqual(r, resultado);

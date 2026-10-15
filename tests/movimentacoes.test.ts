@@ -136,14 +136,14 @@ async function contrato(processosRepo: ProcessoRepository, repo: MovimentacaoRep
   const doBeto = await processos.criar(beto, { numero: cnj("202"), cliente: "Beta", polo: "passivo" });
 
   // Primeira consulta: tudo é da primeira vez, então nada conta como novo.
-  estado.respostas[p.numero] = { encontrado: true, atualizadoNoTribunal: "2026-10-10T00:00:00.000Z", movimentos: [mov("2026-10-01T10:00:00.000Z", "Distribuição")] };
+  estado.respostas[p.numero!] = { encontrado: true, atualizadoNoTribunal: "2026-10-10T00:00:00.000Z", movimentos: [mov("2026-10-01T10:00:00.000Z", "Distribuição")] };
   const r1 = await servico.atualizar(ana, p.id);
   assert.equal(r1.novos, 0);
   assert.deepEqual(await servico.obter(ana, p.id), r1.movimentacoes, "volta igual ao que foi gravado");
   assert.equal(limitadas, 1);
 
   // Segunda: um andamento novo.
-  estado.respostas[p.numero] = { encontrado: true, movimentos: [mov("2026-10-12T10:00:00.000Z", "Conclusão"), mov("2026-10-01T10:00:00.000Z", "Distribuição")] };
+  estado.respostas[p.numero!] = { encontrado: true, movimentos: [mov("2026-10-12T10:00:00.000Z", "Conclusão"), mov("2026-10-01T10:00:00.000Z", "Distribuição")] };
   const r2 = await servico.atualizar(ana, p.id);
   assert.equal(r2.novos, 1);
   assert.deepEqual(await servico.ultimas(ana), { [p.id]: { dataHora: "2026-10-12T10:00:00.000Z", nome: "Conclusão" } });

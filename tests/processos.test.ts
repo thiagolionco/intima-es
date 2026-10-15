@@ -1,7 +1,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
-import { cnjValido, intimacoesDoProcesso, lerValor, mascaraCNJ, normalizarProcesso, validarProcesso } from "../lib/processos.ts";
+import { alertaPrescricao, cnjValido, diasParaPrescrever, intimacoesDoProcesso, lerValor, mascaraCNJ, normalizarProcesso, referencia, textoPrescricao, validarProcesso } from "../lib/processos.ts";
 import type { Intimacao } from "../lib/types.ts";
 import type { Usuario } from "../server/auth/model.ts";
 import { novoId } from "../server/core/crypto.ts";
@@ -26,6 +26,7 @@ function cnj(sequencial: string, ano = "2024", justica = "8", tribunal = "26", o
 const relogio = { agora: () => new Date("2026-10-12T12:00:00Z") };
 const UM = cnj("1234567");
 const DOIS = cnj("7654321");
+const TRES = cnj("1112223");
 
 test("confere os dígitos verificadores do número CNJ", () => {
   assert.ok(cnjValido(UM));
@@ -46,16 +47,55 @@ test("lê o valor da causa em reais", () => {
 });
 
 test("valida e normaliza os dados do processo", () => {
-  assert.deepEqual(Object.keys(validarProcesso({})).sort(), ["cliente", "numero", "polo"]);
+  assert.deepEqual(Object.keys(validarProcesso({})).sort(), ["cliente", "polo"]);
+  assert.deepEqual(Object.keys(validarProcesso({ fase: "protocolado" })).sort(), ["cliente", "numero", "polo"]);
   assert.match(validarProcesso({ numero: "1234", cliente: "A", polo: "ativo" }).numero!, /20 dígitos/);
   assert.deepEqual(validarProcesso({ numero: mascaraCNJ(UM), cliente: "Alfa", polo: "passivo", valorCausa: -1 }), { valorCausa: "Valor da causa inválido." });
   assert.deepEqual(normalizarProcesso({ numero: mascaraCNJ(UM), cliente: " Alfa ", polo: "ativo", tribunal: "tjsp", orgao: "  ", valorCausa: 100 }), {
     numero: UM,
+    fase: "protocolado",
     cliente: "Alfa",
     polo: "ativo",
     tribunal: "TJSP",
     valorCausa: 100,
   });
+});
+
+test("caso em preparação dispensa o número; protocolado exige", () => {
+  assert.deepEqual(validarProcesso({ cliente: "Alfa", polo: "ativo", fase: "triagem" }), {});
+  assert.deepEqual(validarProcesso({ cliente: "Alfa", polo: "ativo" }), {});
+  assert.match(validarProcesso({ cliente: "Alfa", polo: "ativo", fase: "protocolado" }).numero!, /Informe/);
+  // Número digitado ainda é conferido, mesmo antes do protocolo.
+  assert.match(validarProcesso({ cliente: "Alfa", polo: "ativo", fase: "correcao", numero: "123" }).numero!, /20 dígitos/);
+  assert.deepEqual(validarProcesso({ cliente: "A", polo: "ativo", fase: "arquivado", area: "espacial", tipo: "x", prescricao: "2026-02-30", dataAtendimento: "ontem" }), {
+    fase: "Fase inválida.",
+    area: "Área inválida.",
+    tipo: "Tipo inválido.",
+    dataAtendimento: "Data inválida.",
+    prescricao: "Data inválida.",
+  });
+  assert.deepEqual(normalizarProcesso({ numero: "", cliente: "Alfa", polo: "passivo", area: "trabalhista", tipo: "defesa", prescricao: "2028-03-01", dataAtendimento: "" }), {
+    fase: "triagem",
+    area: "trabalhista",
+    tipo: "defesa",
+    prescricao: "2028-03-01",
+    cliente: "Alfa",
+    polo: "passivo",
+  });
+});
+
+test("conta os dias até a prescrição", () => {
+  assert.equal(diasParaPrescrever("2026-11-14", "2026-10-15"), 30);
+  assert.equal(diasParaPrescrever("2026-10-14", "2026-10-15"), -1);
+  assert.equal(diasParaPrescrever(undefined, "2026-10-15"), undefined);
+  // Atravessa o fim do horário de verão sem errar por um dia.
+  assert.equal(diasParaPrescrever("2027-03-01", "2026-10-01"), 151);
+  assert.equal(textoPrescricao(30), "Prescreve em 30 dias");
+  assert.equal(textoPrescricao(0), "Prescreve hoje");
+  assert.equal(textoPrescricao(-1), "Prescrito há 1 dia");
+  assert.deepEqual([-1, 0, 30, 31, 90, 91].map(alertaPrescricao), ["vencida", "urgente", "urgente", "atencao", "atencao", "ok"]);
+  assert.equal(referencia({ cliente: "Ana", parteContraria: "Banco Beta" }), "Ana × Banco Beta");
+  assert.equal(referencia({ cliente: "Ana" }), "Ana");
 });
 
 test("liga as intimações ao processo pelo número, da mais recente para a mais antiga", () => {
@@ -89,6 +129,19 @@ async function contrato(repo: ProcessoRepository, ana: string, beto: string) {
 
   const segundo = await servico.criar(ana, { numero: DOIS, cliente: "Alfa", polo: "passivo" });
   await assert.rejects(servico.atualizar(ana, segundo.id, { numero: UM, cliente: "Alfa", polo: "passivo" }), (e) => e instanceof AppError && e.codigo === "conflito");
+
+  // Casos em preparação não têm número e não esbarram uns nos outros.
+  const caso = await servico.criar(ana, { cliente: "Maria", parteContraria: "Loja Gama", polo: "ativo", area: "consumidor", tipo: "acao", dataAtendimento: "2026-10-10", prescricao: "2029-01-31" });
+  const outroCaso = await servico.criar(ana, { cliente: "João", polo: "passivo", tipo: "defesa", fase: "correcao" });
+  assert.equal(caso.fase, "triagem");
+  assert.equal(caso.numero, undefined);
+  assert.equal(outroCaso.fase, "correcao");
+  assert.deepEqual(await servico.obter(ana, caso.id), caso);
+  await assert.rejects(servico.atualizar(ana, caso.id, { ...caso, fase: "protocolado" }), (e) => e instanceof AppError && e.detalhes?.campo === "numero");
+  const protocolado = await servico.atualizar(ana, caso.id, { ...caso, fase: "protocolado", numero: mascaraCNJ(TRES), dataProtocolo: "2026-10-14", comarca: "Campinas" });
+  assert.deepEqual([protocolado.fase, protocolado.numero, protocolado.dataProtocolo, protocolado.comarca, protocolado.prescricao], ["protocolado", TRES, "2026-10-14", "Campinas", "2029-01-31"]);
+  await servico.excluir(ana, caso.id);
+  await servico.excluir(ana, outroCaso.id);
 
   await servico.excluir(ana, p.id);
   assert.deepEqual((await servico.listar(ana)).map((x) => x.id), [segundo.id]);

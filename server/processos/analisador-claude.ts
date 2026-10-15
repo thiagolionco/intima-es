@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { formatarValor, POLO_CLIENTE_LABEL, type Processo } from "../../lib/processos.ts";
+import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
 import { formatProcesso } from "../../lib/utils.ts";
 import type { AnalisadorRisco, ResultadoBruto } from "./analises.ts";
 
@@ -39,12 +39,16 @@ const ESQUEMA = {
 
 function descreverProcesso(p: Processo, nomes: string[]): string {
   const linhas = [
-    `Número: ${formatProcesso(p.numero)}`,
+    p.numero ? `Número: ${formatProcesso(p.numero)}` : "Ainda sem número (não protocolado)",
+    p.area && `Área: ${AREA_LABEL[p.area]}`,
+    p.tipo && `Tipo: ${TIPO_DEMANDA_LABEL[p.tipo]}`,
     `Cliente do escritório: ${p.cliente} (${POLO_CLIENTE_LABEL[p.polo]})`,
     p.parteContraria && `Parte contrária: ${p.parteContraria}`,
     p.tribunal && `Tribunal: ${p.tribunal}`,
     p.orgao && `Órgão julgador: ${p.orgao}`,
+    p.comarca && `Comarca: ${p.comarca}`,
     p.classe && `Classe: ${p.classe}`,
+    p.prescricao && `Prescrição em: ${p.prescricao}`,
     p.valorCausa !== undefined && `Valor da causa: ${formatarValor(p.valorCausa)}`,
   ].filter(Boolean);
   return `Dados do processo:\n${linhas.join("\n")}\n\nDocumentos anexados, na ordem:\n${nomes.map((n, i) => `${i + 1}. ${n}`).join("\n")}\n\nAnalise o risco do processo para o cliente.`;

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ArrowLeft, Inbox, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Inbox, Pencil, Stamp, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
@@ -13,13 +13,14 @@ import { CartaoMovimentacao, MovimentacoesDoProcesso, useMovimentacoes } from "@
 import { ParecerDoProcesso, usePareceres } from "@/components/parecer-processo";
 import { ConfirmDialog } from "@/components/modal";
 import { ProcessoNaoEncontrado } from "@/components/processos";
+import { ModalProtocolo, SeloPrescricao } from "@/components/quadro-processos";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Spinner } from "@/components/ui";
 import { api } from "@/lib/auth/api";
-import { formatarValor, intimacoesDoProcesso, POLO_CLIENTE_LABEL } from "@/lib/processos";
+import { AREA_LABEL, diasParaPrescrever, FASE_LABEL, formatarValor, intimacoesDoProcesso, POLO_CLIENTE_LABEL, referencia, textoPrescricao, TIPO_DEMANDA_LABEL } from "@/lib/processos";
 import { useProcesso } from "@/lib/use-processos";
 import { useStore } from "@/lib/store";
-import { formatDateTime, formatProcesso } from "@/lib/utils";
+import { formatDate, formatDateTime, formatProcesso, hojeISO } from "@/lib/utils";
 
 function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   return (
@@ -36,10 +37,11 @@ export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { ready, intimacoes, atualizarIntimacao } = useStore();
-  const { processo: p, erro, carregando } = useProcesso(id);
+  const { processo: p, erro, carregando, substituir } = useProcesso(id);
   const { toast } = useToast();
   const [aba, setAba] = useState<Aba>("resumo");
   const [confirmar, setConfirmar] = useState(false);
+  const [protocolar, setProtocolar] = useState(false);
   const docs = useDocumentos(id);
   const pareceres = usePareceres(id);
   const analises = useAnalises(id);
@@ -49,6 +51,7 @@ export default function DetalheProcessoPage() {
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
 
   const ligadas = intimacoesDoProcesso(intimacoes, p.numero);
+  const diasPrescricao = diasParaPrescrever(p.prescricao, hojeISO());
   const parecer = pareceres.pareceres?.[0];
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
@@ -61,25 +64,39 @@ export default function DetalheProcessoPage() {
 
   return (
     <>
-      <Link href="/processos" className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
-        <ArrowLeft className="h-4 w-4" /> Processos
+      <Link href={p.fase === "protocolado" ? "/processos/protocolados" : "/processos"} className="mb-4 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+        <ArrowLeft className="h-4 w-4" /> {p.fase === "protocolado" ? "Protocolados" : "Processos"}
       </Link>
 
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            <Badge className={p.fase === "protocolado" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}>{FASE_LABEL[p.fase]}</Badge>
+            {p.area && <Badge className="bg-brand-50 text-brand-700">{AREA_LABEL[p.area]}</Badge>}
             {p.tribunal && <Badge className="bg-brand-50 text-brand-700">{p.tribunal}</Badge>}
             <Badge>{POLO_CLIENTE_LABEL[p.polo]}</Badge>
+            <SeloPrescricao prescricao={p.prescricao} />
             <SeloResponsavel id={p.responsavelId} />
             {analises.analises?.[0] && <SeloRisco nivel={analises.analises[0].nivel} />}
           </div>
-          <h1 className="mt-2 break-all font-mono text-xl font-semibold text-slate-900 sm:text-2xl">{formatProcesso(p.numero)}</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {p.cliente}
-            {p.parteContraria && ` × ${p.parteContraria}`}
-          </p>
+          {p.numero ? (
+            <>
+              <h1 className="mt-2 break-all font-mono text-xl font-semibold text-slate-900 sm:text-2xl">{formatProcesso(p.numero)}</h1>
+              <p className="mt-1 text-sm text-slate-500">{referencia(p)}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="mt-2 text-xl font-semibold text-slate-900 sm:text-2xl">{referencia(p)}</h1>
+              <p className="mt-1 text-sm text-slate-500">Ainda sem número de processo</p>
+            </>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
+          {p.fase !== "protocolado" && (
+            <Button icon={<Stamp className="h-4 w-4" />} onClick={() => setProtocolar(true)}>
+              Protocolar
+            </Button>
+          )}
           <Link href={`/processos/${p.id}/editar`}>
             <Button variant="secondary" icon={<Pencil className="h-4 w-4" />}>
               Editar
@@ -120,7 +137,22 @@ export default function DetalheProcessoPage() {
                 <Item rotulo="Cliente">{p.cliente}</Item>
                 <Item rotulo="Lado do cliente">{POLO_CLIENTE_LABEL[p.polo]}</Item>
                 <Item rotulo="Parte contrária">{p.parteContraria}</Item>
+                <Item rotulo="Área de atuação">{p.area && AREA_LABEL[p.area]}</Item>
+                <Item rotulo="Tipo">{p.tipo && TIPO_DEMANDA_LABEL[p.tipo]}</Item>
+                <Item rotulo="Fase">{FASE_LABEL[p.fase]}</Item>
+                <Item rotulo="Data do atendimento">{p.dataAtendimento && formatDate(p.dataAtendimento)}</Item>
+                <Item rotulo="Início dos trabalhos">{p.dataInicio && formatDate(p.dataInicio)}</Item>
+                <Item rotulo="Prescrição">
+                  {p.prescricao && (
+                    <>
+                      {formatDate(p.prescricao)}
+                      {diasPrescricao !== undefined && <span className="ml-1 text-slate-500">({textoPrescricao(diasPrescricao).toLowerCase()})</span>}
+                    </>
+                  )}
+                </Item>
+                <Item rotulo="Data do protocolo">{p.dataProtocolo && formatDate(p.dataProtocolo)}</Item>
                 <Item rotulo="Tribunal">{p.tribunal}</Item>
+                <Item rotulo="Comarca">{p.comarca}</Item>
                 <Item rotulo="Vara ou órgão julgador">{p.orgao}</Item>
                 <Item rotulo="Classe (tipo de ação)">{p.classe}</Item>
                 <Item rotulo="Valor da causa">{formatarValor(p.valorCausa)}</Item>
@@ -209,13 +241,22 @@ export default function DetalheProcessoPage() {
           </Card>
         ))}
 
+      <ModalProtocolo
+        processo={protocolar ? p : undefined}
+        onFechar={() => setProtocolar(false)}
+        onProtocolado={(novo) => {
+          setProtocolar(false);
+          substituir(novo);
+          toast("Processo protocolado", { descricao: novo.numero && formatProcesso(novo.numero) });
+        }}
+      />
       <ConfirmDialog
         open={confirmar}
         onClose={() => setConfirmar(false)}
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className="font-mono">{formatProcesso(p.numero)}</strong> os PDFs anexados, o parecer, as análises de risco e os andamentos guardados serão apagados. As intimações continuam na lista de intimações.
+            O cadastro do processo <strong className={p.numero ? "font-mono" : undefined}>{p.numero ? formatProcesso(p.numero) : referencia(p)}</strong> os PDFs anexados, o parecer, as análises de risco e os andamentos guardados serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {

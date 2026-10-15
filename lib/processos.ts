@@ -8,11 +8,56 @@ export const POLO_CLIENTE_LABEL: Record<PoloCliente, string> = {
   passivo: "Réu (polo passivo)",
 };
 
-/** Um processo cadastrado pelo escritório. */
+/** Fases do caso no escritório, na ordem do quadro. */
+export type FaseProcesso = "triagem" | "elaboracao" | "correcao" | "protocolado";
+
+export const FASES: { id: FaseProcesso; rotulo: string; descricao: string }[] = [
+  { id: "triagem", rotulo: "Triagem", descricao: "Atendimento feito, decidindo se e como entrar." },
+  { id: "elaboracao", rotulo: "Elaboração da peça", descricao: "Peça sendo redigida." },
+  { id: "correcao", rotulo: "Correção de peça", descricao: "Peça pronta, em revisão." },
+  { id: "protocolado", rotulo: "Protocolado", descricao: "Já está no tribunal ou no órgão." },
+];
+
+export const FASE_LABEL = Object.fromEntries(FASES.map((f) => [f.id, f.rotulo])) as Record<FaseProcesso, string>;
+
+export const AREA_LABEL = {
+  trabalhista: "Trabalhista",
+  civel: "Cível",
+  consumidor: "Consumidor",
+  familia: "Família e sucessões",
+  previdenciaria: "Previdenciária",
+  tributaria: "Tributária",
+  empresarial: "Empresarial",
+  criminal: "Criminal",
+  administrativa: "Administrativa",
+  outra: "Outra",
+} as const;
+
+export type AreaAtuacao = keyof typeof AREA_LABEL;
+
+export const TIPO_DEMANDA_LABEL = {
+  acao: "Ação judicial",
+  administrativo: "Processo administrativo",
+  defesa: "Defesa",
+} as const;
+
+export type TipoDemanda = keyof typeof TIPO_DEMANDA_LABEL;
+
+/** Um processo (ou caso ainda em preparação) do escritório. */
 export interface Processo {
   id: string;
-  /** Número CNJ só com os 20 dígitos. */
-  numero: string;
+  /** Número CNJ só com os 20 dígitos. Obrigatório só depois de protocolado. */
+  numero?: string;
+  fase: FaseProcesso;
+  area?: AreaAtuacao;
+  tipo?: TipoDemanda;
+  /** Datas em AAAA-MM-DD. */
+  dataAtendimento?: string;
+  dataInicio?: string;
+  prescricao?: string;
+  dataProtocolo?: string;
+  /** Cidade do juízo. */
+  comarca?: string;
   cliente: string;
   parteContraria?: string;
   polo: PoloCliente;
@@ -36,6 +81,42 @@ export type DadosProcesso = Omit<Processo, "id" | "criadoEm" | "atualizadoEm">;
 export type ErrosProcesso = Partial<Record<keyof DadosProcesso, string>>;
 
 export const LIMITES_PROCESSO = { texto: 200, observacoes: 5000, valorMaximo: 1e15 } as const;
+
+const CAMPOS_DATA = ["dataAtendimento", "dataInicio", "prescricao", "dataProtocolo"] as const;
+
+function dataValida(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return d.getUTCMonth() === Number(m[2]) - 1 && Number(m[1]) >= 1900 && Number(m[1]) <= 2200;
+}
+
+/** Quem contra quem: "Cliente × Parte contrária". */
+export function referencia(p: Pick<Processo, "cliente" | "parteContraria">): string {
+  return p.parteContraria ? `${p.cliente} × ${p.parteContraria}` : p.cliente;
+}
+
+/** Dias corridos de `hoje` até a prescrição (negativo se já passou); `undefined` sem data. */
+export function diasParaPrescrever(prescricao: string | undefined, hoje: string): number | undefined {
+  if (!prescricao || !dataValida(prescricao) || !dataValida(hoje)) return undefined;
+  return Math.round((Date.parse(`${prescricao}T00:00:00Z`) - Date.parse(`${hoje}T00:00:00Z`)) / 86_400_000);
+}
+
+/** Frase curta para a prescrição. */
+export function textoPrescricao(dias: number): string {
+  if (dias < 0) return `Prescrito há ${-dias} dia${dias === -1 ? "" : "s"}`;
+  if (dias === 0) return "Prescreve hoje";
+  return `Prescreve em ${dias} dia${dias === 1 ? "" : "s"}`;
+}
+
+/** Faixa de alerta da prescrição: até 30 dias é urgente, até 90 merece atenção. */
+export function alertaPrescricao(dias: number | undefined): "vencida" | "urgente" | "atencao" | "ok" | undefined {
+  if (dias === undefined) return undefined;
+  if (dias < 0) return "vencida";
+  if (dias <= 30) return "urgente";
+  if (dias <= 90) return "atencao";
+  return "ok";
+}
 
 export function digitos(s: string): string {
   return (s ?? "").replace(/\D/g, "");
@@ -87,12 +168,20 @@ export function formatarValor(centavos?: number): string {
 export function validarProcesso(d: Partial<Record<keyof DadosProcesso, unknown>>): ErrosProcesso {
   const erros: ErrosProcesso = {};
   const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  if (!digitos(texto(d.numero))) erros.numero = "Informe o número do processo.";
-  else if (digitos(texto(d.numero)).length !== 20) erros.numero = "O número CNJ tem 20 dígitos (NNNNNNN-DD.AAAA.J.TR.OOOO).";
+  if (d.fase !== undefined && !FASES.some((f) => f.id === d.fase)) erros.fase = "Fase inválida.";
+  if (!digitos(texto(d.numero))) {
+    if (faseEfetiva(d) === "protocolado") erros.numero = "Informe o número do processo protocolado.";
+  } else if (digitos(texto(d.numero)).length !== 20) erros.numero = "O número CNJ tem 20 dígitos (NNNNNNN-DD.AAAA.J.TR.OOOO).";
   else if (!cnjValido(texto(d.numero))) erros.numero = "Número inválido: os dígitos verificadores não conferem.";
   if (!texto(d.cliente)) erros.cliente = "Informe o cliente.";
   if (d.polo !== "ativo" && d.polo !== "passivo") erros.polo = "Escolha o lado do cliente.";
-  for (const campo of ["cliente", "parteContraria", "tribunal", "orgao", "classe", "responsavelId"] as const) {
+  if (d.area !== undefined && !(typeof d.area === "string" && d.area in AREA_LABEL)) erros.area = "Área inválida.";
+  if (d.tipo !== undefined && !(typeof d.tipo === "string" && d.tipo in TIPO_DEMANDA_LABEL)) erros.tipo = "Tipo inválido.";
+  for (const campo of CAMPOS_DATA) {
+    const v = d[campo];
+    if (v !== undefined && v !== "" && !(typeof v === "string" && dataValida(v))) erros[campo] = "Data inválida.";
+  }
+  for (const campo of ["cliente", "parteContraria", "tribunal", "orgao", "comarca", "classe", "responsavelId"] as const) {
     if (d[campo] !== undefined && typeof d[campo] !== "string") erros[campo] = "Valor inválido.";
     else if (texto(d[campo]).length > LIMITES_PROCESSO.texto) erros[campo] = `No máximo ${LIMITES_PROCESSO.texto} caracteres.`;
   }
@@ -105,11 +194,25 @@ export function validarProcesso(d: Partial<Record<keyof DadosProcesso, unknown>>
   return erros;
 }
 
+/** Sem fase informada, quem já tem número está protocolado e o resto começa na triagem. */
+function faseEfetiva(d: Partial<Record<keyof DadosProcesso, unknown>>): FaseProcesso {
+  if (typeof d.fase === "string" && FASES.some((f) => f.id === d.fase)) return d.fase as FaseProcesso;
+  return digitos(typeof d.numero === "string" ? d.numero : "") ? "protocolado" : "triagem";
+}
+
 /** Normaliza os dados já validados: número só com dígitos, textos aparados, campos vazios removidos. */
 export function normalizarProcesso(d: Partial<Record<keyof DadosProcesso, unknown>>): DadosProcesso {
   const opcional = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
   const r: DadosProcesso = {
-    numero: digitos(String(d.numero)),
+    numero: digitos(typeof d.numero === "string" ? d.numero : "") || undefined,
+    fase: faseEfetiva(d),
+    area: opcional(d.area) as AreaAtuacao | undefined,
+    tipo: opcional(d.tipo) as TipoDemanda | undefined,
+    dataAtendimento: opcional(d.dataAtendimento),
+    dataInicio: opcional(d.dataInicio),
+    prescricao: opcional(d.prescricao),
+    dataProtocolo: opcional(d.dataProtocolo),
+    comarca: opcional(d.comarca),
     cliente: String(d.cliente).trim(),
     parteContraria: opcional(d.parteContraria),
     polo: d.polo as PoloCliente,
@@ -124,8 +227,9 @@ export function normalizarProcesso(d: Partial<Record<keyof DadosProcesso, unknow
 }
 
 /** Intimações do processo, ligadas pelo número CNJ, da mais recente para a mais antiga. */
-export function intimacoesDoProcesso(intimacoes: Intimacao[], numero: string): Intimacao[] {
-  const alvo = digitos(numero);
+export function intimacoesDoProcesso(intimacoes: Intimacao[], numero: string | undefined): Intimacao[] {
+  const alvo = digitos(numero ?? "");
+  if (!alvo) return [];
   return intimacoes
     .filter((i) => digitos(i.numeroProcesso) === alvo)
     .sort((a, b) => b.dataDisponibilizacao.localeCompare(a.dataDisponibilizacao));

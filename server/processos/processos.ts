@@ -45,7 +45,7 @@ export class ProcessoRepositoryDocumentos implements ProcessoRepository {
 
   criar(usuarioId: string, p: Processo) {
     return this.db.alterar<Processo[]>(chave(usuarioId), [], (lista) => {
-      const existente = lista.find((x) => x.numero === p.numero);
+      const existente = p.numero ? lista.find((x) => x.numero === p.numero) : undefined;
       if (existente) throw conflitoDeNumero(existente.id);
       return { valor: [...lista, p], resultado: undefined };
     });
@@ -55,7 +55,7 @@ export class ProcessoRepositoryDocumentos implements ProcessoRepository {
     return this.db.alterar<Processo[], Processo | null>(chave(usuarioId), [], (lista) => {
       const atual = lista.find((x) => x.id === id);
       if (!atual) return { valor: lista, resultado: null };
-      const outro = lista.find((x) => x.numero === dados.numero && x.id !== id);
+      const outro = dados.numero ? lista.find((x) => x.numero === dados.numero && x.id !== id) : undefined;
       if (outro) throw conflitoDeNumero(outro.id);
       const novo: Processo = { ...dados, id, criadoEm: atual.criadoEm, atualizadoEm: agora };
       return { valor: lista.map((x) => (x.id === id ? novo : x)), resultado: novo };
