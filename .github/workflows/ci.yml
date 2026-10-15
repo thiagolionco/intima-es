@@ -51,3 +51,67 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm audit --omit=dev --audit-level=high
+
+  migracoes:
+    name: Guarda das migrações e ensaio do backup
+    runs-on: ubuntu-latest
+    services:
+      producao:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      copia:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Nenhuma migração já existente muda; nenhuma nova apaga ou expõe dados sem autorização.
+      - name: Guarda das migrações
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then echo "Sem base para comparar."; exit 0; fi
+          node --experimental-strip-types --no-warnings scripts/verificar-migracoes.mts --base "$BASE"
+      - name: Instalar o cliente do Postgres 17
+        run: |
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      # Ensaio com um banco de mentira com os papéis do Supabase: a migração segura (backup,
+      # restauração conferida, ensaio e aplicação) precisa funcionar com as migrações deste PR.
+      - name: Ensaio da migração segura
+        env:
+          BANCO_URL: postgres://postgres:postgres@localhost:5432/postgres
+          COPIA_URL: postgres://postgres:postgres@localhost:5433/postgres
+          BACKUP_SENHA: senha-de-ensaio
+          SAIDA: /tmp/backup
+        run: |
+          psql "$BANCO_URL" -v ON_ERROR_STOP=1 -q -c "create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls; grant usage on schema public to anon, authenticated, service_role; alter default privileges in schema public grant all on tables to anon, authenticated, service_role;"
+          git worktree add -q /tmp/base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD' }}"
+          (cd /tmp/base && ln -s "$GITHUB_WORKSPACE/node_modules" node_modules && DATABASE_URL="$BANCO_URL" npm run --silent db:migrar)
+          psql "$BANCO_URL" -q -c "insert into escritorios select gen_random_uuid(), 'Escritório ' || g, now() from generate_series(1, 5) g;"
+          scripts/banco/fazer-backup.sh
+          scripts/banco/migrar-com-seguranca.sh

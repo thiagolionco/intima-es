@@ -74,6 +74,10 @@ npm run db:migrar     # cria as tabelas e o isolamento por escritório
 npm run db:importar   # opcional: copia os dados de .data/ para o banco
 ```
 
+No banco dos clientes (produção), as migrações **não** se rodam assim: só pelo workflow
+*Migrar produção*, que faz backup conferido e ensaio antes. Ver
+[`docs/seguranca/mudancas-seguras.md`](docs/seguranca/mudancas-seguras.md).
+
 Cada conta é dona do próprio escritório, e o banco (não só o código) impede que um
 escritório veja os dados de outro. Detalhes em
 [`docs/decisoes/0006`](docs/decisoes/0006-postgres-e-rls.md).
@@ -337,6 +341,7 @@ lib/                  tipos, store sincronizada com o servidor, sessão no naveg
 tests/                testes com node:test
 docs/                 decisões, fontes de dados e segurança
 drizzle/              migrações do PostgreSQL (geradas a partir de server/infra/postgres/schema.ts)
-scripts/              migrar o banco e importar os dados de .data/
+scripts/              migrar o banco, importar os dados de .data/, verificar migrações
+scripts/banco/        backup conferido e migração segura da produção (docs/seguranca/mudancas-seguras.md)
 .github/workflows/    CI
 ```

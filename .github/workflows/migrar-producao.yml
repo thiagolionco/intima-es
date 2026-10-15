@@ -1,0 +1,75 @@
+name: Migrar produção
+
+# Única porta para mudar a estrutura do banco dos clientes. Roda só quando alguém com acesso ao
+# repositório aperta "Run workflow" e digita APLICAR, depois do "sim" por escrito do Thiago.
+# Roda no ramo escolhido: o do PR (CI verde e aprovado), logo antes de juntá-lo ao main.
+# Ordem (scripts/banco/migrar-com-seguranca.sh): guarda das pendentes → backup conferido e cifrado
+# → ensaio das migrações na cópia restaurada → produção → conferência. Qualquer falha para tudo.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmacao:
+        description: "Digite APLICAR para migrar o banco dos clientes"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: banco-producao
+  cancel-in-progress: false
+
+jobs:
+  migrar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      copia:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      BANCO_URL: ${{ secrets.BANCO_PRODUCAO_URL }}
+      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+      COPIA_URL: postgres://postgres:postgres@localhost:5432/postgres
+      SAIDA: backup
+    steps:
+      - name: Conferir a confirmação e os segredos
+        env:
+          CONFIRMACAO: ${{ inputs.confirmacao }}
+        run: |
+          if [ "$CONFIRMACAO" != "APLICAR" ]; then echo "::error::Confirmação diferente de APLICAR."; exit 1; fi
+          if [ -z "$BANCO_URL" ] || [ -z "$BACKUP_SENHA" ]; then
+            echo "::error::Faltam os segredos BANCO_PRODUCAO_URL e/ou BACKUP_SENHA."; exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Instalar o cliente do Postgres 17
+        run: |
+          sudo apt-get install -y -qq postgresql-common >/dev/null
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -qq postgresql-client-17 >/dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - name: Backup, ensaio e migração
+        run: scripts/banco/migrar-com-seguranca.sh
+      - name: Guardar o backup cifrado
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-antes-da-migracao-${{ github.run_id }}
+          path: |
+            backup/*.gpg
+            backup/*.sha256
+          retention-days: 90
+          if-no-files-found: ignore
