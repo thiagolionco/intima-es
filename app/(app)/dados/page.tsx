@@ -1,11 +1,10 @@
 "use client";
 
-import { Download, FileJson, FileSpreadsheet, HardDrive, Upload } from "lucide-react";
+import { Download, FileJson, FileSpreadsheet, Upload } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { useToast } from "@/components/toast";
 import { Button, Card, PageHeader, Spinner } from "@/components/ui";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
-import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { useStore } from "@/lib/store";
 import type { Intimacao, Suspensao, TermoMonitorado } from "@/lib/types";
 import { hojeISO } from "@/lib/utils";
@@ -37,8 +36,6 @@ export default function DadosPage() {
   const [exportando, setExportando] = useState(false);
 
   if (!ready) return <Spinner />;
-
-  const bytes = new Blob([JSON.stringify(intimacoes), JSON.stringify(termos)]).size;
 
   function exportarJSON() {
     const conteudo = JSON.stringify({ versao: 1, exportadoEm: new Date().toISOString(), intimacoes, termos, suspensoes }, null, 2);
@@ -73,10 +70,6 @@ export default function DadosPage() {
       <PageHeader title="Dados e backup" description="Seus dados ficam guardados no servidor, isolados na sua conta, e acompanham você em qualquer navegador." />
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Bloco icone={<HardDrive className="h-5 w-5" />} titulo="Seu espaço de trabalho" descricao={`${intimacoes.length} intimação(ões) e ${termos.length} cliente(s), ocupando cerca de ${(bytes / 1024).toFixed(1)} KB.`}>
-          <IndicadorSincronizacao />
-        </Bloco>
-
         <Bloco icone={<FileSpreadsheet className="h-5 w-5" />} titulo="Exportar intimações" descricao="Excel, CSV, PDF ou JSON, com escolha de colunas, ordem e formatação.">
           <Button variant="secondary" icon={<Download className="h-4 w-4" />} disabled={!intimacoes.length} onClick={() => setExportando(true)}>
             Abrir exportação
