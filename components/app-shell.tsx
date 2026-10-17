@@ -180,7 +180,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="lg:pl-64">
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {/* A Central de casos usa três painéis lado a lado e precisa de mais largura. */}
+          <div className={clsx("mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8", pathname.startsWith("/processos/central") ? "max-w-[1760px]" : "max-w-7xl")}>
             {erroPersistencia && (
               <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
                 {erroPersistencia}

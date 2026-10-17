@@ -43,10 +43,11 @@ export function SeloParticular({ particular, className }: { particular?: boolean
 }
 
 /** As duas abas da área de processos. */
-export function AbasProcessos({ atual, contagem }: { atual: "andamento" | "protocolados"; contagem?: { andamento: number; protocolados: number } }) {
+export function AbasProcessos({ atual, contagem }: { atual: "andamento" | "protocolados" | "central"; contagem?: { andamento: number; protocolados: number } }) {
   const abas = [
     { id: "andamento", rotulo: "Em preparação", href: "/processos", n: contagem?.andamento },
     { id: "protocolados", rotulo: "Protocolados", href: "/processos/protocolados", n: contagem?.protocolados },
+    { id: "central", rotulo: "Central de casos", href: "/processos/central", n: undefined, previa: true },
   ] as const;
   return (
     <nav className="mb-6 border-b border-slate-200" aria-label="Processos">
@@ -63,6 +64,7 @@ export function AbasProcessos({ atual, contagem }: { atual: "andamento" | "proto
           >
             {a.rotulo}
             {a.n !== undefined && <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{a.n}</span>}
+            {"previa" in a && <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">prévia</span>}
           </Link>
         ))}
       </div>

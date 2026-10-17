@@ -8,6 +8,9 @@ import { EscritorioService } from "../server/escritorio/escritorio.ts";
 import { LimitadorEmMemoria } from "../server/infra/limitador.ts";
 import type { MensagemEmail } from "../server/infra/email/ports.ts";
 import { EscritorioRepositoryPostgres } from "../server/infra/postgres/escritorio.ts";
+import { FluxoRepositoryPostgres } from "../server/infra/postgres/fluxo.ts";
+import { FluxoService } from "../server/fluxo/fluxo.ts";
+import { motorPadrao } from "../lib/fluxo/motor.ts";
 import { ParecerRepositoryPostgres } from "../server/infra/postgres/pareceres.ts";
 import { ProcessoRepositoryPostgres } from "../server/infra/postgres/processos.ts";
 import { AuditoriaPostgres, EspacoTrabalhoRepositoryPostgres, UsuarioRepositoryPostgres } from "../server/infra/postgres/repositorios.ts";
@@ -216,6 +219,28 @@ test("processo particular: só quem o marcou vê, inclusive o que pende dele", o
   assert.equal((await srv.listar(ana.id)).length, 2);
   await srv.atualizar(ana.id, meu.id, { cliente: "Cliente do Beto", polo: "ativo", particular: true });
   assert.equal((await srv.listar(beto.id)).length, 1, "agora é particular da Ana");
+});
+
+test("processo particular: a Central de casos também esconde o fluxo e a trilha dele", opcoes, async () => {
+  const ana = await escritorioDaAna();
+  await servico.convidar(ana.id, { email: "beto@alfa.adv.br", papel: "advogado" }, ctx);
+  await servico.aceitarComContaNova(tokenDoUltimoEmail(), { nome: "Beto Lima", senha: "Cavalo-Trovao-Azul-91!", aceitouTermos: true }, ctx);
+  const beto = (await usuariosRepo.porEmail("beto@alfa.adv.br"))!;
+  const processosRepo = new ProcessoRepositoryPostgres(banco.db);
+  const srv = new ProcessosService(processosRepo, relogio, undefined, servico);
+  const meu = await srv.criar(beto.id, { cliente: "Cliente do Beto", polo: "ativo", particular: true });
+
+  const repo = new FluxoRepositoryPostgres(banco.db, (u, id) => processosRepo.porId(u, id));
+  const fluxo = new FluxoService({ repo, processos: processosRepo, motor: motorPadrao, clock: relogio });
+  await fluxo.marcarItem({ id: beto.id, nome: "Beto" }, meu.id, { item: "tri.documentos", feito: true, versao: 0 });
+  assert.equal((await repo.listar(beto.id)).length, 1);
+  assert.equal((await repo.eventos(beto.id, meu.id, 10)).length, 1);
+
+  // Mesmo escritório, mas o processo é particular do Beto: o banco não entrega nada à Ana.
+  assert.deepEqual(await repo.listar(ana.id), []);
+  assert.equal(await repo.obter(ana.id, meu.id), null);
+  assert.deepEqual(await repo.eventos(ana.id, meu.id, 10), []);
+  assert.equal((await erro(fluxo.ficha(ana.id, meu.id))).codigo, "nao_encontrado");
 });
 
 test("ao excluir a conta, os processos particulares dela vão junto; os do escritório ficam", opcoes, async () => {

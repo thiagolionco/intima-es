@@ -85,6 +85,13 @@
       "when": 1792087668870,
       "tag": "0011_equipe_do_escritorio",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792237829792,
+      "tag": "0012_central_de_casos",
+      "breakpoints": true
     }
   ]
 }
