@@ -1,6 +1,7 @@
 import { avisosDevidos, rotuloVencimento } from "../../lib/avisos.ts";
 import { dataBR } from "../../lib/prazos/datas.ts";
-import { AVISOS_PADRAO, type Intimacao } from "../../lib/types.ts";
+import type { PapelNoEscritorio } from "../../lib/escritorio.ts";
+import { AVISOS_PADRAO, type Intimacao, type PessoaEquipe } from "../../lib/types.ts";
 import type { UsuarioRepository } from "../auth/ports.ts";
 import type { AssinadorDeLinks } from "../core/assinatura.ts";
 import { type Clock, DIA } from "../core/clock.ts";
@@ -26,6 +27,10 @@ export interface DepsAvisos {
   clock: Clock;
   /** URL pública do Clepsa, para os links do e-mail. */
   urlApp: () => string;
+  /** Papel da conta no escritório. Sem isto, cada conta recebe todos os prazos do espaço dela. */
+  papelDe?: (usuarioId: string) => Promise<PapelNoEscritorio | null>;
+  /** Contas do escritório da conta. */
+  membros?: (usuarioId: string) => Promise<string[]>;
 }
 
 type Enviados = Record<string, string>;
@@ -82,7 +87,7 @@ export class AvisosService {
 
     const hoje = hojeEmBrasilia(agora);
     const enviados = await this.d.registro.ler<Enviados>(this.chaveRegistro(usuarioId), {});
-    const devidos = avisosDevidos(espaco.intimacoes, prefs, hoje, espaco.suspensoes ?? [], op.forcar ? new Set() : new Set(Object.keys(enviados)));
+    const devidos = avisosDevidos(await this.daPessoa(usuarioId, espaco.intimacoes, espaco.preferencias?.equipe ?? []), prefs, hoje, espaco.suspensoes ?? [], op.forcar ? new Set() : new Set(Object.keys(enviados)));
     if (!devidos.length) return 0;
 
     const base = this.d.urlApp();
@@ -113,6 +118,20 @@ export class AvisosService {
       });
     }
     return devidos.length;
+  }
+
+  /**
+   * Num escritório com várias contas, cada uma recebe os prazos de que é responsável. Os sem
+   * responsável, ou entregues a alguém da lista que não tem acesso ao Clepsa, vão para os donos
+   * (num escritório de uma pessoa só, isso é tudo, como sempre foi).
+   */
+  private async daPessoa(usuarioId: string, intimacoes: Intimacao[], equipe: PessoaEquipe[]): Promise<Intimacao[]> {
+    if (!this.d.papelDe || !this.d.membros) return intimacoes;
+    const [papel, membros] = await Promise.all([this.d.papelDe(usuarioId), this.d.membros(usuarioId)]);
+    const contas = new Set(membros);
+    const minha = equipe.find((p) => p.usuarioId === usuarioId);
+    const comAcesso = new Set(equipe.filter((p) => p.usuarioId && contas.has(p.usuarioId) && !p.inativa).map((p) => p.id));
+    return intimacoes.filter((i) => (minha && i.responsavelId === minha.id) || (papel === "dono" && !(i.responsavelId && comAcesso.has(i.responsavelId))));
   }
 
   private abrir(token: string): DadosLink {

@@ -12,16 +12,25 @@ export class ContaService {
   private readonly d: Deps;
   private readonly espacos: EspacoTrabalhoRepository;
 
+  private readonly antesDeExcluir?: (usuarioId: string) => Promise<void>;
   private readonly aoExcluir?: (usuarioId: string) => Promise<void>;
   private readonly listarProcessos?: (usuarioId: string) => Promise<unknown[]>;
 
   /**
+   * `antesDeExcluir` pode recusar a exclusão (ex.: único dono de um escritório com outras pessoas).
    * `aoExcluir` apaga o que outros módulos guardam da conta (avisos enviados, acesso à Google Agenda).
    * `listarProcessos` entra na exportação dos dados.
    */
-  constructor(deps: Deps, espacos: EspacoTrabalhoRepository, aoExcluir?: (usuarioId: string) => Promise<void>, listarProcessos?: (usuarioId: string) => Promise<unknown[]>) {
+  constructor(
+    deps: Deps,
+    espacos: EspacoTrabalhoRepository,
+    antesDeExcluir?: (usuarioId: string) => Promise<void>,
+    aoExcluir?: (usuarioId: string) => Promise<void>,
+    listarProcessos?: (usuarioId: string) => Promise<unknown[]>,
+  ) {
     this.d = deps;
     this.espacos = espacos;
+    this.antesDeExcluir = antesDeExcluir;
     this.aoExcluir = aoExcluir;
     this.listarProcessos = listarProcessos;
   }
@@ -92,6 +101,7 @@ export class ContaService {
     if (String(confirmacao ?? "").trim().toLowerCase() !== usuario.email) {
       throw new AppError("dados_invalidos", "Digite seu e-mail exatamente como cadastrado para confirmar.", { campo: "confirmacao" });
     }
+    await this.antesDeExcluir?.(usuarioId);
     await this.aoExcluir?.(usuarioId);
     await this.espacos.excluir(usuarioId);
     await this.d.sessoes.excluirDoUsuario(usuarioId);

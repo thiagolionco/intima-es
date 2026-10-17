@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { SeloResponsavel } from "@/components/equipe";
-import { AbasProcessos } from "@/components/quadro-processos";
+import { AbasProcessos, SeloParticular } from "@/components/quadro-processos";
 import { Alert, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { AREA_LABEL, type AreaAtuacao, digitos, formatarValor, intimacoesDoProcesso, POLO_CLIENTE_LABEL } from "@/lib/processos";
 import { useProcessos } from "@/lib/use-processos";
@@ -112,7 +112,10 @@ export default function ProtocoladosPage() {
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700">{formatarValor(p.valorCausa) || "—"}</td>
                     <td className="px-4 py-3">
-                      <SeloResponsavel id={p.responsavelId} />
+                      <div className="flex flex-col items-start gap-1">
+                        <SeloResponsavel id={p.responsavelId} />
+                        <SeloParticular particular={p.particular} />
+                      </div>
                     </td>
                     <td className="max-w-[16rem] px-4 py-3 text-xs text-slate-600">
                       {ultimas[p.id] ? (
@@ -144,7 +147,10 @@ export default function ProtocoladosPage() {
                     <p className="mt-0.5 truncate text-xs text-slate-500">{[p.area && AREA_LABEL[p.area], p.orgao, p.comarca, formatarValor(p.valorCausa)].filter(Boolean).join(" · ")}</p>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
                       <span>Protocolado em {formatDate(p.dataProtocolo)}</span>
-                      <SeloResponsavel id={p.responsavelId} />
+                      <span className="flex items-center gap-1.5">
+                        <SeloParticular particular={p.particular} />
+                        <SeloResponsavel id={p.responsavelId} />
+                      </span>
                     </div>
                     {(ultimas[p.id] || ligadas.length > 0) && (
                       <p className="mt-1 truncate text-xs text-slate-500">{ultimas[p.id] ? `Andamento: ${ultimas[p.id].nome}` : `${ligadas.length} intimação(ões)`}</p>

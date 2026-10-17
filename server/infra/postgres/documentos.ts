@@ -77,7 +77,15 @@ export class DocumentoRepositoryPostgres implements DocumentoRepository {
     return comEscritorio(this.db, usuarioId, async (tx, escritorioId) => {
       if (!escritorioId) return [];
       const [{ total }] = await tx.select({ total: count() }).from(membros).where(eq(membros.escritorioId, escritorioId));
-      if (total > 1) return [];
+      if (total > 1) {
+        // O escritório fica; só os PDFs dos processos particulares da conta vão embora com ela.
+        const meus = await tx
+          .select({ caminho: processoDocumentos.caminho })
+          .from(processoDocumentos)
+          .innerJoin(processos, eq(processos.id, processoDocumentos.processoId))
+          .where(and(eq(processoDocumentos.escritorioId, escritorioId), eq(processos.particularDe, usuarioId)));
+        return meus.map((l) => l.caminho);
+      }
       const linhas = await tx.select({ caminho: processoDocumentos.caminho }).from(processoDocumentos).where(eq(processoDocumentos.escritorioId, escritorioId));
       return linhas.map((l) => l.caminho);
     });

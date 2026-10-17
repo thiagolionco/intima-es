@@ -52,6 +52,15 @@ CREATE POLICY eventos_do_escritorio ON processo_eventos TO sentinela_app
   USING (escritorio_id = nullif(current_setting('app.escritorio_id', true), '')::uuid)
   WITH CHECK (escritorio_id = nullif(current_setting('app.escritorio_id', true), '')::uuid);
 --> statement-breakpoint
+-- Processo particular (migração 0011): o fluxo e a trilha seguem a visibilidade do processo.
+CREATE POLICY fluxo_de_processo_visivel ON processo_fluxo AS RESTRICTIVE TO sentinela_app
+  USING (EXISTS (SELECT 1 FROM processos p WHERE p.id = processo_id))
+  WITH CHECK (EXISTS (SELECT 1 FROM processos p WHERE p.id = processo_id));
+--> statement-breakpoint
+CREATE POLICY eventos_de_processo_visivel ON processo_eventos AS RESTRICTIVE TO sentinela_app
+  USING (EXISTS (SELECT 1 FROM processos p WHERE p.id = processo_id))
+  WITH CHECK (EXISTS (SELECT 1 FROM processos p WHERE p.id = processo_id));
+--> statement-breakpoint
 -- Sem acesso para os papéis que o Supabase expõe pela API de dados.
 DO $$
 DECLARE papel text;

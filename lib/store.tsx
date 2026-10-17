@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { type PapelNoEscritorio, pode } from "./escritorio";
 import type { Intimacao, PessoaEquipe, Preferencias, Suspensao, TermoMonitorado } from "./types";
 import { delegar } from "./equipe";
 import { aplicarRegra, sugerirRegra } from "./prazos/calculo";
@@ -22,6 +23,8 @@ interface Instantaneo {
   suspensoes?: Suspensao[];
   preferencias?: Preferencias;
   revisao: number;
+  /** Papel de quem está logado no escritório (só na leitura). */
+  papel?: PapelNoEscritorio;
 }
 
 /**
@@ -90,6 +93,12 @@ interface StoreValue {
   salvarEquipe: (lista: PessoaEquipe[]) => void;
   /** Entrega as intimações a uma pessoa da equipe (ou tira o responsável, com `null`). */
   delegarIntimacoes: (ids: string[], pessoaId: string | null) => void;
+  /** Papel de quem está logado no escritório; o servidor confere de novo a cada gravação. */
+  papel?: PapelNoEscritorio;
+  /** Pode excluir intimações (estagiários não podem). */
+  podeExcluir: boolean;
+  /** Pode mexer na lista da equipe (só o dono). */
+  gerenciaEquipe: boolean;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -112,6 +121,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
   const [sincronizacao, setSincronizacao] = useState<EstadoSincronizacao>("carregando");
   const [ultimaGravacao, setUltimaGravacao] = useState<Date | null>(null);
   const [legado, setLegado] = useState<ReturnType<typeof lerV1>>(null);
+  const [papel, setPapel] = useState<PapelNoEscritorio | undefined>(undefined);
 
   const revisao = useRef(0);
   const ignorarProxima = useRef(true);
@@ -132,6 +142,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       setTermos(dados.termos);
       setSuspensoes(dados.suspensoes ?? []);
       setPreferencias(dados.preferencias ?? {});
+      setPapel(dados.papel);
       setErro(null);
       setSincronizacao("salvo");
       setReady(true);
@@ -191,6 +202,11 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
         } catch {
           await carregar();
         }
+      } else if (e instanceof ErroApi && e.codigo === "sem_permissao") {
+        // O papel no escritório não deixa (ex.: estagiário excluindo): volta ao que está gravado e explica.
+        pendente.current = false;
+        await carregar();
+        setErro(e.message);
       } else {
         setErro(e instanceof Error ? e.message : "Não foi possível salvar seus dados.");
         setSincronizacao("erro");
@@ -393,9 +409,12 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       salvarPreferencias: setPreferencias,
       equipe,
       salvarEquipe,
+      papel,
+      podeExcluir: pode(papel ?? "dono", "excluir"),
+      gerenciaEquipe: pode(papel ?? "dono", "gerenciar_equipe"),
       delegarIntimacoes,
     }),
-    [equipe, salvarEquipe, delegarIntimacoes, resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
+    [equipe, salvarEquipe, papel, delegarIntimacoes, resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

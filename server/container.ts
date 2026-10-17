@@ -41,6 +41,8 @@ import { AnaliseRepositoryPostgres } from "./infra/postgres/analises.ts";
 import { MovimentacaoRepositoryPostgres } from "./infra/postgres/movimentacoes.ts";
 import { CoberturaRepositoryPostgres } from "./infra/postgres/cobertura.ts";
 import { DiretorioDeContasPostgres } from "./infra/postgres/diretorio.ts";
+import { EscritorioRepositoryPostgres } from "./infra/postgres/escritorio.ts";
+import { type EscritorioRepository, EscritorioRepositoryDocumentos, EscritorioService } from "./escritorio/escritorio.ts";
 import { AdministracaoService, type DiretorioDeContas, DiretorioDeContasDocumentos } from "./admin/administracao.ts";
 import { type CoberturaRepository, CoberturaRepositoryDocumentos, CoberturaService } from "./rondas/cobertura.ts";
 import { type MovimentacaoRepository, MovimentacaoRepositoryDocumentos, MovimentacoesService } from "./processos/movimentacoes.ts";
@@ -55,6 +57,7 @@ import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
 import { novoId } from "./core/crypto.ts";
+import { AppError } from "./core/errors.ts";
 import { RondaComunica } from "./rondas/ronda-comunica.ts";
 import { AvisosService } from "./avisos/avisos.ts";
 import { AssinadorDeLinks } from "./core/assinatura.ts";
@@ -87,6 +90,7 @@ function criarLinks(config: Configuracao): Links {
     esqueciSenha: (email) => comEmail("/esqueci-a-senha", email),
     confirmarEmail: (token) => `${base()}/confirmar-email#token=${token}`,
     redefinirSenha: (token) => `${base()}/redefinir-senha#token=${token}`,
+    convite: (token) => `${base()}/convite#token=${token}`,
   };
 }
 
@@ -157,6 +161,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
       coberturaRepo: new CoberturaRepositoryPostgres(db, clock) as CoberturaRepository,
       diretorio: new DiretorioDeContasPostgres(db) as DiretorioDeContas,
+      escritorioRepo: new EscritorioRepositoryPostgres(db) as EscritorioRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -179,6 +184,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
     coberturaRepo: new CoberturaRepositoryDocumentos(arquivos, clock) as CoberturaRepository,
     diretorio: new DiretorioDeContasDocumentos(arquivos) as DiretorioDeContas,
+    escritorioRepo: new EscritorioRepositoryDocumentos(new UsuarioRepositoryDocumentos(arquivos)) as EscritorioRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -194,7 +200,7 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
@@ -212,6 +218,18 @@ function montar() {
     emissor2fa: config.emissor2fa,
   };
   const sessoes = new SessaoService(deps);
+  const escritorio = new EscritorioService({
+    repo: escritorioRepo,
+    usuarios: deps.usuarios,
+    espacos: espacosRepo,
+    auditoria: deps.auditoria,
+    hash: deps.hash,
+    limitador: deps.limitador,
+    enviador,
+    clock,
+    links: deps.links,
+    convitesDisponiveis: !!config.urlBanco,
+  });
   const analises = new AnalisesService({
     repo: analisesRepo,
     processos: processosRepo,
@@ -245,6 +263,8 @@ function montar() {
   });
   const avisos = new AvisosService({
     espacos: espacosRepo,
+    papelDe: (id) => escritorio.papelDe(id),
+    membros: async (id) => (await escritorioRepo.membros(id)).map((m) => m.usuarioId),
     usuarios: deps.usuarios,
     enviador,
     registro: db,
@@ -260,6 +280,7 @@ function montar() {
   const rondaComunica = new RondaComunica({
     espacos: espacosRepo,
     listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    escritorioDe: (id) => escritorio.escritorioDe(id),
     buscarPagina: criarBuscadorComunica({ base: config.comunica.url, timeoutMs: 40_000, urlApp: config.urlApp }),
     clock,
     novoId,
@@ -286,6 +307,14 @@ function montar() {
       deps,
       espacosRepo,
       async (id) => {
+        // Os dados são do escritório: ele não pode ficar sem dono enquanto houver mais gente nele.
+        const membros = await escritorioRepo.membros(id);
+        const eu = membros.find((m) => m.usuarioId === id);
+        if (eu?.papel === "dono" && membros.length > 1 && !membros.some((m) => m.usuarioId !== id && m.papel === "dono")) {
+          throw new AppError("conflito", "Você é o único dono de um escritório com outras pessoas. Em Equipe, torne alguém dono (ou tire as outras pessoas) antes de excluir sua conta.");
+        }
+      },
+      async (id) => {
         await agenda.desconectar(id);
         await db.remover(`avisos/${id}`);
         await documentosArquivos.excluirDaConta(id);
@@ -307,13 +336,14 @@ function montar() {
         await movimentacoes.excluirDoProcesso(usuarioId, processoId);
         await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
       },
-    }),
+    }, escritorio),
     documentosProcesso: documentosArquivos,
     fluxo,
     pareceres,
     analises,
     movimentacoes,
-    espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id)),
+    espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id), (id) => escritorio.papelDe(id)),
+    escritorio,
     usuarios: deps.usuarios,
     rondaComunica,
     cobertura: new CoberturaService({

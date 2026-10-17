@@ -1,4 +1,5 @@
 import { type DadosProcesso, normalizarProcesso, type Processo, validarProcesso } from "../../lib/processos.ts";
+import type { Acao } from "../../lib/escritorio.ts";
 import type { Clock } from "../core/clock.ts";
 import { novoId } from "../core/crypto.ts";
 import { AppError } from "../core/errors.ts";
@@ -92,16 +93,23 @@ export interface DependentesDoProcesso {
   aposExcluirProcesso(usuarioId: string, processoId: string, caminhos: string[]): Promise<void>;
 }
 
+/** Confere o papel da conta no escritório; lança AppError("sem_permissao") se ela não pode. */
+export interface PermissoesDoEscritorio {
+  exigir(usuarioId: string, acao: Acao): Promise<unknown>;
+}
+
 /** Regras do cadastro de processos. */
 export class ProcessosService {
   private readonly repo: ProcessoRepository;
   private readonly clock: Clock;
   private readonly dependentes?: DependentesDoProcesso;
+  private readonly permissoes?: PermissoesDoEscritorio;
 
-  constructor(repo: ProcessoRepository, clock: Clock, dependentes?: DependentesDoProcesso) {
+  constructor(repo: ProcessoRepository, clock: Clock, dependentes?: DependentesDoProcesso, permissoes?: PermissoesDoEscritorio) {
     this.repo = repo;
     this.clock = clock;
     this.dependentes = dependentes;
+    this.permissoes = permissoes;
   }
 
   async listar(usuarioId: string) {
@@ -123,6 +131,11 @@ export class ProcessosService {
 
   async atualizar(usuarioId: string, id: string, corpo: unknown) {
     const dados = dadosValidos(corpo);
+    if (dados.particular && idValido(id)) {
+      // Tirar um processo da vista do escritório é decisão do dono; o que já é particular segue livre.
+      const atual = await this.repo.porId(usuarioId, id);
+      if (atual && !atual.particular) await this.permissoes?.exigir(usuarioId, "tornar_particular");
+    }
     const p = idValido(id) ? await this.repo.atualizar(usuarioId, id, dados, this.clock.agora().toISOString()) : null;
     if (!p) throw naoEncontrado();
     return p;
@@ -130,6 +143,7 @@ export class ProcessosService {
 
   async excluir(usuarioId: string, id: string) {
     if (!idValido(id)) throw naoEncontrado();
+    await this.permissoes?.exigir(usuarioId, "excluir");
     // Os caminhos são lidos antes: no Postgres, os metadados somem junto com o processo.
     const caminhos = (await this.dependentes?.caminhosDoProcesso(usuarioId, id)) ?? [];
     if (!(await this.repo.excluir(usuarioId, id))) throw naoEncontrado();

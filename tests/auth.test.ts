@@ -93,6 +93,7 @@ async function montar(backend: Backend) {
       esqueciSenha: () => "http://app/esqueci-a-senha",
       confirmarEmail: (t) => `http://app/confirmar-email#token=${t}`,
       redefinirSenha: (t) => `http://app/redefinir-senha#token=${t}`,
+      convite: (t) => `http://app/convite#token=${t}`,
     },
     politicaSessao: { curtaInatividade: 8 * HORA, curtaAbsoluta: DIA, longaInatividade: 30 * DIA, longaAbsoluta: 90 * DIA },
     emissor2fa: "Teste",

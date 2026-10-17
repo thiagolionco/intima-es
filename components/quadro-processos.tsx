@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Hourglass } from "lucide-react";
+import { Hourglass, Lock } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { api, ErroApi } from "@/lib/auth/api";
@@ -27,6 +27,17 @@ export function SeloPrescricao({ prescricao, className }: { prescricao?: string;
     <span className={clsx("inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium", ESTILO_PRESCRICAO[alerta], className)}>
       <Hourglass className="h-3 w-3" aria-hidden />
       {textoPrescricao(dias)}
+    </span>
+  );
+}
+
+/** Processo que só quem o marcou enxerga. */
+export function SeloParticular({ particular, className }: { particular?: boolean; className?: string }) {
+  if (!particular) return null;
+  return (
+    <span className={clsx("inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800", className)} title="Só você vê este processo">
+      <Lock className="h-3 w-3" aria-hidden />
+      Particular
     </span>
   );
 }

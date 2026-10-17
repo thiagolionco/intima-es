@@ -52,7 +52,7 @@ export function paraUsuario(l: LinhaUsuario): Usuario {
 const CAMPOS_DATA = new Set<keyof Usuario>(["emailConfirmadoEm", "bloqueadoAte", "senhaAlteradaEm", "aceitouTermosEm", "desativadoEm", "criadoEm", "atualizadoEm"]);
 
 /** Converte alterações parciais do domínio em valores de coluna. `undefined` explícito apaga o campo. */
-function paraColunas(alteracoes: Partial<Usuario>): Partial<typeof usuarios.$inferInsert> {
+export function paraColunasDeUsuario(alteracoes: Partial<Usuario>): Partial<typeof usuarios.$inferInsert> {
   const colunas: Record<string, unknown> = {};
   for (const [chave, valor] of Object.entries(alteracoes) as [keyof Usuario, unknown][]) {
     if (chave === "id") continue;
@@ -90,7 +90,7 @@ export class UsuarioRepositoryPostgres implements UsuarioRepository {
   async criar(u: Usuario) {
     try {
       await this.db.transaction(async (tx) => {
-        await tx.insert(usuarios).values({ ...(paraColunas(u) as typeof usuarios.$inferInsert), id: u.id });
+        await tx.insert(usuarios).values({ ...(paraColunasDeUsuario(u) as typeof usuarios.$inferInsert), id: u.id });
         const escritorioId = novoId();
         const agora = data(u.criadoEm);
         await entrarNoEscritorio(tx, u.id, escritorioId);
@@ -105,7 +105,7 @@ export class UsuarioRepositoryPostgres implements UsuarioRepository {
   }
 
   async atualizar(id: string, alteracoes: Partial<Usuario>) {
-    const colunas = paraColunas(alteracoes);
+    const colunas = paraColunasDeUsuario(alteracoes);
     const [l] = Object.keys(colunas).length
       ? await this.db.update(usuarios).set(colunas).where(eq(usuarios.id, id)).returning()
       : await this.db.select().from(usuarios).where(eq(usuarios.id, id));

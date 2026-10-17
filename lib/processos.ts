@@ -72,6 +72,8 @@ export interface Processo {
   /** Pessoa da equipe responsável (id em `preferencias.equipe`). */
   responsavelId?: string;
   observacoes?: string;
+  /** Particular: só quem o marcou vê, mesmo dentro do escritório. Ausente: é do escritório. */
+  particular?: true;
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -188,6 +190,7 @@ export function validarProcesso(d: Partial<Record<keyof DadosProcesso, unknown>>
   if (d.observacoes !== undefined && (typeof d.observacoes !== "string" || d.observacoes.length > LIMITES_PROCESSO.observacoes)) {
     erros.observacoes = `No máximo ${LIMITES_PROCESSO.observacoes} caracteres.`;
   }
+  if (d.particular !== undefined && typeof d.particular !== "boolean") erros.particular = "Valor inválido.";
   if (d.valorCausa !== undefined && (typeof d.valorCausa !== "number" || !Number.isSafeInteger(d.valorCausa) || d.valorCausa < 0 || d.valorCausa > LIMITES_PROCESSO.valorMaximo)) {
     erros.valorCausa = "Valor da causa inválido.";
   }
@@ -222,6 +225,7 @@ export function normalizarProcesso(d: Partial<Record<keyof DadosProcesso, unknow
     valorCausa: typeof d.valorCausa === "number" ? d.valorCausa : undefined,
     responsavelId: opcional(d.responsavelId),
     observacoes: opcional(d.observacoes),
+    particular: d.particular === true ? true : undefined,
   };
   return Object.fromEntries(Object.entries(r).filter(([, v]) => v !== undefined)) as DadosProcesso;
 }

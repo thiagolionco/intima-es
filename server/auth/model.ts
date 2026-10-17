@@ -81,7 +81,11 @@ export type TipoEvento =
   | "conta.desativada"
   | "conta.reativada"
   | "administrador.concedido"
-  | "administrador.removido";
+  | "administrador.removido"
+  | "escritorio.convite_enviado"
+  | "escritorio.convite_aceito"
+  | "escritorio.papel_alterado"
+  | "escritorio.membro_removido";
 
 export interface EventoAuditoria {
   id: string;

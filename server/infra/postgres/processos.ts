@@ -31,13 +31,17 @@ function paraProcesso(l: Linha): Processo {
     valorCausa: l.valorCausa,
     responsavelId: l.responsavelId,
     observacoes: l.observacoes,
+    particular: l.particularDe ? true : undefined,
     criadoEm: l.criadoEm.toISOString(),
     atualizadoEm: l.atualizadoEm.toISOString(),
   }) as Processo;
 }
 
-/** Colunas dos dados editáveis; campo ausente vira NULL (a edição manda o processo inteiro). */
-function colunas(d: DadosProcesso) {
+/**
+ * Colunas dos dados editáveis; campo ausente vira NULL (a edição manda o processo inteiro). Um processo
+ * particular é de quem grava: só o dono dele o enxerga para editar (RLS).
+ */
+function colunas(d: DadosProcesso, usuarioId: string) {
   return {
     numero: d.numero ?? null,
     fase: d.fase,
@@ -57,6 +61,7 @@ function colunas(d: DadosProcesso) {
     valorCausa: d.valorCausa ?? null,
     responsavelId: d.responsavelId ?? null,
     observacoes: d.observacoes ?? null,
+    particularDe: d.particular ? usuarioId : null,
   };
 }
 
@@ -102,7 +107,7 @@ export class ProcessoRepositoryPostgres implements ProcessoRepository {
         if (!escritorioId) throw semEscritorio();
         const existente = await idComNumero(tx, escritorioId, p.numero);
         if (existente) throw conflitoDeNumero(existente);
-        await tx.insert(processos).values({ ...colunas(p), id: p.id, escritorioId, criadoEm: new Date(p.criadoEm), atualizadoEm: new Date(p.atualizadoEm) });
+        await tx.insert(processos).values({ ...colunas(p, usuarioId), id: p.id, escritorioId, criadoEm: new Date(p.criadoEm), atualizadoEm: new Date(p.atualizadoEm) });
       });
     } catch (e) {
       // Duas criações ao mesmo tempo: a segunda esbarra na unicidade.
@@ -121,7 +126,7 @@ export class ProcessoRepositoryPostgres implements ProcessoRepository {
         if (outro) throw conflitoDeNumero(outro);
         const [l] = await tx
           .update(processos)
-          .set({ ...colunas(dados), atualizadoEm: new Date(agora) })
+          .set({ ...colunas(dados, usuarioId), atualizadoEm: new Date(agora) })
           .where(and(eq(processos.escritorioId, escritorioId), eq(processos.id, id)))
           .returning();
         return l ? paraProcesso(l) : null;

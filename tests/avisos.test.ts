@@ -100,3 +100,46 @@ test("o link Já cumpri marca como respondida e não aceita token adulterado", a
   avancar("2026-12-01T10:30:00Z");
   await assert.rejects(servico.consultar(token), { codigo: "token_invalido" }, "expira em 30 dias");
 });
+
+test("num escritório com várias contas, cada uma recebe os prazos de que é responsável", async () => {
+  const BETO = "33333333-3333-3333-3333-333333333333";
+  const db = new ArmazenamentoEmMemoria();
+  const clock = { agora: () => new Date("2026-10-28T10:30:00Z") };
+  // As duas contas leem o mesmo espaço, como membros do mesmo escritório no Postgres.
+  const base = new EspacoTrabalhoRepositoryDocumentos(db, clock);
+  const espacos = { ler: () => base.ler(USUARIO), salvar: (_: string, d: never, r: number) => base.salvar(USUARIO, d, r), excluir: async () => {} };
+  const emails: MensagemEmail[] = [];
+  const contas: Record<string, { email: string; papel: "dono" | "advogado" }> = { [USUARIO]: { email: "ana@alfa.adv.br", papel: "dono" }, [BETO]: { email: "beto@alfa.adv.br", papel: "advogado" } };
+  const servico = new AvisosService({
+    espacos,
+    usuarios: { porId: async (id) => ({ id, email: contas[id].email }) as never, listarConfirmados: async () => [USUARIO, BETO] },
+    enviador: { nome: "teste", enviar: async (m) => void emails.push(m) },
+    registro: db,
+    assinador: new AssinadorDeLinks("x".repeat(40)),
+    clock,
+    urlApp: () => "https://clepsa.exemplo",
+    papelDe: async (id) => contas[id].papel,
+    membros: async () => [USUARIO, BETO],
+  });
+  const equipe = [
+    { id: "p-beto", nome: "Beto", usuarioId: BETO },
+    { id: "p-caio", nome: "Caio (sem conta)" },
+  ];
+  await base.salvar(
+    USUARIO,
+    {
+      intimacoes: [
+        intimacao({ id: "do-beto", numeroProcesso: "1111111-11.2026.8.26.0100", responsavelId: "p-beto" }),
+        intimacao({ id: "do-caio", numeroProcesso: "2222222-22.2026.8.26.0100", responsavelId: "p-caio" }),
+        intimacao({ id: "de-ninguem", numeroProcesso: "3333333-33.2026.8.26.0100" }),
+      ],
+      termos: [],
+      preferencias: { avisos: prefs, equipe },
+    },
+    0,
+  );
+  assert.equal(await servico.daConta(BETO), 1);
+  assert.match(emails[0].texto, /1111111/);
+  assert.equal(await servico.daConta(USUARIO), 2, "a dona recebe o do Caio (sem conta) e o sem responsável");
+  assert.doesNotMatch(emails[1].texto, /1111111/);
+});

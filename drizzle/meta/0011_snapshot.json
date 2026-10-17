@@ -1,5 +1,5 @@
 {
-  "id": "d04c482d-d646-4b7d-9cc0-1113ddcd5636",
+  "id": "06c4593a-d15c-4c3f-a302-2cc23234b302",
   "prevId": "7b9c658d-da83-4726-ac9b-570ec184b73d",
   "version": "7",
   "dialect": "postgresql",
@@ -83,6 +83,116 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.convites": {
+      "name": "convites",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "escritorio_id": {
+          "name": "escritorio_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "papel": {
+          "name": "papel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pessoa_id": {
+          "name": "pessoa_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "convidado_por": {
+          "name": "convidado_por",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expira_em": {
+          "name": "expira_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "convites_escritorio_id_escritorios_id_fk": {
+          "name": "convites_escritorio_id_escritorios_id_fk",
+          "tableFrom": "convites",
+          "tableTo": "escritorios",
+          "columnsFrom": [
+            "escritorio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "convites_convidado_por_usuarios_id_fk": {
+          "name": "convites_convidado_por_usuarios_id_fk",
+          "tableFrom": "convites",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "convidado_por"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "convites_token_hash_key": {
+          "name": "convites_token_hash_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        },
+        "convites_escritorio_email_key": {
+          "name": "convites_escritorio_email_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "escritorio_id",
+            "email"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -606,247 +716,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.processo_eventos": {
-      "name": "processo_eventos",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "escritorio_id": {
-          "name": "escritorio_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "processo_id": {
-          "name": "processo_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tipo": {
-          "name": "tipo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "de": {
-          "name": "de",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "para": {
-          "name": "para",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "item": {
-          "name": "item",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "motivo": {
-          "name": "motivo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "autor_id": {
-          "name": "autor_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "autor_nome": {
-          "name": "autor_nome",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "criado_em": {
-          "name": "criado_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "processo_eventos_processo_idx": {
-          "name": "processo_eventos_processo_idx",
-          "columns": [
-            {
-              "expression": "processo_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "criado_em",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "processo_eventos_escritorio_idx": {
-          "name": "processo_eventos_escritorio_idx",
-          "columns": [
-            {
-              "expression": "escritorio_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "processo_eventos_escritorio_id_escritorios_id_fk": {
-          "name": "processo_eventos_escritorio_id_escritorios_id_fk",
-          "tableFrom": "processo_eventos",
-          "tableTo": "escritorios",
-          "columnsFrom": [
-            "escritorio_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "processo_eventos_processo_id_processos_id_fk": {
-          "name": "processo_eventos_processo_id_processos_id_fk",
-          "tableFrom": "processo_eventos",
-          "tableTo": "processos",
-          "columnsFrom": [
-            "processo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.processo_fluxo": {
-      "name": "processo_fluxo",
-      "schema": "",
-      "columns": {
-        "processo_id": {
-          "name": "processo_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "escritorio_id": {
-          "name": "escritorio_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "etapa": {
-          "name": "etapa",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "etapa_desde": {
-          "name": "etapa_desde",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "checklist": {
-          "name": "checklist",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "versao": {
-          "name": "versao",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "atualizado_em": {
-          "name": "atualizado_em",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "processo_fluxo_escritorio_idx": {
-          "name": "processo_fluxo_escritorio_idx",
-          "columns": [
-            {
-              "expression": "escritorio_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "processo_fluxo_processo_id_processos_id_fk": {
-          "name": "processo_fluxo_processo_id_processos_id_fk",
-          "tableFrom": "processo_fluxo",
-          "tableTo": "processos",
-          "columnsFrom": [
-            "processo_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "processo_fluxo_escritorio_id_escritorios_id_fk": {
-          "name": "processo_fluxo_escritorio_id_escritorios_id_fk",
-          "tableFrom": "processo_fluxo",
-          "tableTo": "escritorios",
-          "columnsFrom": [
-            "escritorio_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.processo_movimentacoes": {
       "name": "processo_movimentacoes",
       "schema": "",
@@ -1195,6 +1064,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "particular_de": {
+          "name": "particular_de",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "criado_em": {
           "name": "criado_em",
           "type": "timestamp with time zone",
@@ -1216,6 +1091,19 @@
           "tableTo": "escritorios",
           "columnsFrom": [
             "escritorio_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "processos_particular_de_usuarios_id_fk": {
+          "name": "processos_particular_de_usuarios_id_fk",
+          "tableFrom": "processos",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "particular_de"
           ],
           "columnsTo": [
             "id"

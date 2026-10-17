@@ -4,6 +4,7 @@ import { Download, ExternalLink, FileText, Trash2, Upload } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { api, ErroApi } from "@/lib/auth/api";
 import { type DocumentoProcesso, formatarTamanho, LIMITES_DOCUMENTO } from "@/lib/processos";
+import { useStore } from "@/lib/store";
 import { formatDateTime } from "@/lib/utils";
 import { ConfirmDialog } from "./modal";
 import { useToast } from "./toast";
@@ -44,6 +45,7 @@ export function DocumentosDoProcesso({
   const [enviando, setEnviando] = useState<{ atual: number; total: number }>();
   const [arrastando, setArrastando] = useState(false);
   const [excluir, setExcluir] = useState<DocumentoProcesso>();
+  const { podeExcluir } = useStore();
 
   async function enviar(arquivos: File[]) {
     if (!arquivos.length || enviando) return;
@@ -139,9 +141,11 @@ export function DocumentosDoProcesso({
                   <a href={`${urlDocumento(processoId, d.id)}?baixar=1`} className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" aria-label={`Baixar ${d.nome}`} title="Baixar">
                     <Download className="h-4 w-4" />
                   </a>
-                  <button onClick={() => setExcluir(d)} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Excluir ${d.nome}`} title="Excluir">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  {podeExcluir && (
+                    <button onClick={() => setExcluir(d)} className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" aria-label={`Excluir ${d.nome}`} title="Excluir">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </li>
             ))}
