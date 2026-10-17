@@ -47,14 +47,15 @@ export function useMovimentacoes(processoId: string) {
 
   useEffect(() => {
     let vivo = true;
-    api<{ movimentacoes: MovimentacoesProcesso | null; disponivel: boolean }>(`/api/processos/${processoId}/movimentacoes`)
+    api<{ movimentacoes: MovimentacoesProcesso | null; disponivel: boolean; consultavel: boolean }>(`/api/processos/${processoId}/movimentacoes`)
       .then((r) => {
         if (!vivo) return;
         setDados(r.movimentacoes);
         setDisponivel(r.disponivel);
         setErro(undefined);
         const velha = !r.movimentacoes || Date.now() - Date.parse(r.movimentacoes.consultadoEm) > VALIDADE_MS;
-        if (r.disponivel && velha) void consultar(true);
+        // Sem número (ou de tribunal fora do DataJud) a consulta só daria erro: não consulta sozinho.
+        if (r.consultavel && velha) void consultar(true);
       })
       .catch((e) => vivo && setErro(e instanceof Error ? e.message : "Não foi possível carregar os andamentos."));
     return () => {

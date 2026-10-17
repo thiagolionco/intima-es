@@ -113,6 +113,12 @@ export class MovimentacoesService {
     return this.d.repo.obter(usuarioId, processoId);
   }
 
+  /** Última consulta e se o processo pode ser consultado agora (tem número de um tribunal que está no DataJud). */
+  async situacao(usuarioId: string, processoId: string) {
+    const p = await this.exigirProcesso(usuarioId, processoId);
+    return { movimentacoes: await this.d.repo.obter(usuarioId, processoId), consultavel: this.disponivel && !!p.numero && !!indiceDataJud(p.numero) };
+  }
+
   /** Último andamento de cada processo, para a lista. */
   async ultimas(usuarioId: string): Promise<Record<string, UltimaMovimentacao>> {
     const resumos = await this.d.repo.resumos(usuarioId);

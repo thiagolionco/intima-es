@@ -16,7 +16,9 @@ export interface ResultadoLote {
 export function mensagemDeBloqueio(e: unknown, padrao = "Não foi possível salvar."): string {
   if (e instanceof ErroApi && e.codigo === "transicao_bloqueada") {
     const itens = (e.detalhes.bloqueios as { mensagem: string }[] | undefined)?.map((b) => b.mensagem) ?? [e.message];
-    return `A etapa não mudou. ${itens.join(" · ")}. Resolva na Central de casos.`;
+    // As mensagens das regras já terminam em ponto: não acrescenta outro.
+    const lista = itens.map((m) => m.trim().replace(/\.+$/, "")).join(" · ");
+    return `A etapa não mudou. ${lista}. Resolva na Central de casos.`;
   }
   return e instanceof Error ? e.message : padrao;
 }
