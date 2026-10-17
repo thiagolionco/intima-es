@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api, ErroApi } from "@/lib/auth/api";
 import { alertaPrescricao, diasParaPrescrever, type FaseProcesso, mascaraCNJ, type Processo, textoPrescricao, validarProcesso } from "@/lib/processos";
 import { hojeISO } from "@/lib/utils";
+import { mensagemDeBloqueio } from "@/lib/use-fluxo";
 import { DatePicker } from "./date-picker";
 import { Modal } from "./modal";
 import { Button, Field, Input } from "./ui";
@@ -72,8 +73,11 @@ export function AbasProcessos({ atual, contagem }: { atual: "andamento" | "proto
   );
 }
 
-/** Grava a nova fase (e o que mais vier junto) mandando o processo inteiro, como a edição faz. */
-export async function moverProcesso(p: Processo, fase: FaseProcesso, extras: Partial<Processo> = {}): Promise<Processo> {
+/**
+ * Grava a nova fase (e o que mais vier junto) mandando o processo inteiro, como a edição faz.
+ * O servidor confere as regras da Central de casos; voltar de etapa precisa de `motivo`.
+ */
+export async function moverProcesso(p: Processo, fase: FaseProcesso, extras: Partial<Processo> & { motivo?: string } = {}): Promise<Processo> {
   const { processo } = await api<{ processo: Processo }>(`/api/processos/${p.id}`, { method: "PUT", body: { ...p, ...extras, fase } });
   return processo;
 }
@@ -100,7 +104,7 @@ function FormProtocolo({ processo, onFechar, onProtocolado }: { processo: Proces
     try {
       onProtocolado(await moverProcesso(processo, "protocolado", extras));
     } catch (e) {
-      setErro({ campo: e instanceof ErroApi ? e.campo : undefined, mensagem: e instanceof Error ? e.message : "Não foi possível salvar." });
+      setErro({ campo: e instanceof ErroApi ? e.campo : undefined, mensagem: mensagemDeBloqueio(e) });
       setSalvando(false);
     }
   }

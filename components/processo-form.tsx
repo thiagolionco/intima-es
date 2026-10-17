@@ -25,6 +25,9 @@ import {
   validarProcesso,
 } from "@/lib/processos";
 import { pode } from "@/lib/escritorio";
+import { indiceEtapa } from "@/lib/fluxo/etapas";
+import { LIMITES_FLUXO } from "@/lib/fluxo/modelo";
+import { mensagemDeBloqueio } from "@/lib/use-fluxo";
 import { useStore } from "@/lib/store";
 import { formatProcesso, hojeISO } from "@/lib/utils";
 import { DatePicker } from "./date-picker";
@@ -96,7 +99,7 @@ interface Props {
   processo?: Processo;
   iniciais?: ValoresIniciais;
   /** Grava no servidor; erros da API voltam como ErroApi. */
-  onSalvar: (dados: Partial<Record<keyof DadosProcesso, unknown>>) => Promise<void>;
+  onSalvar: (dados: Partial<Record<keyof DadosProcesso | "motivo", unknown>>) => Promise<void>;
   onCancelar: () => void;
 }
 
@@ -110,6 +113,10 @@ export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props
   const [salvando, setSalvando] = useState(false);
   const [erroGeral, setErroGeral] = useState("");
   const [duplicado, setDuplicado] = useState<string>();
+  /** Voltar de etapa num processo que já existe pede motivo, como na Central de casos. */
+  const [motivo, setMotivo] = useState("");
+  const volta = !!processo && indiceEtapa(f.fase) < indiceEtapa(processo.fase);
+  const erroMotivo = tentou && volta && motivo.trim().length < LIMITES_FLUXO.motivoMinimo ? `Diga por que o caso volta (mínimo de ${LIMITES_FLUXO.motivoMinimo} caracteres).` : undefined;
   const formRef = useRef<HTMLFormElement>(null);
 
   const sugestoesCliente = useMemo(() => [...new Set([...termos.map((t) => t.apelido), ...intimacoes.map((i) => i.cliente)].filter(Boolean))], [termos, intimacoes]);
@@ -130,10 +137,10 @@ export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props
     setErroGeral("");
     const { dados, erros: errosAtuais } = converter(f);
     setErros(errosAtuais);
-    if (Object.keys(errosAtuais).length) return irParaErro();
+    if (Object.keys(errosAtuais).length || (volta && motivo.trim().length < LIMITES_FLUXO.motivoMinimo)) return irParaErro();
     setSalvando(true);
     try {
-      await onSalvar(dados);
+      await onSalvar(volta ? { ...dados, motivo: motivo.trim() } : dados);
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === "conflito" && e.campo === "numero") {
         setErros({ numero: e.message });
@@ -141,7 +148,7 @@ export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props
       } else if (e instanceof ErroApi && e.campo) {
         setErros({ [e.campo]: e.message });
       } else {
-        setErroGeral(e instanceof Error ? e.message : "Não foi possível salvar.");
+        setErroGeral(mensagemDeBloqueio(e));
       }
       setSalvando(false);
       irParaErro();
@@ -216,6 +223,11 @@ export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props
               ))}
             </Select>
           </Field>
+          {volta && (
+            <Field label="Motivo da volta" htmlFor="motivo" required error={erroMotivo} hint="Fica no histórico do caso." className="sm:col-span-2">
+              <Textarea id="motivo" rows={2} maxLength={LIMITES_FLUXO.motivo} value={motivo} onChange={(e) => setMotivo(e.target.value)} invalid={!!erroMotivo} placeholder="Ex.: faltou o pedido de tutela de urgência." />
+            </Field>
+          )}
         </div>
       </Card>
 

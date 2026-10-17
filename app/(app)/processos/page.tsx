@@ -5,10 +5,13 @@ import { CalendarDays, FolderOpen, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SeletorResponsavel, SeloResponsavel } from "@/components/equipe";
+import { DialogoRetorno } from "@/components/central/dialogos";
 import { AbasProcessos, ModalProtocolo, moverProcesso, SeloParticular, SeloPrescricao } from "@/components/quadro-processos";
 import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
+import { indiceEtapa } from "@/lib/fluxo/etapas";
 import { AREA_LABEL, type AreaAtuacao, FASES, type FaseProcesso, type Processo, referencia, TIPO_DEMANDA_LABEL } from "@/lib/processos";
+import { mensagemDeBloqueio } from "@/lib/use-fluxo";
 import { useProcessos } from "@/lib/use-processos";
 import { useStore } from "@/lib/store";
 import { formatDate, formatProcesso, normalizar } from "@/lib/utils";
@@ -88,6 +91,8 @@ export default function QuadroProcessosPage() {
   const [arrastado, setArrastado] = useState<string>();
   const [sobre, setSobre] = useState<FaseProcesso>();
   const [protocolar, setProtocolar] = useState<Processo>();
+  /** Voltar de etapa pede motivo, que fica no histórico do caso. */
+  const [retorno, setRetorno] = useState<{ processo: Processo; para: FaseProcesso }>();
 
   const todos = useMemo(() => (processos ?? []).map((p) => (movidos[p.id] ? { ...p, fase: movidos[p.id] } : p)), [processos, movidos]);
 
@@ -115,12 +120,18 @@ export default function QuadroProcessosPage() {
     const p = todos.find((x) => x.id === id);
     if (!p || p.fase === fase) return;
     if (fase === "protocolado") return setProtocolar(p);
+    if (indiceEtapa(fase) < indiceEtapa(p.fase)) return setRetorno({ processo: p, para: fase });
+    await gravarMudanca(p, fase);
+  }
+
+  async function gravarMudanca(p: Processo, fase: FaseProcesso, motivo?: string) {
+    const id = p.id;
     setMovidos((m) => ({ ...m, [id]: fase }));
     try {
-      await moverProcesso(p, fase);
+      await moverProcesso(p, fase, motivo ? { motivo } : {});
       await recarregar();
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Não foi possível mover.", { tom: "error" });
+      toast(mensagemDeBloqueio(e, "Não foi possível mover."), { tom: "error" });
     } finally {
       setMovidos(({ [id]: _, ...resto }) => resto);
     }
@@ -219,6 +230,16 @@ export default function QuadroProcessosPage() {
           </div>
         </>
       )}
+      <DialogoRetorno
+        linha={retorno && { processo: retorno.processo, referencia: referencia(retorno.processo) }}
+        paraInicial={retorno?.para}
+        onFechar={() => setRetorno(undefined)}
+        onConfirmar={async (para, motivo) => {
+          const p = retorno!.processo;
+          setRetorno(undefined);
+          await gravarMudanca(p, para, motivo);
+        }}
+      />
       <ModalProtocolo
         processo={protocolar}
         onFechar={() => setProtocolar(undefined)}

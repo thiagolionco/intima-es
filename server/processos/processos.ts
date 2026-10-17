@@ -1,4 +1,4 @@
-import { type DadosProcesso, normalizarProcesso, type Processo, validarProcesso } from "../../lib/processos.ts";
+import { type DadosProcesso, type FaseProcesso, normalizarProcesso, type Processo, validarProcesso } from "../../lib/processos.ts";
 import type { Acao } from "../../lib/escritorio.ts";
 import type { Clock } from "../core/clock.ts";
 import { novoId } from "../core/crypto.ts";
@@ -98,18 +98,34 @@ export interface PermissoesDoEscritorio {
   exigir(usuarioId: string, acao: Acao): Promise<unknown>;
 }
 
+/**
+ * Mudança de fase passa pelas regras da Central de casos (checklist, dados exigidos, motivo para
+ * voltar), venha de onde vier: Kanban, edição ou a própria Central.
+ */
+export interface PortaoDeFase {
+  conferirMudanca(usuarioId: string, processo: Processo, para: FaseProcesso, motivo?: string): Promise<void>;
+  mudarFase(autor: { id: string; nome: string }, id: string, para: FaseProcesso, motivo?: string): Promise<Processo>;
+}
+
+const motivoDoCorpo = (corpo: unknown) => {
+  const m = corpo && typeof corpo === "object" ? (corpo as { motivo?: unknown }).motivo : undefined;
+  return typeof m === "string" ? m : undefined;
+};
+
 /** Regras do cadastro de processos. */
 export class ProcessosService {
   private readonly repo: ProcessoRepository;
   private readonly clock: Clock;
   private readonly dependentes?: DependentesDoProcesso;
   private readonly permissoes?: PermissoesDoEscritorio;
+  private readonly portao?: PortaoDeFase;
 
-  constructor(repo: ProcessoRepository, clock: Clock, dependentes?: DependentesDoProcesso, permissoes?: PermissoesDoEscritorio) {
+  constructor(repo: ProcessoRepository, clock: Clock, dependentes?: DependentesDoProcesso, permissoes?: PermissoesDoEscritorio, portao?: PortaoDeFase) {
     this.repo = repo;
     this.clock = clock;
     this.dependentes = dependentes;
     this.permissoes = permissoes;
+    this.portao = portao;
   }
 
   async listar(usuarioId: string) {
@@ -129,16 +145,24 @@ export class ProcessosService {
     return p;
   }
 
-  async atualizar(usuarioId: string, id: string, corpo: unknown) {
+  /** `autorNome` vai para o histórico quando a fase muda. */
+  async atualizar(usuarioId: string, id: string, corpo: unknown, autorNome = "") {
     const dados = dadosValidos(corpo);
-    if (dados.particular && idValido(id)) {
-      // Tirar um processo da vista do escritório é decisão do dono; o que já é particular segue livre.
-      const atual = await this.repo.porId(usuarioId, id);
-      if (atual && !atual.particular) await this.permissoes?.exigir(usuarioId, "tornar_particular");
+    const atual = idValido(id) ? await this.repo.porId(usuarioId, id) : null;
+    if (!atual) throw naoEncontrado();
+    // Tirar um processo da vista do escritório é decisão do dono; o que já é particular segue livre.
+    if (dados.particular && !atual.particular) await this.permissoes?.exigir(usuarioId, "tornar_particular");
+
+    const para = dados.fase;
+    const mudaFase = !!this.portao && para !== atual.fase;
+    const motivo = motivoDoCorpo(corpo);
+    if (mudaFase) {
+      // Confere antes de gravar: se a etapa não pode mudar, nada é salvo.
+      await this.portao!.conferirMudanca(usuarioId, { ...dados, fase: atual.fase, id, criadoEm: atual.criadoEm, atualizadoEm: atual.atualizadoEm }, para, motivo);
     }
-    const p = idValido(id) ? await this.repo.atualizar(usuarioId, id, dados, this.clock.agora().toISOString()) : null;
+    const p = await this.repo.atualizar(usuarioId, id, mudaFase ? { ...dados, fase: atual.fase } : dados, this.clock.agora().toISOString());
     if (!p) throw naoEncontrado();
-    return p;
+    return mudaFase ? this.portao!.mudarFase({ id: usuarioId, nome: autorNome }, id, para, motivo) : p;
   }
 
   async excluir(usuarioId: string, id: string) {

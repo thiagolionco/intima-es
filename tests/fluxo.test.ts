@@ -155,6 +155,27 @@ async function contrato(processosRepo: ProcessoRepository, repo: FluxoRepository
   assert.equal((await processos.obter(ana, q.id)).responsavelId, "pessoa-1");
   await assert.rejects(fluxo.lote(autora, { acao: "avancar", ids: Array.from({ length: 101 }, novoId) }), erro("dados_invalidos"));
 
+  // Kanban e edição: a fase só muda pelas mesmas regras, e nada é salvo quando não pode.
+  const comPortao = new ProcessosService(processosRepo, relogio, undefined, undefined, fluxo);
+  const r = await processos.criar(ana, { cliente: "Rita", polo: "ativo", area: "consumidor", tipo: "acao" });
+  await assert.rejects(comPortao.atualizar(ana, r.id, { ...r, fase: "correcao", observacoes: "pulou" }, "Ana Lima"), erro("transicao_bloqueada"));
+  await assert.rejects(comPortao.atualizar(ana, r.id, { ...r, fase: "elaboracao", observacoes: "nova" }, "Ana Lima"), erro("transicao_bloqueada"));
+  const intacto = await processos.obter(ana, r.id);
+  assert.equal(intacto.fase, "triagem");
+  assert.equal(intacto.observacoes, undefined, "recusada a etapa, o resto também não foi gravado");
+  assert.equal((await comPortao.atualizar(ana, r.id, { ...r, observacoes: "nova" })).observacoes, "nova", "sem mudar a fase, grava normalmente");
+  let vr = 0;
+  for (const item of obrigatorios("triagem")) vr = (await fluxo.marcarItem(autora, r.id, { item, feito: true, versao: vr })).fluxo.versao;
+  instante = new Date("2026-10-16T11:00:00Z");
+  const avancado = await comPortao.atualizar(ana, r.id, { ...r, fase: "elaboracao" }, "Ana Lima");
+  assert.equal(avancado.fase, "elaboracao");
+  await assert.rejects(comPortao.atualizar(ana, r.id, { ...avancado, fase: "triagem" }, "Ana Lima"), erro("transicao_bloqueada"), "voltar sem motivo não passa");
+  instante = new Date("2026-10-16T12:00:00Z");
+  assert.equal((await comPortao.atualizar(ana, r.id, { ...avancado, fase: "triagem", motivo: "Cliente trouxe documento novo." }, "Ana Lima")).fase, "triagem");
+  const trilha = (await fluxo.ficha(ana, r.id)).eventos;
+  assert.deepEqual(trilha.slice(0, 2).map((e) => [e.tipo, e.autorNome]), [["retorno", "Ana Lima"], ["avanco", "Ana Lima"]]);
+  assert.equal(trilha[0].motivo, "Cliente trouxe documento novo.");
+
   // Beto, de outro escritório, não vê nem mexe.
   const betoAutor = { id: beto, nome: "Beto" };
   await assert.rejects(fluxo.ficha(beto, p.id), erro("nao_encontrado"));

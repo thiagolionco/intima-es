@@ -14,15 +14,18 @@ import type { FaseProcesso } from "@/lib/processos";
 import type { ResultadoLote } from "@/lib/use-fluxo";
 
 /** Voltar de etapa: escolhe para onde e diz por quê (vai para a trilha de auditoria). */
-export function DialogoRetorno({ linha, onFechar, onConfirmar }: { linha?: LinhaCaso; onFechar: () => void; onConfirmar: (para: FaseProcesso, motivo: string) => Promise<void> }) {
+type CasoRetorno = Pick<LinhaCaso, "processo" | "referencia">;
+type PropsRetorno = { linha?: CasoRetorno; paraInicial?: FaseProcesso; onFechar: () => void; onConfirmar: (para: FaseProcesso, motivo: string) => Promise<void> };
+
+export function DialogoRetorno({ linha, ...props }: PropsRetorno) {
   if (!linha) return null;
-  return <FormRetorno key={linha.processo.id} linha={linha} onFechar={onFechar} onConfirmar={onConfirmar} />;
+  return <FormRetorno key={linha.processo.id} linha={linha} {...props} />;
 }
 
-function FormRetorno({ linha, onFechar, onConfirmar }: { linha: LinhaCaso; onFechar: () => void; onConfirmar: (para: FaseProcesso, motivo: string) => Promise<void> }) {
+function FormRetorno({ linha, paraInicial, onFechar, onConfirmar }: PropsRetorno & { linha: CasoRetorno }) {
   const atual = linha.processo.fase;
   const opcoes = ETAPAS.filter((e) => indiceEtapa(e.id) < indiceEtapa(atual));
-  const [para, setPara] = useState<FaseProcesso>(etapaAnterior(atual) ?? "triagem");
+  const [para, setPara] = useState<FaseProcesso>(paraInicial ?? etapaAnterior(atual) ?? "triagem");
   const [motivo, setMotivo] = useState("");
   const [salvando, setSalvando] = useState(false);
   const curto = motivo.trim().length < LIMITES_FLUXO.motivoMinimo;
