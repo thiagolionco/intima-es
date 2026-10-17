@@ -140,6 +140,8 @@ export interface PessoaEquipe {
   id: string;
   nome: string;
   email?: string;
+  /** Conta do Clepsa ligada a esta pessoa (quem aceitou o convite). Ausente: só um nome na lista. */
+  usuarioId?: string;
   /** Desativada: some das opções de delegar, mas continua nas intimações antigas. */
   inativa?: boolean;
 }

@@ -5,7 +5,7 @@ import { CalendarDays, FolderOpen, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SeletorResponsavel, SeloResponsavel } from "@/components/equipe";
-import { AbasProcessos, ModalProtocolo, moverProcesso, SeloPrescricao } from "@/components/quadro-processos";
+import { AbasProcessos, ModalProtocolo, moverProcesso, SeloParticular, SeloPrescricao } from "@/components/quadro-processos";
 import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { AREA_LABEL, type AreaAtuacao, FASES, type FaseProcesso, type Processo, referencia, TIPO_DEMANDA_LABEL } from "@/lib/processos";
@@ -42,6 +42,7 @@ function CartaoProcesso({ p, onMover, arrastando, onArrastar }: { p: Processo; o
           {p.area && <Badge className="bg-brand-50 text-brand-700">{AREA_LABEL[p.area]}</Badge>}
           {p.tipo && <Badge>{TIPO_DEMANDA_LABEL[p.tipo]}</Badge>}
           <SeloPrescricao prescricao={p.prescricao} />
+          <SeloParticular particular={p.particular} />
         </div>
         {p.numero && <p className="mt-2 truncate font-mono text-xs text-slate-500">{formatProcesso(p.numero)}</p>}
         <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-500">

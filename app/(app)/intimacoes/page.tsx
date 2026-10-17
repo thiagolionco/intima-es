@@ -27,7 +27,7 @@ function unicos(valores: string[]): string[] {
 }
 
 function ListaIntimacoes() {
-  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes } = useStore();
+  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes, podeExcluir } = useStore();
   const { cobertura } = useCobertura();
   const { toast } = useToast();
   const params = useSearchParams();
@@ -352,9 +352,11 @@ function ListaIntimacoes() {
                   aria-label="Entregar as selecionadas a uma pessoa da equipe"
                 />
               )}
-              <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar({ ids: [...selecionadas] })}>
-                Excluir
-              </Button>
+              {podeExcluir && (
+                <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50 hover:text-red-700" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar({ ids: [...selecionadas] })}>
+                  Excluir
+                </Button>
+              )}
               <button onClick={() => setSelecionadas(new Set())} className="text-xs text-slate-500 hover:underline">
                 Limpar seleção
               </button>
@@ -407,7 +409,7 @@ function ListaIntimacoes() {
                   atualizarIntimacao(i.id, { status: s });
                   toast(`Status alterado para "${STATUS_LABEL[s]}"`);
                 }}
-                onExcluir={() => setConfirmar({ ids: [i.id] })}
+                onExcluir={podeExcluir ? () => setConfirmar({ ids: [i.id] }) : undefined}
               />
             ))}
           </div>

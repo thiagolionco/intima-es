@@ -7,9 +7,11 @@
  * - Dados do escritório (escritorios, membros, espacos_trabalho, processos, processo_documentos, processo_pareceres,
  *   processo_analises, processo_movimentacoes, registro_cobertura): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
- *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas).
+ *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas);
+ *   a 0011 traz os convites e os processos particulares.
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import type { PapelNoEscritorio } from "../../../lib/escritorio.ts";
 import type { AreaAtuacao, FaseProcesso, TipoDemanda } from "../../../lib/processos.ts";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
@@ -100,10 +102,31 @@ export const membros = pgTable(
   {
     escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
     usuarioId: uuid("usuario_id").notNull().references(() => usuarios.id, { onDelete: "cascade" }),
-    papel: text("papel").notNull().$type<"dono" | "advogado" | "leitura">(),
+    papel: text("papel").notNull().$type<PapelNoEscritorio>(),
     criadoEm: instante("criado_em").notNull(),
   },
   (t) => [primaryKey({ columns: [t.escritorioId, t.usuarioId] }), index("membros_usuario_idx").on(t.usuarioId)],
+);
+
+/**
+ * Convites para entrar num escritório. Guarda só o hash do token (o link vai por e-mail).
+ * Sob RLS para o papel do app; a busca pelo token roda na conexão do app, sem contexto.
+ */
+export const convites = pgTable(
+  "convites",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    email: text("email").notNull(),
+    papel: text("papel").notNull().$type<PapelNoEscritorio>(),
+    /** Pessoa da lista da equipe (preferencias.equipe) que esta conta vai representar. */
+    pessoaId: text("pessoa_id"),
+    convidadoPor: uuid("convidado_por").references(() => usuarios.id, { onDelete: "set null" }),
+    criadoEm: instante("criado_em").notNull(),
+    expiraEm: instante("expira_em").notNull(),
+  },
+  (t) => [unique("convites_token_hash_key").on(t.tokenHash), unique("convites_escritorio_email_key").on(t.escritorioId, t.email)],
 );
 
 export const espacosTrabalho = pgTable("espacos_trabalho", {
@@ -143,6 +166,8 @@ export const processos = pgTable(
     valorCausa: bigint("valor_causa", { mode: "number" }),
     responsavelId: text("responsavel_id"),
     observacoes: text("observacoes"),
+    /** Processo particular: só esta conta o vê, mesmo dentro do escritório (RLS da migração 0011). */
+    particularDe: uuid("particular_de").references(() => usuarios.id, { onDelete: "cascade" }),
     criadoEm: instante("criado_em").notNull(),
     atualizadoEm: instante("atualizado_em").notNull(),
   },

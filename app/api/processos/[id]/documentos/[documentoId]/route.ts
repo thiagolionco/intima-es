@@ -19,6 +19,7 @@ export const GET = rotaAutenticada<Params>(async ({ usuario, req }, { id, docume
 });
 
 export const DELETE = rotaAutenticada<Params>(async ({ usuario }, { id, documentoId }) => {
+  await container().escritorio.exigir(usuario.id, "excluir");
   await container().documentosProcesso.excluir(usuario.id, id, documentoId);
   return NextResponse.json({ ok: true });
 });

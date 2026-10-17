@@ -43,7 +43,7 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
 export default function DetalheIntimacaoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, equipe, delegarIntimacoes } = useStore();
+  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, equipe, delegarIntimacoes, podeExcluir } = useStore();
   const { toast } = useToast();
   const [confirmar, setConfirmar] = useState(false);
   const i = intimacoes.find((x) => x.id === id);
@@ -122,9 +122,11 @@ export default function DetalheIntimacaoPage() {
               Editar
             </Button>
           </Link>
-          <Button variant="secondary" className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar(true)}>
-            Excluir
-          </Button>
+          {podeExcluir && (
+            <Button variant="secondary" className="text-red-600 hover:bg-red-50" icon={<Trash2 className="h-4 w-4" />} onClick={() => setConfirmar(true)}>
+              Excluir
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { Save } from "lucide-react";
+import clsx from "clsx";
+import { Lock, Save } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { ErroApi } from "@/lib/auth/api";
@@ -23,6 +24,7 @@ import {
   type TipoDemanda,
   validarProcesso,
 } from "@/lib/processos";
+import { pode } from "@/lib/escritorio";
 import { useStore } from "@/lib/store";
 import { formatProcesso, hojeISO } from "@/lib/utils";
 import { DatePicker } from "./date-picker";
@@ -49,6 +51,7 @@ interface Formulario {
   valorCausa: string;
   responsavelId: string;
   observacoes: string;
+  particular: boolean;
 }
 
 export type ValoresIniciais = Partial<Omit<Formulario, "valorCausa">>;
@@ -76,6 +79,7 @@ function inicial(p?: Processo, iniciais?: ValoresIniciais): Formulario {
     valorCausa: p?.valorCausa !== undefined ? formatarValor(p.valorCausa).replace(/^R\$\s?/, "") : "",
     responsavelId: p?.responsavelId ?? iniciais?.responsavelId ?? "",
     observacoes: p?.observacoes ?? "",
+    particular: !!p?.particular,
   };
 }
 
@@ -97,7 +101,9 @@ interface Props {
 }
 
 export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props) {
-  const { termos, intimacoes, equipe } = useStore();
+  const { termos, intimacoes, equipe, papel } = useStore();
+  // Tirar da vista do escritório um processo que já é dele é decisão do dono (o servidor confere).
+  const travaParticular = !!processo && !processo.particular && !pode(papel ?? "dono", "tornar_particular");
   const [f, setF] = useState<Formulario>(() => inicial(processo, iniciais));
   const [erros, setErros] = useState<ErrosProcesso>({});
   const [tentou, setTentou] = useState(false);
@@ -228,6 +234,25 @@ export function ProcessoForm({ processo, iniciais, onSalvar, onCancelar }: Props
           <Field label="Responsável" htmlFor="responsavelId" hint={equipe.length ? undefined : "Cadastre a equipe para escolher um responsável."}>
             <SeletorResponsavel id="responsavelId" value={f.responsavelId || undefined} onChange={(id) => atualizar("responsavelId", id ?? "")} />
           </Field>
+          <label className={clsx("flex items-start gap-3 rounded-lg border p-3 sm:col-span-2", f.particular ? "border-amber-300 bg-amber-50" : "border-slate-200", travaParticular && "opacity-60")}>
+            <input
+              type="checkbox"
+              checked={f.particular}
+              disabled={travaParticular}
+              onChange={(e) => atualizar("particular", e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600"
+            />
+            <span className="text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-slate-800">
+                <Lock className="h-3.5 w-3.5" aria-hidden /> Processo particular
+              </span>
+              <span className="mt-0.5 block text-xs text-slate-500">
+                {travaParticular
+                  ? "Só o dono do escritório pode tornar particular um processo que já é do escritório."
+                  : "Só você vê este processo, os PDFs, pareceres e andamentos dele. O resto do escritório não fica sabendo que ele existe. As intimações que chegam pelo Comunica continuam na lista do escritório."}
+              </span>
+            </span>
+          </label>
         </div>
       </Card>
 

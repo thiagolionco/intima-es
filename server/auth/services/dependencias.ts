@@ -17,6 +17,8 @@ export interface Links {
   confirmarEmail(token: string): string;
   redefinirSenha(token: string): string;
   esqueciSenha(email?: string): string;
+  /** Aceite de convite para entrar num escritório. */
+  convite(token: string): string;
 }
 
 export interface PoliticaSessao {
