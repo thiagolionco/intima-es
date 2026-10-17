@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "./auth/api";
+import { api, ErroApi } from "./auth/api";
 import type { EventoFluxo, FluxoProcesso } from "./fluxo/modelo";
 import type { FaseProcesso, Processo } from "./processos";
 
@@ -10,6 +10,15 @@ export interface ResultadoLote {
   ok: boolean;
   mensagem?: string;
   bloqueios?: string[];
+}
+
+/** Texto para a tela quando o servidor recusa uma mudança de etapa: tudo o que falta, não só o primeiro. */
+export function mensagemDeBloqueio(e: unknown, padrao = "Não foi possível salvar."): string {
+  if (e instanceof ErroApi && e.codigo === "transicao_bloqueada") {
+    const itens = (e.detalhes.bloqueios as { mensagem: string }[] | undefined)?.map((b) => b.mensagem) ?? [e.message];
+    return `A etapa não mudou. ${itens.join(" · ")}. Resolva na Central de casos.`;
+  }
+  return e instanceof Error ? e.message : padrao;
 }
 
 /** Chamadas da Central de casos. O servidor confere tudo de novo; a tela só antecipa. */

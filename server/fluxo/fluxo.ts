@@ -210,6 +210,23 @@ export class FluxoService {
     return { processo: atualizado, fluxo: novo, evento, avisos: avaliacao.avisos };
   }
 
+  /**
+   * Portão das outras telas (Kanban, edição): confere, sem gravar nada, se o processo já com os
+   * dados novos pode ir para `para`. Lança transicao_bloqueada com a lista do que falta.
+   */
+  async conferirMudanca(usuarioId: string, processo: Processo, para: FaseProcesso, motivo?: string) {
+    const fluxo = fluxoEfetivo(processo, (await this.repo.obter(usuarioId, processo.id)) ?? undefined);
+    const avaliacao = this.motor.avaliar({ processo, fluxo, para, motivo, hoje: hojeEmBrasilia(this.clock.agora()) });
+    if (!avaliacao.permitido) {
+      throw new AppError("transicao_bloqueada", avaliacao.bloqueios[0].mensagem, { bloqueios: avaliacao.bloqueios });
+    }
+  }
+
+  /** Muda a etapa pelo motor, com histórico, a partir da fase gravada agora. */
+  async mudarFase(autor: Autor, id: string, para: FaseProcesso, motivo?: string) {
+    return (await this.executarTransicao(autor, id, para, "atual", motivo)).processo;
+  }
+
   async marcarItem(autor: Autor, id: string, corpo: unknown) {
     const c = (corpo && typeof corpo === "object" ? corpo : {}) as { item?: unknown; feito?: unknown; versao?: unknown };
     const modelo = typeof c.item === "string" ? modeloDoItem(c.item) : undefined;

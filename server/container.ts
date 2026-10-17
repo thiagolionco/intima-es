@@ -336,7 +336,7 @@ function montar() {
         await movimentacoes.excluirDoProcesso(usuarioId, processoId);
         await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
       },
-    }, escritorio),
+    }, escritorio, fluxo),
     documentosProcesso: documentosArquivos,
     fluxo,
     pareceres,
