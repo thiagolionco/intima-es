@@ -179,7 +179,8 @@ export default function QuadroProcessosPage() {
             <SeletorResponsavel value={responsavel} onChange={(id) => setResponsavel(id ?? undefined)} rotuloVazio="Todos os responsáveis" className="sm:w-60" aria-label="Filtrar por responsável" />
           </div>
 
-          <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+          {/* `relative` prende aqui os rótulos sr-only (absolutos) das colunas: sem ele, escapavam da rolagem e a página toda rolava de lado no celular. */}
+          <div className="relative -mx-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
             <div className="flex min-w-max gap-4 lg:grid lg:min-w-0 lg:grid-cols-4">
               {FASES.map((f) => {
                 const lista = porFase[f.id];

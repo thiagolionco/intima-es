@@ -87,7 +87,7 @@ export default function PrazosPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="Feriados locais e suspensões" subtitle="Feriados estaduais e municipais, portarias do tribunal, indisponibilidade do sistema" />
           <form onSubmit={adicionar} noValidate className="grid gap-3 border-b border-slate-100 p-5 sm:grid-cols-2">
@@ -161,7 +161,7 @@ export default function PrazosPage() {
             {dias.map((d, idx) => (
               <li key={`${d.data}-${idx}`} className="flex items-center gap-3 px-5 py-2.5 text-sm">
                 <span className="w-24 shrink-0 font-mono text-slate-700">{dataBR(d.data)}</span>
-                <span className="w-28 shrink-0 text-xs text-slate-400">{NOMES_DIAS[diaDaSemana(d.data)]}</span>
+                <span className="hidden w-28 shrink-0 text-xs text-slate-400 sm:inline">{NOMES_DIAS[diaDaSemana(d.data)]}</span>
                 <span className="min-w-0 flex-1 truncate text-slate-700">{d.motivo}</span>
               </li>
             ))}

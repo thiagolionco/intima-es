@@ -426,6 +426,7 @@ function Central() {
                   onAlternarTodos={(ids) => setSelecionados((s) => (ids.every((id) => s.has(id)) ? new Set() : new Set(ids)))}
                   cursor={cursor}
                   aberto={aberto}
+                  compacta={!!linhaAberta}
                   onAbrir={(id) => {
                     setAberto((a) => (a === id ? undefined : id));
                     setCursor(id);

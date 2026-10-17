@@ -207,6 +207,28 @@ test("duas consultas do mesmo processo ao mesmo tempo: a segunda é recusada", a
   assert.equal((await primeira).movimentacoes.encontrado, false);
 });
 
+test("a tela só consulta sozinha o processo que tem número de um tribunal do DataJud", async () => {
+  const banco = new ArmazenamentoEmMemoria();
+  const ana = novoId();
+  const processosRepo = new ProcessoRepositoryDocumentos(banco);
+  const { consultar } = dataJudFalso();
+  const relogio = { agora: () => new Date("2026-10-13T12:00:00Z") };
+  const repo = new MovimentacaoRepositoryDocumentos(banco);
+  const servico = new MovimentacoesService({ repo, processos: processosRepo, consultar, clock: relogio, listarUsuarios: async () => [] });
+  const processos = new ProcessosService(processosRepo, relogio);
+  const semNumero = await processos.criar(ana, { cliente: "Alfa", polo: "ativo" });
+  const stf = await processos.criar(ana, { numero: cnj("606", "100"), cliente: "Beta", polo: "ativo" });
+  const tjsp = await processos.criar(ana, { numero: cnj("707"), cliente: "Gama", polo: "ativo" });
+
+  assert.deepEqual(await servico.situacao(ana, semNumero.id), { movimentacoes: null, consultavel: false });
+  assert.equal((await servico.situacao(ana, stf.id)).consultavel, false);
+  assert.equal((await servico.situacao(ana, tjsp.id)).consultavel, true);
+  await assert.rejects(servico.situacao(novoId(), tjsp.id), erro("nao_encontrado"));
+
+  const desligado = new MovimentacoesService({ repo, processos: processosRepo, clock: relogio, listarUsuarios: async () => [] });
+  assert.equal((await desligado.situacao(ana, tjsp.id)).consultavel, false, "sem DataJud ligado, nada a consultar");
+});
+
 const opcoes = { skip: URL_TESTE ? false : "defina TEST_DATABASE_URL para testar o Postgres" };
 let banco: BancoDeTeste;
 before(async () => {
