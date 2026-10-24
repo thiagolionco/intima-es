@@ -1,4 +1,4 @@
-import type { ContextoRequisicao, Usuario } from "../auth/model.ts";
+import type { ContextoRequisicao, EventoAuditoria, Sessao, Usuario } from "../auth/model.ts";
 import type { Auditoria, SessaoRepository, UsuarioRepository } from "../auth/ports.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
@@ -22,6 +22,10 @@ export interface FiliacaoEscritorio {
 export interface ContaNoDiretorio {
   usuario: Usuario;
   escritorios: FiliacaoEscritorio[];
+  /** Último login com senha bem-sucedido (trilha de auditoria). */
+  ultimoLoginEm?: string;
+  /** Último uso registrado de uma sessão da conta (atualizado de tempos em tempos). */
+  ultimoUsoSessaoEm?: string;
 }
 
 /** Todas as contas, com os escritórios de cada uma. Só responde para um administrador. */
@@ -43,6 +47,10 @@ export interface ContaAdministrada {
   doisFatoresAtivo: boolean;
   bloqueadaAte?: string;
   criadaEm: string;
+  /** Quando a conta entrou pela última vez (vazio: nunca entrou). */
+  ultimoLoginEm?: string;
+  /** Último sinal de uso: o login mais recente ou o último uso de uma sessão aberta. */
+  ultimoAcessoEm?: string;
   voceMesmo: boolean;
 }
 
@@ -83,7 +91,7 @@ export class AdministracaoService {
     const agora = this.d.clock.agora().toISOString();
     const contas = await this.d.diretorio.listar(administradorId);
     return contas
-      .map(({ usuario: u, escritorios }) => ({
+      .map(({ usuario: u, escritorios, ultimoLoginEm, ultimoUsoSessaoEm }) => ({
         id: u.id,
         nome: u.nome,
         email: u.email,
@@ -96,6 +104,8 @@ export class AdministracaoService {
         doisFatoresAtivo: u.totpAtivo,
         bloqueadaAte: u.bloqueadoAte && u.bloqueadoAte > agora ? u.bloqueadoAte : undefined,
         criadaEm: u.criadoEm,
+        ultimoLoginEm,
+        ultimoAcessoEm: [ultimoLoginEm, ultimoUsoSessaoEm].filter((x): x is string => !!x).sort().at(-1),
         voceMesmo: u.id === administradorId,
       }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -145,9 +155,18 @@ export class DiretorioDeContasDocumentos implements DiretorioDeContas {
   async listar(administradorId: string) {
     const lista = await this.db.ler<Usuario[]>("usuarios", []);
     if (!ehAdministrador(lista.find((u) => u.id === administradorId))) throw new AppError("sem_permissao", "Esta área é só para a administração da Clepsa.");
-    return lista.map((usuario) => ({
-      usuario,
-      escritorios: [{ escritorioId: usuario.id, nome: usuario.escritorio?.trim() || usuario.nome, papel: "dono" }],
-    }));
+    const sessoes = await this.db.ler<Sessao[]>("sessoes", []);
+    return Promise.all(
+      lista.map(async (usuario) => {
+        // A trilha fica do evento mais novo para o mais antigo.
+        const eventos = await this.db.ler<EventoAuditoria[]>(`auditoria/${usuario.id}`, []);
+        return {
+          usuario,
+          escritorios: [{ escritorioId: usuario.id, nome: usuario.escritorio?.trim() || usuario.nome, papel: "dono" }],
+          ultimoLoginEm: eventos.find((e) => e.tipo === "login.sucesso")?.em,
+          ultimoUsoSessaoEm: sessoes.filter((x) => x.usuarioId === usuario.id).map((x) => x.ultimoUsoEm).sort().at(-1),
+        };
+      }),
+    );
   }
 }

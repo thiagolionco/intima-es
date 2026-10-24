@@ -1,10 +1,10 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { asc, eq, max, sql } from "drizzle-orm";
 import type { ContaNoDiretorio, DiretorioDeContas, FiliacaoEscritorio } from "../../admin/administracao.ts";
 import { AppError } from "../../core/errors.ts";
 import type { BancoDeDados } from "./conexao.ts";
 import { entrarNoEscritorio, sairDoEscritorio } from "./contexto.ts";
 import { paraUsuario } from "./repositorios.ts";
-import { escritorios, membros, usuarios } from "./schema.ts";
+import { auditoria, escritorios, membros, sessoes, usuarios } from "./schema.ts";
 
 /**
  * Lista as contas de todos os escritórios. As filiações são lidas com o papel restrito, como
@@ -33,7 +33,23 @@ export class DiretorioDeContasPostgres implements DiretorioDeContas {
     });
     const porUsuario = new Map<string, FiliacaoEscritorio[]>();
     for (const { usuarioId, ...f } of filiacoes) porUsuario.set(usuarioId, [...(porUsuario.get(usuarioId) ?? []), f]);
-    const contas = (await this.db.select().from(usuarios)).map(paraUsuario);
-    return contas.map((usuario) => ({ usuario, escritorios: porUsuario.get(usuario.id) ?? [] }));
+    const [contas, logins, usos] = await Promise.all([
+      this.db.select().from(usuarios).then((l) => l.map(paraUsuario)),
+      this.db
+        .select({ usuarioId: auditoria.usuarioId, em: max(auditoria.em) })
+        .from(auditoria)
+        .where(eq(auditoria.tipo, "login.sucesso"))
+        .groupBy(auditoria.usuarioId),
+      this.db.select({ usuarioId: sessoes.usuarioId, em: max(sessoes.ultimoUsoEm) }).from(sessoes).groupBy(sessoes.usuarioId),
+    ]);
+    const emIso = (linhas: { usuarioId: string; em: Date | null }[]) => new Map(linhas.flatMap((l) => (l.em ? [[l.usuarioId, new Date(l.em).toISOString()] as const] : [])));
+    const ultimoLogin = emIso(logins);
+    const ultimoUso = emIso(usos);
+    return contas.map((usuario) => ({
+      usuario,
+      escritorios: porUsuario.get(usuario.id) ?? [],
+      ultimoLoginEm: ultimoLogin.get(usuario.id),
+      ultimoUsoSessaoEm: ultimoUso.get(usuario.id),
+    }));
   }
 }

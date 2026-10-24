@@ -398,10 +398,15 @@ for (const backend of BACKENDS) {
       assert.ok(contas.find((c) => c.id === ana.id)!.voceMesmo);
       assert.ok(!JSON.stringify(contas).includes("scrypt$"), "sem hash de senha");
 
+      assert.equal(linhaBeto.ultimoLoginEm, undefined, "quem nunca entrou fica sem último login");
+
       const login = await s.auth.entrar({ email: beto.email, senha: SENHA }, CTX);
       assert.equal(login.tipo, "sessao");
       const token = login.tipo === "sessao" ? login.token : "";
       assert.ok(await s.sessoes.validar(token));
+      const depoisDoLogin = (await s.admin.listar(ana.id)).find((c) => c.id === beto.id)!;
+      assert.ok(depoisDoLogin.ultimoLoginEm, "o login aparece na administração");
+      assert.ok(depoisDoLogin.ultimoAcessoEm! >= depoisDoLogin.ultimoLoginEm!);
 
       await s.admin.desativar(ana.id, beto.id, CTX);
       assert.equal(await s.sessoes.validar(token), null, "a sessão aberta cai na hora");

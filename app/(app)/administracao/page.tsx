@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Avatar } from "@/components/auth/menu-usuario";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
-import { Alert, Button, Card, CardHeader, EmptyState, Input, PageHeader, Spinner } from "@/components/ui";
+import { Alert, Button, Card, CardHeader, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { api, ErroApi } from "@/lib/auth/api";
 import { useUsuario } from "@/lib/auth/sessao";
-import { formatDate } from "@/lib/utils";
+import { tempoRelativo } from "@/components/conta/sessoes";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Conta {
   id: string;
@@ -24,8 +25,12 @@ interface Conta {
   doisFatoresAtivo: boolean;
   bloqueadaAte?: string;
   criadaEm: string;
+  ultimoLoginEm?: string;
+  ultimoAcessoEm?: string;
   voceMesmo: boolean;
 }
+
+type Ordem = "nome" | "login";
 
 type Acao = { conta: Conta; tipo: "desativar" | "reativar" | "conceder" | "retirar" };
 
@@ -70,12 +75,29 @@ function Situacao({ c }: { c: Conta }) {
   return <Selo tom="verde">Ativa</Selo>;
 }
 
+function UltimoLogin({ c }: { c: Conta }) {
+  if (!c.ultimoLoginEm) return <p className="text-xs text-slate-400">Nunca entrou</p>;
+  const usoDepois = c.ultimoAcessoEm && c.ultimoAcessoEm > c.ultimoLoginEm ? c.ultimoAcessoEm : undefined;
+  return (
+    <>
+      <p className="text-slate-700" title={formatDateTime(c.ultimoLoginEm)}>
+        Último login {tempoRelativo(c.ultimoLoginEm)}
+      </p>
+      <p className="text-xs text-slate-500">
+        {formatDateTime(c.ultimoLoginEm)}
+        {usoDepois ? ` · usou ${tempoRelativo(usoDepois)}` : ""}
+      </p>
+    </>
+  );
+}
+
 export default function AdministracaoPage() {
   const usuario = useUsuario();
   const { toast } = useToast();
   const [contas, setContas] = useState<Conta[] | null>(null);
   const [erro, setErro] = useState("");
   const [busca, setBusca] = useState("");
+  const [ordem, setOrdem] = useState<Ordem>("nome");
   const [acao, setAcao] = useState<Acao | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
 
@@ -95,9 +117,10 @@ export default function AdministracaoPage() {
 
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!contas || !termo) return contas ?? [];
-    return contas.filter((c) => [c.nome, c.email, c.oab ?? "", ...c.escritorios.map((e) => e.nome)].some((t) => t.toLowerCase().includes(termo)));
-  }, [contas, busca]);
+    const lista = !contas || !termo ? (contas ?? []) : contas.filter((c) => [c.nome, c.email, c.oab ?? "", ...c.escritorios.map((e) => e.nome)].some((t) => t.toLowerCase().includes(termo)));
+    // Por último login: quem entrou mais recentemente primeiro, quem nunca entrou no fim.
+    return ordem === "login" ? [...lista].sort((a, b) => (b.ultimoLoginEm ?? "").localeCompare(a.ultimoLoginEm ?? "")) : lista;
+  }, [contas, busca, ordem]);
 
   async function executar({ conta, tipo }: Acao) {
     setSalvando(conta.id);
@@ -146,9 +169,15 @@ export default function AdministracaoPage() {
           title="Contas"
           subtitle={contas ? `${total} conta(s) · ${ativas} ativa(s) · ${admins} administrador(es)` : undefined}
           action={
-            <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
-              <Input aria-label="Buscar conta" placeholder="Nome, e-mail, OAB ou escritório" value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-9" />
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+              <Select aria-label="Ordenar contas" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="w-auto">
+                <option value="nome">Ordem: nome</option>
+                <option value="login">Ordem: último login</option>
+              </Select>
+              <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+                <Input aria-label="Buscar conta" placeholder="Nome, e-mail, OAB ou escritório" value={busca} onChange={(e) => setBusca(e.target.value)} className="pl-9" />
+              </div>
             </div>
           }
         />
@@ -192,6 +221,9 @@ export default function AdministracaoPage() {
                   ) : (
                     <p className="text-xs text-slate-400">Sem escritório</p>
                   )}
+                </div>
+                <div className="w-full min-w-0 shrink-0 text-sm sm:w-48">
+                  <UltimoLogin c={c} />
                 </div>
                 <div className="shrink-0 sm:w-48">
                   <Situacao c={c} />
