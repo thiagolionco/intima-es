@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { AlertTriangle, FileSearch, Pencil, Plus, RefreshCw, Timer, Trash2, Users } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AbasComunica } from "@/components/abas-comunica";
 import { ConfirmDialog, Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
@@ -177,7 +178,7 @@ export default function ClientesPage() {
   return (
     <>
       <PageHeader
-        title="Clientes monitorados"
+        title="Comunica PJe"
         description="Configure quais nomes, advogados, OABs ou processos devem ser pesquisados no Comunica PJe."
         actions={
           <>
@@ -192,12 +193,13 @@ export default function ClientesPage() {
           </>
         }
       />
+      <AbasComunica atual="clientes" clientes={termos.length} />
 
       <div className="mb-6">
         <Alert tone="info">
           Cada cliente vira uma pesquisa na API pública do Comunica PJe. As intimações encontradas ficam vinculadas ao nome do cliente, o que permite filtrar e
           analisar a carteira no painel. Os clientes por número de OAB ou de processo são pesquisados sozinhos, várias vezes ao dia; os por nome você pesquisa
-          em Buscar no Comunica.
+          na aba Buscar no PJe.
         </Alert>
       </div>
 

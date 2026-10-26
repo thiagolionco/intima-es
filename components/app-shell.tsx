@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, Users, X, UsersRound, FileText, FolderOpen, ShieldCheck } from "lucide-react";
+import { CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, X, UsersRound, FileText, FolderOpen, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -23,8 +23,7 @@ const NAV = [
   { href: "/hoje", label: "Hoje", icon: Sun },
   { href: "/intimacoes", label: "Intimações", icon: ListChecks },
   { href: "/processos", label: "Processos", icon: FolderOpen },
-  { href: "/comunica", label: "Buscar no Comunica", icon: FileSearch },
-  { href: "/clientes", label: "Clientes monitorados", icon: Users },
+  { href: "/comunica", label: "Comunica PJe", icon: FileSearch },
   { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },
   { href: "/equipe", label: "Equipe", icon: UsersRound },
   { href: "/relatorios", label: "Relatório por cliente", icon: FileText },
@@ -34,8 +33,12 @@ const NAV = [
 /** Só aparece para administradores; a página e a API conferem a permissão de novo no servidor. */
 const NAV_ADMIN = { href: "/administracao", label: "Administração", icon: ShieldCheck };
 
+/** Rotas que acendem o mesmo item do menu (as abas do Comunica PJe ficam juntas). */
+const IRMAS: Record<string, string[]> = { "/comunica": ["/clientes"] };
+
 function ativo(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  return [href, ...(IRMAS[href] ?? [])].some((h) => pathname.startsWith(h));
 }
 
 function Navegacao({ onNavigate }: { onNavigate?: () => void }) {

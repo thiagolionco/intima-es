@@ -1,19 +1,20 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, ArrowUpRight, Check, Lock, Undo2, X } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Check, Lock, NotebookPen, Undo2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SeletorResponsavel } from "@/components/equipe";
 import { SeloPrescricao } from "@/components/quadro-processos";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Textarea } from "@/components/ui";
+import { api } from "@/lib/auth/api";
 import { DatePicker } from "@/components/date-picker";
 import { itensDaEtapa, type ItemAvaliado } from "@/lib/fluxo/checklist";
 import type { LinhaCaso } from "@/lib/fluxo/consulta";
 import { ETAPAS, etapa, etapaAnterior, indiceEtapa, modeloDoItem } from "@/lib/fluxo/etapas";
 import type { EventoFluxo } from "@/lib/fluxo/modelo";
 import type { Avaliacao } from "@/lib/fluxo/motor";
-import { AREA_LABEL, mascaraCNJ, type Processo, TIPO_DEMANDA_LABEL } from "@/lib/processos";
+import { AREA_LABEL, LIMITES_PROCESSO, mascaraCNJ, type ParecerProcesso, type Processo, TIPO_DEMANDA_LABEL } from "@/lib/processos";
 import { apiFluxo } from "@/lib/use-fluxo";
 import { formatDateTime, hojeISO } from "@/lib/utils";
 import { COR_ETAPA, Kbd } from "./selos";
@@ -150,6 +151,87 @@ function DadosProtocolo({ p, onCampos }: { p: Processo; onCampos: Props["onCampo
   );
 }
 
+/** Observação do caso (o campo Observações do cadastro), editável ali mesmo, e o começo do último parecer. */
+function Observacao({ p, onCampos }: { p: Processo; onCampos: Props["onCampos"] }) {
+  const [texto, setTexto] = useState(p.observacoes ?? "");
+  const [salvando, setSalvando] = useState(false);
+  const [parecer, setParecer] = useState<ParecerProcesso | null>();
+  const mudou = texto.trim() !== (p.observacoes ?? "").trim();
+  const excedeu = texto.length > LIMITES_PROCESSO.observacoes;
+
+  useEffect(() => setTexto(p.observacoes ?? ""), [p.id, p.observacoes]);
+
+  useEffect(() => {
+    const controle = new AbortController();
+    setParecer(undefined);
+    api<{ pareceres: ParecerProcesso[] }>(`/api/processos/${encodeURIComponent(p.id)}/pareceres`, { signal: controle.signal })
+      .then((r) => setParecer(r.pareceres[0] ?? null))
+      .catch(() => !controle.signal.aborted && setParecer(null));
+    return () => controle.abort();
+  }, [p.id]);
+
+  async function salvar() {
+    setSalvando(true);
+    try {
+      await onCampos({ observacoes: texto.trim() || undefined });
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="border-b border-slate-100 px-5 py-4">
+      <label htmlFor={`obs-${p.id}`} className="mb-2 block text-xs font-semibold text-slate-700">
+        Observação
+      </label>
+      <Textarea
+        id={`obs-${p.id}`}
+        rows={3}
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        placeholder="Anotações do escritório sobre o caso…"
+        invalid={excedeu}
+        className="text-[13px]"
+      />
+      {(mudou || excedeu) && (
+        <div className="mt-2 flex items-center justify-end gap-2">
+          {excedeu && <span className="mr-auto text-[11px] text-red-600">No máximo {LIMITES_PROCESSO.observacoes} caracteres.</span>}
+          <Button size="sm" variant="secondary" type="button" disabled={salvando} onClick={() => setTexto(p.observacoes ?? "")}>
+            Desfazer
+          </Button>
+          <Button size="sm" type="button" loading={salvando} disabled={excedeu} onClick={() => void salvar()}>
+            Salvar
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <NotebookPen className="h-3.5 w-3.5" aria-hidden />
+            Último parecer
+          </p>
+          <Link href={`/processos/${p.id}?aba=parecer`} className="text-[11px] font-medium text-brand-700 hover:underline">
+            {parecer ? "Ler inteiro" : "Escrever"}
+          </Link>
+        </div>
+        {parecer === undefined ? (
+          <p className="mt-1 text-xs text-slate-400">Carregando…</p>
+        ) : !parecer ? (
+          <p className="mt-1 text-xs text-slate-400">Nenhum parecer escrito ainda.</p>
+        ) : (
+          <>
+            <p className="mt-1 line-clamp-4 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-700">{parecer.texto}</p>
+            <p className="mt-1 text-[10px] text-slate-400">
+              Versão {parecer.versao} · {parecer.autorNome} · {formatDateTime(parecer.criadoEm)}
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** Ficha do caso ao lado da grade: portões, checklist, responsável e trilha de auditoria. */
 export function FichaCaso({ linha, avanco, ocupado, onFechar, onAvancar, onVoltar, onMarcar, onCampos }: Props) {
   const p = linha.processo;
@@ -276,6 +358,8 @@ export function FichaCaso({ linha, avanco, ocupado, onFechar, onAvancar, onVolta
           </label>
           <SeletorResponsavel id={`resp-${p.id}`} value={p.responsavelId} onChange={(id) => void onCampos({ responsavelId: id ?? undefined })} className="w-48 py-1.5 text-[13px]" />
         </div>
+
+        <Observacao p={p} onCampos={onCampos} />
 
         <div className="px-5 py-4">
           <p className="mb-3 text-xs font-semibold text-slate-700">

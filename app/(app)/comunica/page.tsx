@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, CircleAlert, Clock, Download, FileSearch, Lo
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { AbasComunica } from "@/components/abas-comunica";
 import { DatePicker } from "@/components/date-picker";
 import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, Field, Input, Select, Skeleton } from "@/components/ui";
@@ -149,7 +150,7 @@ function BuscaComunica() {
   return (
     <>
       <div className="mb-6 flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Buscar no Comunica PJe</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Comunica PJe</h1>
         <p className="text-sm text-slate-500">
           Consulta a API pública do{" "}
           <a href="https://comunica.pje.jus.br/" target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline">
@@ -158,6 +159,7 @@ function BuscaComunica() {
           (Diário de Justiça Eletrônico Nacional) e importa as comunicações para o seu acervo.
         </p>
       </div>
+      <AbasComunica atual="buscar" clientes={termos.length} />
 
       <Card>
         <CardHeader
