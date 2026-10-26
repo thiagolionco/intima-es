@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { ArrowLeft, Inbox, Pencil, Stamp, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { AnaliseDoProcesso, CartaoRisco, SeloRisco, useAnalises } from "@/components/analise-processo";
 import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
@@ -31,7 +31,8 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-type Aba = "resumo" | "andamentos" | "risco" | "parecer" | "documentos" | "intimacoes";
+const ABAS = ["resumo", "andamentos", "risco", "parecer", "documentos", "intimacoes"] as const;
+type Aba = (typeof ABAS)[number];
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +40,8 @@ export default function DetalheProcessoPage() {
   const { ready, intimacoes, atualizarIntimacao, podeExcluir } = useStore();
   const { processo: p, erro, carregando, substituir } = useProcesso(id);
   const { toast } = useToast();
-  const [aba, setAba] = useState<Aba>("resumo");
+  const pedida = useSearchParams().get("aba");
+  const [aba, setAba] = useState<Aba>(ABAS.includes(pedida as Aba) ? (pedida as Aba) : "resumo");
   const [confirmar, setConfirmar] = useState(false);
   const [protocolar, setProtocolar] = useState(false);
   const docs = useDocumentos(id);

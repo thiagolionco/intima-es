@@ -45,7 +45,6 @@ export const ETAPAS: readonly DefinicaoEtapa[] = [
       { id: "tri.documentos", rotulo: "Documentos pessoais do cliente recebidos", bloqueante: true },
       { id: "tri.procuracao", rotulo: "Procuração assinada", bloqueante: true },
       { id: "tri.honorarios", rotulo: "Contrato de honorários assinado", bloqueante: true },
-      { id: "tri.conflito", rotulo: "Conflito de interesses verificado", bloqueante: true, dica: "Confira se o escritório já atende a parte contrária." },
       { id: "tri.prescricao", rotulo: "Prescrição calculada", bloqueante: false, automatico: temPrescricao, dica: "Preencha a data de prescrição no cadastro." },
       { id: "tri.classificacao", rotulo: "Área e tipo de demanda definidos", bloqueante: false, automatico: temClassificacao, dica: "Preencha área e tipo no cadastro." },
     ],
