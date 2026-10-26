@@ -52,6 +52,10 @@ import { type DocumentoRepository, DocumentoRepositoryDocumentos, DocumentosServ
 import { type ParecerRepository, ParecerRepositoryDocumentos, PareceresService } from "./processos/pareceres.ts";
 import { type AnaliseRepository, AnaliseRepositoryDocumentos, AnalisesService, LIMITES_ANALISE } from "./processos/analises.ts";
 import { AnalisadorClaude } from "./processos/analisador-claude.ts";
+import { LIMITES_REDACAO, RedacaoParecerService } from "./processos/redacao-parecer.ts";
+import { RedatorClaude } from "./processos/redator-claude.ts";
+import { type BibliotecaRepository, BibliotecaRepositoryDocumentos, BibliotecaService } from "./biblioteca/biblioteca.ts";
+import { BibliotecaRepositoryPostgres } from "./infra/postgres/biblioteca.ts";
 import { Totp } from "./infra/totp.ts";
 import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
@@ -115,9 +119,9 @@ function segredoDosLinks(config: Configuracao): string {
 
 let avisouArquivosEmDisco = false;
 
-/** PDFs no Supabase Storage ou, sem ele, em disco (DATA_DIR/arquivos). */
-function criarArquivos(config: Configuracao): ArmazenamentoArquivos {
-  if (config.arquivos) return new ArquivosSupabase(config.arquivos);
+/** PDFs no Supabase Storage ou, sem ele, em disco (DATA_DIR/arquivos). `bucket` troca o bucket padrão. */
+function criarArquivos(config: Configuracao, bucket?: string): ArmazenamentoArquivos {
+  if (config.arquivos) return new ArquivosSupabase({ ...config.arquivos, ...(bucket ? { bucket } : {}) });
   if (config.urlBanco && config.producao && !avisouArquivosEmDisco) {
     avisouArquivosEmDisco = true;
     console.warn("[documentos] Sem SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY, os PDFs ficam no disco do servidor e se perdem numa nova publicação.");
@@ -156,6 +160,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       processosRepo: processosPg as ProcessoRepository,
       fluxoRepo: new FluxoRepositoryPostgres(db, (u, id) => processosPg.porId(u, id)) as FluxoRepository,
       documentosRepo: new DocumentoRepositoryPostgres(db) as DocumentoRepository,
+      bibliotecaRepo: new BibliotecaRepositoryPostgres(db) as BibliotecaRepository,
       pareceresRepo: new ParecerRepositoryPostgres(db) as ParecerRepository,
       analisesRepo: new AnaliseRepositoryPostgres(db) as AnaliseRepository,
       movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
@@ -179,6 +184,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     processosRepo: processosDoc as ProcessoRepository,
     fluxoRepo: new FluxoRepositoryDocumentos(arquivos, processosDoc) as FluxoRepository,
     documentosRepo: new DocumentoRepositoryDocumentos(arquivos) as DocumentoRepository,
+    bibliotecaRepo: new BibliotecaRepositoryDocumentos(arquivos) as BibliotecaRepository,
     pareceresRepo: new ParecerRepositoryDocumentos(arquivos) as ParecerRepository,
     analisesRepo: new AnaliseRepositoryDocumentos(arquivos) as AnaliseRepository,
     movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
@@ -200,10 +206,11 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, bibliotecaRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
+  const biblioteca = new BibliotecaService({ repo: bibliotecaRepo, arquivos: criarArquivos(config, config.bucketBiblioteca), clock });
   const fluxo = new FluxoService({ repo: fluxoRepo, processos: processosRepo, motor: motorPadrao, clock });
 
   const deps: DependenciasAuth = {
@@ -238,6 +245,15 @@ function montar() {
     analisador: config.resumos.chave ? new AnalisadorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
     clock,
     limitar: (usuarioId) => deps.limitador.consumir(`analise-risco:${usuarioId}`, LIMITES_ANALISE.porDia, DIA),
+  });
+  const redacaoParecer = new RedacaoParecerService({
+    processos: processosRepo,
+    documentos: documentosArquivos,
+    biblioteca,
+    pareceres,
+    analises,
+    redator: config.resumos.chave ? new RedatorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    limitar: (usuarioId) => deps.limitador.consumir(`parecer-ia:${usuarioId}`, LIMITES_REDACAO.porDia, DIA),
   });
   const movimentacoes = new MovimentacoesService({
     repo: movimentacoesRepo,
@@ -318,6 +334,7 @@ function montar() {
         await agenda.desconectar(id);
         await db.remover(`avisos/${id}`);
         await documentosArquivos.excluirDaConta(id);
+        await biblioteca.excluirDaConta(id);
         await pareceres.excluirDaConta(id);
         await fluxo.excluirDaConta(id);
         await analises.excluirDaConta(id);
@@ -340,6 +357,8 @@ function montar() {
     documentosProcesso: documentosArquivos,
     fluxo,
     pareceres,
+    redacaoParecer,
+    biblioteca,
     analises,
     movimentacoes,
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id), (id) => escritorio.papelDe(id)),

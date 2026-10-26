@@ -1,10 +1,11 @@
 "use client";
 
-import { History, NotebookPen, Pencil, RotateCcw, Save } from "lucide-react";
+import { History, NotebookPen, Pencil, RotateCcw, Save, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, ErroApi } from "@/lib/auth/api";
-import { LIMITES_PARECER, type ParecerProcesso } from "@/lib/processos";
+import { type AreaAtuacao, LIMITES_PARECER, type ParecerProcesso } from "@/lib/processos";
 import { formatDateTime } from "@/lib/utils";
+import { DialogoRascunhoIa, type RascunhoIa, useRedacaoDisponivel } from "./rascunho-ia";
 import { useToast } from "./toast";
 import { Alert, Button, Card, CardHeader, EmptyState, Spinner, Textarea } from "./ui";
 
@@ -19,6 +20,8 @@ export function usePareceres(processoId: string) {
   const [rascunho, setRascunho] = useState<string>();
   /** Versão que estava na tela quando a edição começou. */
   const [baseVersao, setBaseVersao] = useState(0);
+  /** Preenchido quando o texto do editor veio da IA, para avisar de onde ele saiu. */
+  const [origemIa, setOrigemIa] = useState<RascunhoIa>();
 
   const recarregar = useCallback(async () => {
     try {
@@ -40,7 +43,12 @@ export function usePareceres(processoId: string) {
     setRascunho(texto);
   };
 
-  return { pareceres, erro, recarregar, rascunho, setRascunho, baseVersao, setBaseVersao, editar, fechar: () => setRascunho(undefined) };
+  const fechar = () => {
+    setRascunho(undefined);
+    setOrigemIa(undefined);
+  };
+
+  return { pareceres, erro, recarregar, rascunho, setRascunho, baseVersao, setBaseVersao, editar, origemIa, setOrigemIa, fechar };
 }
 
 type Estado = ReturnType<typeof usePareceres>;
@@ -49,7 +57,7 @@ const descricao = (p: ParecerProcesso) => `Versão ${p.versao} · ${p.autorNome}
 
 function Editor({ processoId, estado }: { processoId: string; estado: Estado }) {
   const { toast } = useToast();
-  const { rascunho = "", setRascunho, baseVersao, setBaseVersao, recarregar, fechar } = estado;
+  const { rascunho = "", setRascunho, baseVersao, setBaseVersao, recarregar, fechar, origemIa } = estado;
   const [salvando, setSalvando] = useState(false);
   const [aviso, setAviso] = useState<{ tom: "error" | "warning"; texto: string; outra?: ParecerProcesso }>();
   const excedeu = rascunho.length > LIMITES_PARECER.caracteres;
@@ -85,6 +93,14 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
   return (
     <div className="space-y-3 p-5">
       {aviso && <Alert tone={aviso.tom}>{aviso.texto}</Alert>}
+      {origemIa && (
+        <Alert tone="info" title="Rascunho feito pela IA: revise antes de salvar">
+          <p>
+            Base: {[...origemIa.documentos.map((d) => `PDF ${d}`), ...origemIa.fontes].join("; ") || "dados do processo"}. Confira cada citação; o que não veio da biblioteca nem dos
+            PDFs está marcado com [conferir].
+          </p>
+        </Alert>
+      )}
       {aviso?.outra && (
         <details className="rounded-lg border border-slate-200" open>
           <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-slate-700">{descricao(aviso.outra)}</summary>
@@ -121,16 +137,27 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
   );
 }
 
-export function ParecerDoProcesso({ processoId, estado }: { processoId: string; estado: Estado }) {
-  const { pareceres, erro, rascunho, editar } = estado;
+export function ParecerDoProcesso({ processoId, estado, area }: { processoId: string; estado: Estado; area?: AreaAtuacao }) {
+  const { pareceres, erro, rascunho, editar, setOrigemIa } = estado;
   const [atual, ...anteriores] = pareceres ?? [];
   const editando = rascunho !== undefined;
+  const iaDisponivel = useRedacaoDisponivel(processoId);
+  const [dialogoIa, setDialogoIa] = useState(false);
+
+  const botaoIa = iaDisponivel && (
+    <Button size="sm" variant={atual ? "secondary" : "primary"} icon={<Sparkles className="h-4 w-4" />} onClick={() => setDialogoIa(true)}>
+      Rascunho pela IA
+    </Button>
+  );
 
   const acao =
     atual && !editando ? (
-      <Button size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => editar(atual.texto)}>
-        Editar parecer
-      </Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {botaoIa}
+        <Button size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => editar(atual.texto)}>
+          Editar parecer
+        </Button>
+      </div>
     ) : undefined;
 
   return (
@@ -157,13 +184,28 @@ export function ParecerDoProcesso({ processoId, estado }: { processoId: string; 
             title="Nenhum parecer ainda"
             description="Registre a análise prévia do caso: teses, riscos, chance de êxito e a estratégia. Fica com autor e data, e cada alteração guarda a versão anterior."
             action={
-              <Button icon={<NotebookPen className="h-4 w-4" />} onClick={() => editar("")}>
-                Escrever parecer
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant={iaDisponivel ? "secondary" : "primary"} icon={<NotebookPen className="h-4 w-4" />} onClick={() => editar("")}>
+                  Escrever parecer
+                </Button>
+                {botaoIa}
+              </div>
             }
           />
         )}
       </Card>
+
+      <DialogoRascunhoIa
+        aberto={dialogoIa}
+        processoId={processoId}
+        area={area}
+        temParecer={!!atual}
+        onFechar={() => setDialogoIa(false)}
+        onPronto={(r) => {
+          editar(r.texto);
+          setOrigemIa(r);
+        }}
+      />
 
       {anteriores.length > 0 && (
         <Card>

@@ -211,7 +211,7 @@ export default function DetalheProcessoPage() {
 
       {aba === "risco" && <AnaliseDoProcesso processoId={p.id} estado={analises} documentos={docs.documentos} />}
 
-      {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} />}
+      {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} area={p.area} />}
 
       {aba === "documentos" && <DocumentosDoProcesso
           processoId={p.id}
