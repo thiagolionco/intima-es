@@ -13,8 +13,10 @@ import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBa
 import { BotaoResumir } from "@/components/resumo";
 import { SeloResponsavel, SeletorResponsavel } from "@/components/equipe";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
+import { SeloTarefa } from "@/components/tarefa";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
+import { TIPOS_TAREFA } from "@/lib/tarefas";
 import { useCobertura } from "@/lib/use-cobertura";
 import { FaixaCobertura } from "@/components/vigilia";
 import type { FiltrosIntimacao, StatusIntimacao } from "@/lib/types";
@@ -39,6 +41,7 @@ function ListaIntimacoes() {
     cliente: params.get("cliente") || "",
     busca: params.get("q") || "",
     responsavel: params.get("responsavel") || "",
+    tarefa: params.get("tarefa") || "",
   }));
   const [ordem, setOrdem] = useState<Ordenacao>((params.get("ordem") as Ordenacao) || "data_desc");
   const [visao, setVisao] = useState<"cards" | "tabela">("cards");
@@ -298,6 +301,17 @@ function ListaIntimacoes() {
                 </Select>
               </label>
             )}
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-slate-600">Tarefa sugerida</span>
+              <Select value={filtros.tarefa ?? ""} onChange={(e) => set("tarefa", e.target.value)}>
+                <option value="">Todas</option>
+                {TIPOS_TAREFA.map((t) => (
+                  <option key={t.tipo} value={t.tipo}>
+                    {t.rotulo}
+                  </option>
+                ))}
+              </Select>
+            </label>
             {ativos > 0 && (
               <div className="flex items-end sm:col-span-2 lg:col-span-3 xl:col-span-6">
                 <button onClick={limparFiltros} className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-slate-800">
@@ -453,6 +467,7 @@ function ListaIntimacoes() {
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                         {i.tipoComunicacao}
                         <p className="text-xs text-slate-400">{i.tribunal}</p>
+                        <SeloTarefa i={i} className="mt-1" />
                       </td>
                       <td className="max-w-[200px] px-4 py-3 text-xs text-slate-600">{i.orgao}</td>
                       <td className="max-w-sm px-4 py-3 text-xs text-slate-600">{resumo(i.texto, 140)}</td>
