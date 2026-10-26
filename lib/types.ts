@@ -98,6 +98,8 @@ export interface FiltrosIntimacao {
   tribunal: string;
   /** Id da pessoa responsável, "nenhum" para as sem responsável, ou vazio para todas. */
   responsavel?: string;
+  /** Tipo de tarefa sugerida (ver lib/tarefas.ts), ou vazio para todas. */
+  tarefa?: string;
 }
 
 export type ContagemPrazo = "uteis" | "corridos";

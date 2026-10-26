@@ -8,6 +8,7 @@ import { PrazoTag } from "@/components/intimacao-card";
 import { MemoriaPrazo, usePrazoCalculado } from "@/components/prazo";
 import { BotaoResumir, LinhasResumo } from "@/components/resumo";
 import { SeletorResponsavel } from "@/components/equipe";
+import { CartaoTarefa } from "@/components/tarefa";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Select, Spinner, StatusBadge, Textarea } from "@/components/ui";
@@ -176,6 +177,8 @@ export default function DetalheIntimacaoPage() {
         </div>
 
         <div className="space-y-6">
+          <CartaoTarefa i={i} />
+
           <Card>
             <CardHeader title="Partes" subtitle={`${i.partes.length} parte(s)`} />
             <ul className="divide-y divide-slate-100">
