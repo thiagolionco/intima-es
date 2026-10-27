@@ -43,6 +43,8 @@ export function lerConfiguracao() {
       env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY
         ? { url: env.SUPABASE_URL, chave: env.SUPABASE_SERVICE_ROLE_KEY, bucket: env.SUPABASE_BUCKET || "processos" }
         : undefined,
+    /** Bucket privado dos arquivos da biblioteca (PDF e Word), no mesmo Supabase. */
+    bucketBiblioteca: env.SUPABASE_BUCKET_BIBLIOTECA || "biblioteca",
     /** Resumo das intimações pela API da Anthropic. Sem chave, o Clepsa funciona sem resumos. */
     resumos: {
       chave: env.ANTHROPIC_API_KEY || undefined,

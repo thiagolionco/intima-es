@@ -8,12 +8,15 @@
  *   processo_analises, processo_movimentacoes, registro_cobertura): RLS forçado por
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
  *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas);
- *   a 0011 traz os convites e os processos particulares; a 0012, o fluxo da Central de casos.
+ *   a 0011 traz os convites e os processos particulares; a 0012, o fluxo da Central de casos;
+ *   a 0013, a biblioteca do escritório (biblioteca_itens).
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { PapelNoEscritorio } from "../../../lib/escritorio.ts";
 import type { AreaAtuacao, FaseProcesso, TipoDemanda } from "../../../lib/processos.ts";
 import type { MarcaItem, TipoEvento } from "../../../lib/fluxo/modelo.ts";
+import type { TipoItemBiblioteca } from "../../../lib/biblioteca.ts";
+import type { RegistroItem } from "../../biblioteca/biblioteca.ts";
 
 const instante = (nome: string) => timestamp(nome, { withTimezone: true, mode: "date" });
 
@@ -315,4 +318,31 @@ export const processoEventos = pgTable(
     criadoEm: instante("criado_em").notNull(),
   },
   (t) => [index("processo_eventos_processo_idx").on(t.processoId, t.criadoEm), index("processo_eventos_escritorio_idx").on(t.escritorioId)],
+);
+
+/** Biblioteca do escritório: modelos de peça, jurisprudência, súmulas, legislação e doutrina. */
+export const bibliotecaItens = pgTable(
+  "biblioteca_itens",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    tipo: text("tipo").notNull().$type<TipoItemBiblioteca>(),
+    titulo: text("titulo").notNull(),
+    referencia: text("referencia"),
+    tribunal: text("tribunal"),
+    area: text("area").$type<AreaAtuacao>(),
+    texto: text("texto"),
+    etiquetas: jsonb("etiquetas").notNull().$type<string[]>(),
+    link: text("link"),
+    /** Nome, tamanho, formato, sha256 e caminho no armazenamento de arquivos; null sem arquivo. */
+    arquivo: jsonb("arquivo").$type<NonNullable<RegistroItem["arquivo"]>>(),
+    /** Texto tirado do .docx no envio, para a IA. */
+    textoArquivo: text("texto_arquivo"),
+    /** Sem chave estrangeira: o item continua se o autor sair do escritório. */
+    autorId: uuid("autor_id").notNull(),
+    autorNome: text("autor_nome").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+    atualizadoEm: instante("atualizado_em").notNull(),
+  },
+  (t) => [index("biblioteca_itens_escritorio_idx").on(t.escritorioId)],
 );
