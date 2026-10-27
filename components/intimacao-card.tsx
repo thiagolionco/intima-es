@@ -8,6 +8,7 @@ import { diffDays, formatDate, hojeISO, resumo, STATUS_LABEL, STATUS_ORDER } fro
 import { Badge, StatusBadge } from "./ui";
 import { LinhasResumo } from "./resumo";
 import { SeloResponsavel } from "./equipe";
+import { SeloTarefa } from "./tarefa";
 
 export function PrazoTag({ prazo, status }: { prazo?: string; status: StatusIntimacao }) {
   if (!prazo || status === "respondida" || status === "arquivada") return null;
@@ -56,6 +57,7 @@ export function IntimacaoCard({ intimacao: i, selecionada, onSelecionar, onStatu
             <StatusBadge status={i.status} />
             <Badge>{i.tipoComunicacao}</Badge>
             {i.tribunal && <Badge className="bg-brand-50 text-brand-700">{i.tribunal}</Badge>}
+            <SeloTarefa i={i} />
             <PrazoTag prazo={i.prazo} status={i.status} />
             <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-500">
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />
