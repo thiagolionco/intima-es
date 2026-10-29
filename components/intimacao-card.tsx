@@ -1,8 +1,9 @@
 "use client";
 
 import clsx from "clsx";
-import { Building2, CalendarClock, CalendarDays, Pencil, Scale, Trash2, Users } from "lucide-react";
+import { Briefcase, Building2, CalendarClock, CalendarDays, Pencil, Scale, Trash2, Users } from "lucide-react";
 import Link from "next/link";
+import { ATUACOES, classificarAtuacao, ESTILO_ATUACAO, papelDoAdvogado, type ReferenciaAtuacao } from "@/lib/atuacao";
 import type { Intimacao, StatusIntimacao } from "@/lib/types";
 import { diffDays, formatDate, hojeISO, resumo, STATUS_LABEL, STATUS_ORDER } from "@/lib/utils";
 import { Badge, StatusBadge } from "./ui";
@@ -23,8 +24,22 @@ export function PrazoTag({ prazo, status }: { prazo?: string; status: StatusInti
   );
 }
 
+/** Selo do grupo de atuação (Só eu, Eu e colega, Conjunta). */
+export function SeloAtuacao({ i, referencia, className }: { i: Intimacao; referencia?: ReferenciaAtuacao | null; className?: string }) {
+  const grupo = classificarAtuacao(i, referencia ?? null);
+  if (!grupo) return null;
+  return (
+    <span className={clsx("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset", ESTILO_ATUACAO[grupo].selo, className)}>
+      <span className={clsx("h-1.5 w-1.5 rounded-full", ESTILO_ATUACAO[grupo].ponto)} aria-hidden />
+      {ATUACOES.find((a) => a.valor === grupo)?.selo}
+    </span>
+  );
+}
+
 interface Props {
   intimacao: Intimacao;
+  /** Quem é você e quem são os colegas, para o selo e as cores dos advogados. */
+  referencia?: ReferenciaAtuacao | null;
   selecionada?: boolean;
   onSelecionar?: (v: boolean) => void;
   onStatus?: (s: StatusIntimacao) => void;
@@ -32,8 +47,9 @@ interface Props {
   compacto?: boolean;
 }
 
-export function IntimacaoCard({ intimacao: i, selecionada, onSelecionar, onStatus, onExcluir, compacto }: Props) {
+export function IntimacaoCard({ intimacao: i, referencia, selecionada, onSelecionar, onStatus, onExcluir, compacto }: Props) {
   const partes = i.partes.map((p) => p.nome).join(" × ");
+  const mostrarAdvogados = !!referencia && !!classificarAtuacao(i, referencia) && i.advogados.length > 0;
   return (
     <article
       className={clsx(
@@ -58,6 +74,7 @@ export function IntimacaoCard({ intimacao: i, selecionada, onSelecionar, onStatu
             <Badge>{i.tipoComunicacao}</Badge>
             {i.tribunal && <Badge className="bg-brand-50 text-brand-700">{i.tribunal}</Badge>}
             <SeloTarefa i={i} />
+            <SeloAtuacao i={i} referencia={referencia} />
             <PrazoTag prazo={i.prazo} status={i.status} />
             <span className="ml-auto inline-flex items-center gap-1 text-xs text-slate-500">
               <CalendarDays className="h-3.5 w-3.5" aria-hidden />
@@ -85,6 +102,19 @@ export function IntimacaoCard({ intimacao: i, selecionada, onSelecionar, onStatu
                 <div className="flex items-center gap-1.5 truncate sm:col-span-2">
                   <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
                   <span className="truncate">{partes}</span>
+                </div>
+              )}
+              {mostrarAdvogados && referencia && (
+                <div className="flex items-center gap-1.5 truncate sm:col-span-2">
+                  <Briefcase className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    {i.advogados.map((a, n) => (
+                      <span key={`${a.oab}-${a.nome}-${n}`}>
+                        {n > 0 && <span className="text-slate-300"> · </span>}
+                        <span className={clsx(ESTILO_ATUACAO[papelDoAdvogado(a, referencia)].texto, papelDoAdvogado(a, referencia) === "so_eu" && "font-medium")}>{a.nome}</span>
+                      </span>
+                    ))}
+                  </span>
                 </div>
               )}
             </dl>
