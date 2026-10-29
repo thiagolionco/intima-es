@@ -30,7 +30,7 @@ interface Conta {
   voceMesmo: boolean;
 }
 
-type Ordem = "nome" | "login";
+type Ordem = "nome" | "acesso";
 
 type Acao = { conta: Conta; tipo: "desativar" | "reativar" | "conceder" | "retirar" };
 
@@ -75,17 +75,17 @@ function Situacao({ c }: { c: Conta }) {
   return <Selo tom="verde">Ativa</Selo>;
 }
 
-function UltimoLogin({ c }: { c: Conta }) {
-  if (!c.ultimoLoginEm) return <p className="text-xs text-slate-400">Nunca entrou</p>;
-  const usoDepois = c.ultimoAcessoEm && c.ultimoAcessoEm > c.ultimoLoginEm ? c.ultimoAcessoEm : undefined;
+/** Lidera com o último acesso (com "Manter conectado" a pessoa usa por semanas sem novo login). */
+function UltimoAcesso({ c }: { c: Conta }) {
+  const acesso = c.ultimoAcessoEm ?? c.ultimoLoginEm;
+  if (!acesso) return <p className="text-xs text-slate-400">Nunca entrou</p>;
   return (
     <>
-      <p className="text-slate-700" title={formatDateTime(c.ultimoLoginEm)}>
-        Último login {tempoRelativo(c.ultimoLoginEm)}
+      <p className="text-slate-700" title={formatDateTime(acesso)}>
+        Último acesso {tempoRelativo(acesso)}
       </p>
       <p className="text-xs text-slate-500">
-        {formatDateTime(c.ultimoLoginEm)}
-        {usoDepois ? ` · usou ${tempoRelativo(usoDepois)}` : ""}
+        {c.ultimoLoginEm ? `Login em ${formatDateTime(c.ultimoLoginEm)}` : formatDateTime(acesso)}
       </p>
     </>
   );
@@ -118,8 +118,8 @@ export default function AdministracaoPage() {
   const filtradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     const lista = !contas || !termo ? (contas ?? []) : contas.filter((c) => [c.nome, c.email, c.oab ?? "", ...c.escritorios.map((e) => e.nome)].some((t) => t.toLowerCase().includes(termo)));
-    // Por último login: quem entrou mais recentemente primeiro, quem nunca entrou no fim.
-    return ordem === "login" ? [...lista].sort((a, b) => (b.ultimoLoginEm ?? "").localeCompare(a.ultimoLoginEm ?? "")) : lista;
+    // Por último acesso: quem usou mais recentemente primeiro, quem nunca entrou no fim.
+    return ordem === "acesso" ? [...lista].sort((a, b) => (b.ultimoAcessoEm ?? "").localeCompare(a.ultimoAcessoEm ?? "")) : lista;
   }, [contas, busca, ordem]);
 
   async function executar({ conta, tipo }: Acao) {
@@ -172,7 +172,7 @@ export default function AdministracaoPage() {
             <div className="flex w-full flex-wrap gap-2 sm:w-auto">
               <Select aria-label="Ordenar contas" value={ordem} onChange={(e) => setOrdem(e.target.value as Ordem)} className="w-auto">
                 <option value="nome">Ordem: nome</option>
-                <option value="login">Ordem: último login</option>
+                <option value="acesso">Ordem: último acesso</option>
               </Select>
               <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
@@ -223,7 +223,7 @@ export default function AdministracaoPage() {
                   )}
                 </div>
                 <div className="w-full min-w-0 shrink-0 text-sm sm:w-48">
-                  <UltimoLogin c={c} />
+                  <UltimoAcesso c={c} />
                 </div>
                 <div className="shrink-0 sm:w-48">
                   <Situacao c={c} />
