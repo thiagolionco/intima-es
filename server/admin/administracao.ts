@@ -1,4 +1,4 @@
-import type { ContextoRequisicao, EventoAuditoria, Sessao, Usuario } from "../auth/model.ts";
+import type { ContextoRequisicao, EventoAuditoria, Sessao, TipoEvento, Usuario } from "../auth/model.ts";
 import type { Auditoria, SessaoRepository, UsuarioRepository } from "../auth/ports.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
@@ -26,7 +26,28 @@ export interface ContaNoDiretorio {
   ultimoLoginEm?: string;
   /** Último uso registrado de uma sessão da conta (atualizado de tempos em tempos). */
   ultimoUsoSessaoEm?: string;
+  /** Último evento da trilha que só a própria pessoa, já dentro da conta, gera (ver EVENTOS_DE_USO). */
+  ultimoEventoDeUsoEm?: string;
 }
+
+/**
+ * Eventos que só acontecem com a pessoa usando a conta. Servem de sinal de acesso quando a sessão
+ * já não existe: sair da conta, por exemplo, apaga a sessão, mas fica o evento "logout".
+ */
+export const EVENTOS_DE_USO: TipoEvento[] = [
+  "login.sucesso",
+  "logout",
+  "senha.alterada",
+  "senha.redefinida",
+  "sessao.encerrada",
+  "sessoes.encerradas",
+  "2fa.ativado",
+  "2fa.desativado",
+  "2fa.codigos_regenerados",
+  "2fa.codigo_recuperacao_usado",
+  "perfil.atualizado",
+  "dados.exportados",
+];
 
 /** Todas as contas, com os escritórios de cada uma. Só responde para um administrador. */
 export interface DiretorioDeContas {
@@ -49,7 +70,10 @@ export interface ContaAdministrada {
   criadaEm: string;
   /** Quando a conta entrou pela última vez (vazio: nunca entrou). */
   ultimoLoginEm?: string;
-  /** Último sinal de uso: o login mais recente ou o último uso de uma sessão aberta. */
+  /**
+   * Último sinal de uso: o mais recente entre o login, o uso de uma sessão e os eventos de uso.
+   * Com "Manter conectado" a sessão dura semanas, então o login sozinho fica velho.
+   */
   ultimoAcessoEm?: string;
   voceMesmo: boolean;
 }
@@ -91,7 +115,7 @@ export class AdministracaoService {
     const agora = this.d.clock.agora().toISOString();
     const contas = await this.d.diretorio.listar(administradorId);
     return contas
-      .map(({ usuario: u, escritorios, ultimoLoginEm, ultimoUsoSessaoEm }) => ({
+      .map(({ usuario: u, escritorios, ultimoLoginEm, ultimoUsoSessaoEm, ultimoEventoDeUsoEm }) => ({
         id: u.id,
         nome: u.nome,
         email: u.email,
@@ -105,7 +129,7 @@ export class AdministracaoService {
         bloqueadaAte: u.bloqueadoAte && u.bloqueadoAte > agora ? u.bloqueadoAte : undefined,
         criadaEm: u.criadoEm,
         ultimoLoginEm,
-        ultimoAcessoEm: [ultimoLoginEm, ultimoUsoSessaoEm].filter((x): x is string => !!x).sort().at(-1),
+        ultimoAcessoEm: [ultimoLoginEm, ultimoUsoSessaoEm, ultimoEventoDeUsoEm].filter((x): x is string => !!x).sort().at(-1),
         voceMesmo: u.id === administradorId,
       }))
       .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
@@ -164,6 +188,7 @@ export class DiretorioDeContasDocumentos implements DiretorioDeContas {
           usuario,
           escritorios: [{ escritorioId: usuario.id, nome: usuario.escritorio?.trim() || usuario.nome, papel: "dono" }],
           ultimoLoginEm: eventos.find((e) => e.tipo === "login.sucesso")?.em,
+          ultimoEventoDeUsoEm: eventos.find((e) => EVENTOS_DE_USO.includes(e.tipo))?.em,
           ultimoUsoSessaoEm: sessoes.filter((x) => x.usuarioId === usuario.id).map((x) => x.ultimoUsoEm).sort().at(-1),
         };
       }),

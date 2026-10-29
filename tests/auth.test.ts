@@ -400,7 +400,7 @@ for (const backend of BACKENDS) {
 
       assert.equal(linhaBeto.ultimoLoginEm, undefined, "quem nunca entrou fica sem último login");
 
-      const login = await s.auth.entrar({ email: beto.email, senha: SENHA }, CTX);
+      const login = await s.auth.entrar({ email: beto.email, senha: SENHA, lembrar: true }, CTX);
       assert.equal(login.tipo, "sessao");
       const token = login.tipo === "sessao" ? login.token : "";
       assert.ok(await s.sessoes.validar(token));
@@ -408,8 +408,22 @@ for (const backend of BACKENDS) {
       assert.ok(depoisDoLogin.ultimoLoginEm, "o login aparece na administração");
       assert.ok(depoisDoLogin.ultimoAcessoEm! >= depoisDoLogin.ultimoLoginEm!);
 
+      // Com "Manter conectado" a pessoa usa por dias sem novo login: o acesso acompanha o uso.
+      s.avancar(3 * DIA);
+      const emUso = await s.sessoes.validar(token);
+      const usando = (await s.admin.listar(ana.id)).find((c) => c.id === beto.id)!;
+      assert.equal(usando.ultimoLoginEm, depoisDoLogin.ultimoLoginEm, "o login continua o mesmo");
+      assert.equal(usando.ultimoAcessoEm, new Date("2026-10-10T12:00:00Z").toISOString(), "o acesso é o uso de 3 dias depois");
+      // Sair apaga a sessão, mas o acesso não volta para a data do login.
+      s.avancar(HORA);
+      await s.sessoes.sair(emUso!.sessao, CTX);
+      const saiu = (await s.admin.listar(ana.id)).find((c) => c.id === beto.id)!;
+      assert.equal(saiu.ultimoAcessoEm, new Date("2026-10-10T13:00:00Z").toISOString());
+      const novo = await s.auth.entrar({ email: beto.email, senha: SENHA }, CTX);
+      const tokenNovo = novo.tipo === "sessao" ? novo.token : "";
+
       await s.admin.desativar(ana.id, beto.id, CTX);
-      assert.equal(await s.sessoes.validar(token), null, "a sessão aberta cai na hora");
+      assert.equal(await s.sessoes.validar(tokenNovo), null, "a sessão aberta cai na hora");
       await rejeita(s.auth.entrar({ email: beto.email, senha: SENHA }, CTX), "conta_desativada");
       await rejeita(s.auth.entrar({ email: beto.email, senha: SENHA + "x" }, CTX), "credenciais_invalidas");
       assert.deepEqual(await s.deps.usuarios.listarConfirmados(), [ana.id], "rotinas automáticas param");
