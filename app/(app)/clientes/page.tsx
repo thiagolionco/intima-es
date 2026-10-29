@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, FileSearch, Pencil, Plus, RefreshCw, Timer, Trash2, Users } from "lucide-react";
+import { AlertTriangle, FileSearch, Pencil, Plus, RefreshCw, Timer, Trash2, Users, X } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { AbasComunica } from "@/components/abas-comunica";
@@ -9,7 +9,7 @@ import { ConfirmDialog, Modal } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { useStore } from "@/lib/store";
-import type { TermoMonitorado, TipoTermo } from "@/lib/types";
+import type { AtuacaoTermo, TermoMonitorado, TipoTermo } from "@/lib/types";
 import { api } from "@/lib/auth/api";
 import { formatDateTime, TIPO_TERMO_LABEL, UFS } from "@/lib/utils";
 import type { Lacuna } from "@/lib/cobertura";
@@ -49,7 +49,7 @@ function StatusRonda({ t, lacunas }: { t: TermoMonitorado; lacunas: Lacuna[] }) 
 }
 import { validarTermo } from "@/lib/validacao";
 
-type Rascunho = Pick<TermoMonitorado, "apelido" | "tipo" | "valor" | "ufOab" | "tribunal" | "ativo">;
+type Rascunho = Pick<TermoMonitorado, "apelido" | "tipo" | "valor" | "ufOab" | "tribunal" | "ativo" | "atuacao">;
 const VAZIO: Rascunho = { apelido: "", tipo: "parte", valor: "", ufOab: "", tribunal: "", ativo: true };
 
 const PLACEHOLDER: Record<TipoTermo, string> = {
@@ -66,6 +66,98 @@ const DICA: Record<TipoTermo, string> = {
   processo: "Acompanha um processo específico (número CNJ com 20 dígitos).",
 };
 
+/** Tipos de cliente que identificam um advogado e por isso podem separar as intimações por atuação. */
+const COM_ATUACAO: TipoTermo[] = ["oab", "advogado"];
+const ATUACAO_PADRAO: AtuacaoTermo = { souEu: true, colegas: [] };
+
+function CamposAtuacao({ valor, onChange }: { valor: AtuacaoTermo; onChange: (v: AtuacaoTermo) => void }) {
+  const [novo, setNovo] = useState({ nome: "", oab: "", uf: "" });
+  const [erro, setErro] = useState("");
+
+  function adicionar() {
+    const nome = novo.nome.trim();
+    const oab = novo.oab.replace(/\D/g, "");
+    if (!nome) return setErro("Informe o nome do colega.");
+    if (oab && !novo.uf) return setErro("Selecione a UF da OAB.");
+    setErro("");
+    onChange({ ...valor, colegas: [...valor.colegas, { nome, oab, uf: oab ? novo.uf : "" }] });
+    setNovo({ nome: "", oab: "", uf: novo.uf });
+  }
+
+  return (
+    <div className="rounded-lg bg-slate-50 p-4 ring-1 ring-inset ring-slate-200">
+      <p className="text-sm font-medium text-slate-700">Separar por atuação</p>
+      <p className="mt-0.5 text-xs text-slate-500">
+        A busca no Comunica não muda. Isto só organiza as intimações nas abas Só eu, Eu e colegas e Atuação conjunta.
+      </p>
+      <span className="mb-1.5 mt-3 block text-sm font-medium text-slate-700">Este advogado é</span>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { v: true, r: "Sou eu" },
+          { v: false, r: "Colega do escritório" },
+        ].map((o) => (
+          <button
+            key={o.r}
+            type="button"
+            onClick={() => onChange({ ...valor, souEu: o.v })}
+            aria-pressed={valor.souEu === o.v}
+            className={clsx(
+              "rounded-lg px-3 py-2 text-left text-sm ring-1 ring-inset transition",
+              valor.souEu === o.v ? "bg-brand-50 font-medium text-brand-800 ring-brand-300" : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+            )}
+          >
+            {o.r}
+          </button>
+        ))}
+      </div>
+      <span className="mb-1 mt-4 block text-sm font-medium text-slate-700">Colegas do mesmo escritório</span>
+      <p className="mb-2 text-xs text-slate-500">
+        Quando só estes aparecem com você, a intimação vai para <span className="font-medium text-violet-700">Eu e colegas</span>. Qualquer outro advogado
+        leva para <span className="font-medium text-amber-700">Atuação conjunta</span>.
+      </p>
+      {valor.colegas.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-2">
+          {valor.colegas.map((c, n) => (
+            <span
+              key={`${c.nome}-${c.oab}-${n}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 ring-1 ring-inset ring-violet-600/20"
+            >
+              {c.nome}
+              {c.oab && ` · ${c.oab}/${c.uf}`}
+              <button
+                type="button"
+                onClick={() => onChange({ ...valor, colegas: valor.colegas.filter((_, k) => k !== n) })}
+                className="text-violet-400 hover:text-violet-700"
+                aria-label={`Remover ${c.nome}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="grid grid-cols-[1fr_84px_88px_auto] gap-2">
+        <Input value={novo.nome} onChange={(e) => setNovo({ ...novo, nome: e.target.value })} placeholder="Nome" aria-label="Nome do colega" className="min-w-0" />
+        <Input value={novo.oab} onChange={(e) => setNovo({ ...novo, oab: e.target.value })} placeholder="OAB" aria-label="OAB do colega" className="min-w-0" />
+        <Select value={novo.uf} onChange={(e) => setNovo({ ...novo, uf: e.target.value })} aria-label="UF da OAB do colega" className="min-w-0">
+          <option value="">UF</option>
+          {UFS.map((u) => (
+            <option key={u}>{u}</option>
+          ))}
+        </Select>
+        <Button type="button" variant="secondary" size="sm" onClick={adicionar}>
+          Adicionar
+        </Button>
+      </div>
+      {erro && (
+        <p className="mt-1 text-xs text-red-600" role="alert">
+          {erro}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSalvar: (r: Rascunho) => void; onCancelar: () => void }) {
   const [r, setR] = useState<Rascunho>(inicial);
   const [tentou, setTentou] = useState(false);
@@ -81,6 +173,7 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
       valor: r.valor.trim(),
       tribunal: r.tribunal?.trim().toUpperCase() || undefined,
       ufOab: r.tipo === "oab" ? r.ufOab : undefined,
+      atuacao: COM_ATUACAO.includes(r.tipo) ? (r.atuacao ?? ATUACAO_PADRAO) : undefined,
     });
   }
 
@@ -125,6 +218,7 @@ function FormTermo({ inicial, onSalvar, onCancelar }: { inicial: Rascunho; onSal
       <Field label="Tribunal (opcional)" htmlFor="trib" error={erros.tribunal} hint="Restringe a busca a um tribunal, ex.: TJSP, TRT2, TRF3">
         <Input id="trib" value={r.tribunal ?? ""} onChange={(e) => setR({ ...r, tribunal: e.target.value.toUpperCase() })} invalid={!!erros.tribunal} />
       </Field>
+      {COM_ATUACAO.includes(r.tipo) && <CamposAtuacao valor={r.atuacao ?? ATUACAO_PADRAO} onChange={(atuacao) => setR({ ...r, atuacao })} />}
       <label className="flex items-center gap-2 text-sm text-slate-700">
         <input
           type="checkbox"

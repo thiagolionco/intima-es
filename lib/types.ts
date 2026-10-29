@@ -77,6 +77,16 @@ export interface TermoMonitorado {
   createdAt: string;
   /** Resultado da última busca automática feita pelo servidor (só OAB e processo). */
   ultimaRonda?: UltimaRonda;
+  /** Separação por atuação (só para clientes por OAB ou nome do advogado). Ver lib/atuacao.ts. */
+  atuacao?: AtuacaoTermo;
+}
+
+/** Quem é o advogado de um cliente monitorado e quem são os colegas do escritório. */
+export interface AtuacaoTermo {
+  /** true: o advogado pesquisado é você. false: é um colega do escritório. */
+  souEu: boolean;
+  /** Outros advogados do mesmo escritório. Intimações só com eles e você não contam como atuação conjunta. */
+  colegas: Advogado[];
 }
 
 export interface UltimaRonda {
@@ -100,6 +110,8 @@ export interface FiltrosIntimacao {
   responsavel?: string;
   /** Tipo de tarefa sugerida (ver lib/tarefas.ts), ou vazio para todas. */
   tarefa?: string;
+  /** Grupo de atuação (ver lib/atuacao.ts), ou vazio para todas. */
+  atuacao?: string;
 }
 
 export type ContagemPrazo = "uteis" | "corridos";

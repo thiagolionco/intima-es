@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { DatePicker } from "@/components/date-picker";
-import { IntimacaoCard, PrazoTag } from "@/components/intimacao-card";
+import { IntimacaoCard, PrazoTag, SeloAtuacao } from "@/components/intimacao-card";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
 import { Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBadge } from "@/components/ui";
@@ -14,6 +14,7 @@ import { BotaoResumir } from "@/components/resumo";
 import { SeloResponsavel, SeletorResponsavel } from "@/components/equipe";
 import { DialogoExportacao } from "@/components/exportacao/dialogo-exportacao";
 import { SeloTarefa } from "@/components/tarefa";
+import { ATUACOES, classificarAtuacao, ESTILO_ATUACAO, referenciaAtuacao, type Atuacao } from "@/lib/atuacao";
 import { contarFiltrosAtivos, filtrarIntimacoes, FILTROS_VAZIOS, ordenarIntimacoes, type Ordenacao } from "@/lib/filtros";
 import { useStore } from "@/lib/store";
 import { TIPOS_TAREFA } from "@/lib/tarefas";
@@ -29,7 +30,7 @@ function unicos(valores: string[]): string[] {
 }
 
 function ListaIntimacoes() {
-  const { ready, intimacoes, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes, podeExcluir } = useStore();
+  const { ready, intimacoes, termos, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, equipe, delegarIntimacoes, podeExcluir } = useStore();
   const { cobertura } = useCobertura();
   const { toast } = useToast();
   const params = useSearchParams();
@@ -42,6 +43,7 @@ function ListaIntimacoes() {
     busca: params.get("q") || "",
     responsavel: params.get("responsavel") || "",
     tarefa: params.get("tarefa") || "",
+    atuacao: params.get("atuacao") || "",
   }));
   const [ordem, setOrdem] = useState<Ordenacao>((params.get("ordem") as Ordenacao) || "data_desc");
   const [visao, setVisao] = useState<"cards" | "tabela">("cards");
@@ -74,7 +76,19 @@ function ListaIntimacoes() {
     [intimacoes],
   );
 
-  const resultado = useMemo(() => ordenarIntimacoes(filtrarIntimacoes(intimacoes, filtros), ordem), [intimacoes, filtros, ordem]);
+  const referencia = useMemo(() => referenciaAtuacao(termos), [termos]);
+  const resultado = useMemo(() => ordenarIntimacoes(filtrarIntimacoes(intimacoes, filtros, referencia), ordem), [intimacoes, filtros, ordem, referencia]);
+  // Contagem de cada aba com os demais filtros aplicados.
+  const porAtuacao = useMemo(() => {
+    const c: Record<Atuacao | "todas", number> = { todas: 0, so_eu: 0, colegas: 0, conjunta: 0 };
+    if (!referencia) return c;
+    for (const i of filtrarIntimacoes(intimacoes, { ...filtros, atuacao: "" }, referencia)) {
+      c.todas++;
+      const g = classificarAtuacao(i, referencia);
+      if (g) c[g]++;
+    }
+    return c;
+  }, [intimacoes, filtros, referencia]);
   const totalPaginas = Math.max(1, Math.ceil(resultado.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const visiveis = resultado.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
@@ -227,6 +241,40 @@ function ListaIntimacoes() {
             </div>
           </div>
         </div>
+
+        {referencia && (
+          <div className="mt-4 border-t border-slate-100 pt-4">
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Atuação">
+              {[{ valor: "", rotulo: "Todos", ponto: "bg-brand-500", aba: "bg-brand-50 text-brand-800 ring-brand-300", n: porAtuacao.todas }, ...ATUACOES.map((a) => ({ valor: a.valor, rotulo: a.rotulo, ponto: ESTILO_ATUACAO[a.valor].ponto, aba: ESTILO_ATUACAO[a.valor].aba, n: porAtuacao[a.valor] }))].map((a) => {
+                const ativa = (filtros.atuacao ?? "") === a.valor;
+                return (
+                  <button
+                    key={a.valor || "todas"}
+                    role="tab"
+                    aria-selected={ativa}
+                    onClick={() => set("atuacao", a.valor)}
+                    className={clsx(
+                      "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm ring-1 ring-inset transition",
+                      ativa ? clsx(a.aba, "font-medium") : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50",
+                    )}
+                  >
+                    <span className={clsx("h-2 w-2 rounded-full", a.ponto)} aria-hidden />
+                    {a.rotulo}
+                    <span className="text-xs tabular-nums opacity-70">{a.n}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
+              {ATUACOES.map((a) => (
+                <span key={a.valor} className="inline-flex items-center gap-1.5">
+                  <span className={clsx("h-2 w-2 rounded-full", ESTILO_ATUACAO[a.valor].ponto)} aria-hidden />
+                  <span className="font-medium text-slate-700">{a.rotulo}</span> {a.legenda}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {(painelFiltros || ativos > 0) && (
           <div className="mt-4 grid animate-fade-in gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -417,6 +465,7 @@ function ListaIntimacoes() {
               <IntimacaoCard
                 key={i.id}
                 intimacao={i}
+                referencia={referencia}
                 selecionada={selecionadas.has(i.id)}
                 onSelecionar={(v) => alternar(i.id, v)}
                 onStatus={(s) => {
@@ -468,6 +517,7 @@ function ListaIntimacoes() {
                         {i.tipoComunicacao}
                         <p className="text-xs text-slate-400">{i.tribunal}</p>
                         <SeloTarefa i={i} className="mt-1" />
+                        <SeloAtuacao i={i} referencia={referencia} className="mt-1" />
                       </td>
                       <td className="max-w-[200px] px-4 py-3 text-xs text-slate-600">{i.orgao}</td>
                       <td className="max-w-sm px-4 py-3 text-xs text-slate-600">{resumo(i.texto, 140)}</td>
