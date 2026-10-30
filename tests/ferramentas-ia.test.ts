@@ -128,7 +128,7 @@ test("linha do tempo: junta andamentos, intimações, fatos e notas em ordem, co
     fatos: { fatos: [{ id: "f1", data: "2025-01-15", descricao: "Compra do produto", fonte: { documentoId: "d", documentoNome: "Inicial.pdf", pagina: 3 } }], documentos: [], modelo: "x", autorNome: "Ana", criadoEm: "" },
     notas: [{ id: "n1", tipo: "email", data: "2026-09-25", titulo: "Cliente mandou comprovante", texto: "...", visivelAoCliente: false, autorNome: "Ana", criadoEm: "" }],
   } as never);
-  const datas = eventos.map((e) => e.data);
+  const datas = eventos.map((e) => e.quando);
   assert.deepEqual([...datas].sort().reverse(), datas, "do mais novo para o mais antigo");
   assert.deepEqual(new Set(eventos.map((e) => e.origem)), new Set(["andamento", "intimacao", "fato", "nota"]));
   assert.ok(cronologiaEmTexto(eventos).includes("Compra do produto"));

@@ -262,8 +262,12 @@ export function LinhaDoTempoDoProcesso({
       ) : !visiveis.length ? (
         <EmptyState
           icon={<History className="h-6 w-6" />}
-          title="Nada na linha do tempo ainda"
-          description="Os andamentos do DataJud e as intimações do Comunica entram sozinhos. Anexe os PDFs e peça à IA os fatos com data, ou cole os e-mails trocados com o cliente."
+          title={eventos.length ? "Nada com este filtro" : "Nada na linha do tempo ainda"}
+          description={
+            eventos.length
+              ? "Desmarque o filtro acima para ver os outros itens do processo."
+              : "Os andamentos do DataJud e as intimações do Comunica entram sozinhos. Anexe os PDFs e peça à IA os fatos com data, ou cole os e-mails trocados com o cliente."
+          }
         />
       ) : (
         <ol className="relative px-5 py-4">
