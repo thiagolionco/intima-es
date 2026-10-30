@@ -18,6 +18,7 @@ import { hojeISO } from "@/lib/utils";
 import { CoberturaContexto, useLerCobertura } from "@/lib/use-cobertura";
 import { SeloVigilia } from "@/components/vigilia";
 import { Sino } from "@/components/sino";
+import { MenuAjuda, TourProvider } from "@/components/tour";
 
 const NAV = [
   { href: "/", label: "Painel", icon: LayoutDashboard },
@@ -70,7 +71,7 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
   const pedidosNovos = usePedidosNovos(pathname);
 
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
+    <nav data-tour="menu" className="flex flex-1 flex-col gap-1 px-3">
       {itens.map(({ href, label, icon: Icone }) => (
         <Link
           key={href}
@@ -157,69 +158,79 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <CoberturaContexto.Provider value={estadoCobertura}>
-      <div className="min-h-screen">
-        {/* Barra lateral (desktop) */}
-        <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
-          <div className="flex items-center justify-between pr-3">
-            <Marca />
-            <Sino />
-          </div>
-          <Navegacao />
-          <div className="space-y-2 px-3">
-            <div className="space-y-1.5 px-3">
-              <SeloVigilia cobertura={cobertura} escuro />
-              <IndicadorSincronizacao escuro />
-            </div>
-            <div className="border-t border-white/10 pt-2">
-              <MenuUsuario />
-            </div>
-          </div>
-        </aside>
-
-        {/* Barra superior (mobile) */}
-        <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
-          <Marca />
-          <div className="flex items-center gap-1">
-            <Sino />
-            <MenuUsuario compacto />
-            <button onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
-        </header>
-
-        {menuAberto && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuAberto(false)} aria-hidden />
-            <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col gap-6 bg-slate-900 py-5">
-              <div className="flex items-center justify-between pr-4">
-                <Marca />
-                <button onClick={() => setMenuAberto(false)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Fechar menu">
-                  <X className="h-5 w-5" />
-                </button>
+      <TourProvider>
+        <div className="min-h-screen">
+          {/* Barra lateral (desktop) */}
+          <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col gap-6 bg-slate-900 py-5 lg:flex">
+            <div className="flex items-center justify-between pr-3">
+              <Marca />
+              <div className="flex items-center">
+                <div data-tour="sino">
+                  <Sino />
+                </div>
+                <MenuAjuda />
               </div>
-              <Navegacao onNavigate={() => setMenuAberto(false)} />
-              <div className="space-y-1.5 px-6">
+            </div>
+            <Navegacao />
+            <div className="space-y-2 px-3">
+              <div className="space-y-1.5 px-3">
                 <SeloVigilia cobertura={cobertura} escuro />
                 <IndicadorSincronizacao escuro />
               </div>
-            </div>
-          </div>
-        )}
-
-        <main className="lg:pl-64">
-          {/* A Central de casos usa três painéis lado a lado e precisa de mais largura. */}
-          <div className={clsx("mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8", pathname.startsWith("/processos/central") ? "max-w-[1760px]" : "max-w-7xl")}>
-            {erroPersistencia && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-                {erroPersistencia}
+              <div className="border-t border-white/10 pt-2">
+                <MenuUsuario />
               </div>
-            )}
-            <AvisoDadosLegados />
-            {children}
-          </div>
-        </main>
-      </div>
+            </div>
+          </aside>
+
+          {/* Barra superior (mobile) */}
+          <header className="sticky top-0 z-30 flex items-center justify-between bg-slate-900 px-4 py-3 lg:hidden">
+            <Marca />
+            <div className="flex items-center gap-1">
+              <div data-tour="sino-celular">
+                <Sino />
+              </div>
+              <MenuAjuda celular />
+              <MenuUsuario compacto />
+              <button data-tour="menu-celular" onClick={() => setMenuAberto(true)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Abrir menu">
+                <Menu className="h-5 w-5" />
+              </button>
+            </div>
+          </header>
+
+          {menuAberto && (
+            <div className="fixed inset-0 z-50 lg:hidden">
+              <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMenuAberto(false)} aria-hidden />
+              <div className="absolute inset-y-0 left-0 flex w-72 animate-slide-in flex-col gap-6 bg-slate-900 py-5">
+                <div className="flex items-center justify-between pr-4">
+                  <Marca />
+                  <button onClick={() => setMenuAberto(false)} className="rounded-md p-2 text-slate-300 hover:bg-white/10" aria-label="Fechar menu">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <Navegacao onNavigate={() => setMenuAberto(false)} />
+                <div className="space-y-1.5 px-6">
+                  <SeloVigilia cobertura={cobertura} escuro />
+                  <IndicadorSincronizacao escuro />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <main className="lg:pl-64">
+            {/* A Central de casos usa três painéis lado a lado e precisa de mais largura. */}
+            <div className={clsx("mx-auto px-4 py-6 sm:px-6 lg:px-8 lg:py-8", pathname.startsWith("/processos/central") ? "max-w-[1760px]" : "max-w-7xl")}>
+              {erroPersistencia && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+                  {erroPersistencia}
+                </div>
+              )}
+              <AvisoDadosLegados />
+              {children}
+            </div>
+          </main>
+        </div>
+      </TourProvider>
     </CoberturaContexto.Provider>
   );
 }

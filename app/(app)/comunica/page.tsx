@@ -149,7 +149,7 @@ function BuscaComunica() {
 
   return (
     <>
-      <div className="mb-6 flex flex-col gap-1">
+      <div data-tour="titulo" className="mb-6 flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Comunica PJe</h1>
         <p className="text-sm text-slate-500">
           Consulta a API pública do{" "}
