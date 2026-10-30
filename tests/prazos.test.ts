@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Calendario, feriadosDoAno, pascoa } from "../lib/prazos/calendario.ts";
+import { calendarioOficial, CALENDARIO_OFICIAL, GRUPOS_TRIBUNAIS, siglaTribunal } from "../lib/prazos/tribunais.ts";
 import { aplicarRegra, calcularPrazo, contagemPadrao, lerPrazoDoTexto, sugerirRegra } from "../lib/prazos/calculo.ts";
 
 const uteis = (dias: number, dobro = false) => ({ dias, contagem: "uteis" as const, dobro });
@@ -109,4 +110,18 @@ test("sugere regra a partir do texto e recalcula o prazo", () => {
   assert.equal(i.prazo, "2026-11-03");
   const manual = { tribunal: "TJSP", dataDisponibilizacao: "2026-10-08", regraPrazo: undefined, prazo: "2026-10-20" };
   assert.equal(aplicarRegra(manual, []), manual);
+});
+
+test("suspensão vale para o tribunal mesmo escrito de outro jeito (TRT-9 = TRT9)", () => {
+  const susp = [{ id: "1", inicio: "2026-08-14", fim: "2026-08-14", descricao: "Transferência do feriado de 11/8", tribunal: "trt-9" }];
+  assert.equal(new Calendario("TRT9", susp).ehUtil("2026-08-14"), false);
+  assert.equal(new Calendario("TRT4", susp).ehUtil("2026-08-14"), true);
+});
+
+test("todo tribunal com calendário oficial está na lista do filtro", () => {
+  const siglas = GRUPOS_TRIBUNAIS.flatMap((g) => g.siglas);
+  assert.equal(new Set(siglas).size, siglas.length);
+  for (const t of Object.keys(CALENDARIO_OFICIAL)) assert.ok(siglas.includes(t), t);
+  assert.equal(siglaTribunal(" trf-4 "), "TRF4");
+  assert.match(calendarioOficial("TJPR"), /tjpr\.jus\.br/);
 });

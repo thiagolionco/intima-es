@@ -1,5 +1,6 @@
 import type { Suspensao } from "../types.ts";
 import { diaDaSemana, montarData, somarDias } from "./datas.ts";
+import { siglaTribunal } from "./tribunais.ts";
 
 /**
  * Calendário forense usado na contagem de prazos.
@@ -86,8 +87,8 @@ export function emRecesso(data: string): boolean {
 const MOTIVO_RECESSO = "Recesso forense (20/12 a 20/01, art. 220 do CPC)";
 
 function vale(s: Suspensao, tribunal: string): boolean {
-  const alvo = (s.tribunal ?? "").trim().toUpperCase();
-  return !alvo || alvo === tribunal.trim().toUpperCase();
+  const alvo = siglaTribunal(s.tribunal);
+  return !alvo || alvo === siglaTribunal(tribunal);
 }
 
 /** Calendário de um tribunal, com as suspensões cadastradas pelo escritório. */
