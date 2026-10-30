@@ -14,6 +14,15 @@ const nextConfig = {
   // Gera um servidor enxuto em .next/standalone, usado pela imagem Docker (Dockerfile).
   output: "standalone",
   poweredByHeader: false,
+  // Endereços em inglês que robôs e agentes costumam procurar.
+  async redirects() {
+    return [
+      { source: "/about", destination: "/sobre", permanent: true },
+      { source: "/contact", destination: "/contato", permanent: true },
+      { source: "/privacy", destination: "/privacidade", permanent: true },
+      { source: "/developers", destination: "/docs", permanent: true },
+    ];
+  },
   async headers() {
     return [{ source: "/:path*", headers: cabecalhosSeguranca }];
   },

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
+import { decidirRotaPublica } from "@/lib/publico/rotas";
 
 /** Páginas acessíveis sem login. */
 const PUBLICAS = ["/portal", "/pedido", "/seguranca", "/convite", "/cumprir", "/entrar", "/criar-conta", "/esqueci-a-senha", "/redefinir-senha", "/confirmar-email", "/verifique-seu-email", "/dev/caixa-de-saida"];
@@ -11,6 +12,8 @@ const PUBLICAS = ["/portal", "/pedido", "/seguranca", "/convite", "/cumprir", "/
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const temSessao = !!req.cookies.get(NOME_COOKIE_SESSAO)?.value;
+  const publica = respostaPublica(req, temSessao);
+  if (publica) return publica;
 
   if (pathname.startsWith("/api/")) {
     // /api/rondas/ é chamada por agendadores externos, que se autenticam com RONDA_TOKEN.
@@ -25,6 +28,21 @@ export function middleware(req: NextRequest) {
   destino.pathname = "/entrar";
   destino.search = pathname === "/" ? "" : `?para=${encodeURIComponent(pathname + search)}`;
   return NextResponse.redirect(destino);
+}
+
+/** Site público e arquivos para agentes: Markdown por Accept, 404 de verdade e "/" sem login. */
+function respostaPublica(req: NextRequest, temSessao: boolean): NextResponse | null {
+  const decisao = decidirRotaPublica(req.nextUrl.pathname, req.headers.get("accept"), temSessao);
+  if (!decisao) return null;
+  if (decisao.tipo === "markdown") {
+    return new NextResponse(req.method === "HEAD" ? null : decisao.corpo, {
+      status: decisao.status,
+      headers: { "Content-Type": "text/markdown; charset=utf-8", Vary: "Accept", "Cache-Control": "public, max-age=0, must-revalidate" },
+    });
+  }
+  const res = decisao.tipo === "reescrever" ? NextResponse.rewrite(new URL(decisao.para, req.url)) : NextResponse.next();
+  res.headers.set("Vary", "Accept");
+  return res;
 }
 
 export const config = {
