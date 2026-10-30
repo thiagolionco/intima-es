@@ -2,7 +2,7 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import { entradasDoSitemap, especificacaoOpenApi, llmsTxt } from "../lib/publico/arquivos.ts";
+import { entradasDoSitemap } from "../lib/publico/arquivos.ts";
 import { PAGINAS_PUBLICAS, type PaginaPublica } from "../lib/publico/conteudo.ts";
 import { dadosEstruturados, jsonParaScript } from "../lib/publico/jsonld.ts";
 import { naoEncontradoEmMarkdown, paginaEmMarkdown, trechos } from "../lib/publico/markdown.ts";
@@ -63,7 +63,7 @@ describe("decisão do middleware para o site público", () => {
   });
 
   test("páginas públicas e arquivos para agentes passam sem login", () => {
-    for (const c of ["/sobre", "/contato", "/privacidade", "/docs", "/sobre/", "/llms.txt", "/sitemap.xml", "/robots.txt", "/openapi.json", "/opengraph-image"]) {
+    for (const c of ["/sobre", "/contato", "/privacidade", "/sobre/", "/sitemap.xml", "/robots.txt", "/opengraph-image"]) {
       assert.deepEqual(decidirRotaPublica(c, NAVEGADOR, false), { tipo: "seguir" }, c);
     }
   });
@@ -76,9 +76,13 @@ describe("decisão do middleware para o site público", () => {
     if (md?.tipo === "markdown") {
       assert.equal(md.status, 404);
       assert.match(md.corpo, /\/nao-existe\/mesmo/);
-      for (const destino of ["/docs", "/sitemap.xml", "/llms.txt"]) assert.ok(md.corpo.includes(`${URL_DO_SITE}${destino}`));
+      for (const destino of ["/", "/sitemap.xml"]) assert.ok(md.corpo.includes(`${URL_DO_SITE}${destino}`));
     }
     assert.ok(CAMINHO_INEXISTENTE.split("/")[1].startsWith("_"), "pasta privada do Next, nunca vira página");
+  });
+
+  test("documentação para agentes foi retirada: /docs, /llms.txt e /openapi.json dão 404", () => {
+    for (const c of ["/docs", "/llms.txt", "/openapi.json"]) assert.deepEqual(decidirRotaPublica(c, NAVEGADOR, false), { tipo: "reescrever", para: CAMINHO_INEXISTENTE, status: 404 }, c);
   });
 
   test("telas com login e API continuam com as regras de sempre", () => {
@@ -105,7 +109,7 @@ describe("páginas públicas", () => {
   test("cada página tem H1 e pelo menos 500 caracteres de texto", () => {
     assert.deepEqual(
       PAGINAS_PUBLICAS.map((p) => p.caminho),
-      ["/", "/sobre", "/contato", "/privacidade", "/docs"],
+      ["/", "/sobre", "/contato", "/privacidade"],
     );
     for (const p of PAGINAS_PUBLICAS) {
       assert.ok(p.h1.length > 5, p.caminho);
@@ -132,42 +136,12 @@ describe("páginas públicas", () => {
   });
 
   test("nada público cita rotas internas ou segredos", () => {
-    const publicos = [...PAGINAS_PUBLICAS.map(paginaEmMarkdown), llmsTxt(), JSON.stringify(especificacaoOpenApi()), JSON.stringify(dadosEstruturados()), naoEncontradoEmMarkdown("/x")];
+    const publicos = [...PAGINAS_PUBLICAS.map(paginaEmMarkdown), JSON.stringify(dadosEstruturados()), naoEncontradoEmMarkdown("/x")];
     for (const texto of publicos) for (const r of PROIBIDOS) assert.ok(!r.test(texto), `${r} apareceu em: ${texto.slice(0, 60)}`);
   });
 });
 
-describe("arquivos para agentes", () => {
-  test("llms.txt segue o formato de llmstxt.org e diz quando usar", () => {
-    const txt = llmsTxt();
-    const linhas = txt.split("\n");
-    assert.equal(linhas[0], "# Clepsa");
-    assert.ok(linhas[2].startsWith("> "));
-    assert.match(txt, /^## Quando usar$/m);
-    assert.match(txt, /^## Optional$/m);
-    for (const l of linhas.filter((l) => l.startsWith("- ["))) assert.match(l, /^- \[[^\]]+\]\(https?:\/\/[^)]+\)(: .+)?$/);
-  });
-
-  test("OpenAPI 3.1 só com rotas públicas, operationId único e descrições", () => {
-    const spec = especificacaoOpenApi() as { openapi: string; info: { title: string; version: string }; servers: { url: string }[]; paths: Record<string, Record<string, { operationId: string; description: string; responses: Record<string, { description: string }> }>> };
-    assert.equal(spec.openapi, "3.1.0");
-    assert.ok(spec.info.title && spec.info.version);
-    assert.equal(spec.servers[0].url, URL_DO_SITE);
-    const ids = new Set<string>();
-    for (const [caminho, metodos] of Object.entries(spec.paths)) {
-      assert.ok(!caminho.startsWith("/api"), caminho);
-      for (const [metodo, op] of Object.entries(metodos)) {
-        assert.equal(metodo, "get");
-        assert.match(op.operationId, /^[a-zA-Z][a-zA-Z0-9]+$/);
-        assert.ok(!ids.has(op.operationId), op.operationId);
-        ids.add(op.operationId);
-        assert.ok(op.description.length > 10);
-        for (const r of Object.values(op.responses)) assert.ok(r.description);
-      }
-    }
-    assert.ok(ids.size >= 6);
-  });
-
+describe("sitemap e dados estruturados", () => {
   test("sitemap lista as páginas públicas com endereço absoluto e data", () => {
     const entradas = entradasDoSitemap();
     assert.equal(entradas.length, PAGINAS_PUBLICAS.length);
