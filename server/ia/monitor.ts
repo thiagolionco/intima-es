@@ -262,9 +262,11 @@ export class MonitorService {
   }
 
   /** Para o agendador: verifica os temas vencidos, uma vez por escritório. */
-  async rodarTodos(): Promise<{ verificados: number; alertas: number; erros: number }> {
-    const r = { verificados: 0, alertas: 0, erros: 0 };
+  /** `limiteMs`: para antes de estourar o tempo de uma requisição; o que sobrar fica para a próxima passada. */
+  async rodarTodos(limiteMs = 240_000): Promise<{ verificados: number; alertas: number; erros: number; pendentes: boolean }> {
+    const r = { verificados: 0, alertas: 0, erros: 0, pendentes: false };
     if (!this.ia) return r;
+    const inicio = Date.now();
     const escritorios = new Set<string>();
     const agora = this.clock.agora().getTime();
     for (const usuarioId of await this.listarUsuarios()) {
@@ -275,6 +277,10 @@ export class MonitorService {
       for (const m of await this.listar(u.id).catch(() => [])) {
         if (!m.ativo) continue;
         if (m.ultimaVerificacao && agora - Date.parse(m.ultimaVerificacao) < m.frequenciaDias * DIA - 2 * 60 * 60 * 1000) continue;
+        if (Date.now() - inicio > limiteMs) {
+          r.pendentes = true;
+          return r;
+        }
         try {
           r.alertas += (await this.verificar(u.id, m.id)).length;
           r.verificados++;

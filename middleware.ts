@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
 
 /** Páginas acessíveis sem login. */
-const PUBLICAS = ["/portal", "/pedido", "/seguranca", "/manifest.webmanifest", "/convite", "/cumprir", "/entrar", "/criar-conta", "/esqueci-a-senha", "/redefinir-senha", "/confirmar-email", "/verifique-seu-email", "/dev/caixa-de-saida"];
+const PUBLICAS = ["/portal", "/pedido", "/seguranca", "/convite", "/cumprir", "/entrar", "/criar-conta", "/esqueci-a-senha", "/redefinir-senha", "/confirmar-email", "/verifique-seu-email", "/dev/caixa-de-saida"];
 
 /**
  * Primeira barreira (runtime edge): sem cookie de sessão não há acesso às páginas internas.

@@ -289,7 +289,7 @@ erro, e o botão **Buscar OAB e processos agora** roda na hora para a sua conta.
 | --- | --- | --- |
 | `RONDA_COMUNICA` | `ligada` em produção, `desligada` em dev | Liga ou desliga a busca dentro do servidor. |
 | `RONDA_COMUNICA_INTERVALO_HORAS` | `6` | Intervalo entre as buscas. |
-| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` e `POST /api/rondas/avisos` com `Authorization: Bearer <token>`, para um agendador externo. |
+| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica`, `/avisos`, `/datajud` e `/monitores` com `Authorization: Bearer <token>`, para um agendador externo. |
 
 Se o servidor ficar desligado, a busca seguinte cobre os dias que faltaram
 (até 30 dias para trás). Se a tela estiver aberta enquanto a busca grava, as duas versões são

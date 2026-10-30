@@ -45,7 +45,7 @@ export default function LayoutAcesso({ children }: { children: React.ReactNode }
 
           <div className="order-1 mx-auto w-full max-w-[480px] lg:order-2 lg:max-w-none">
             <div id="cartao-acesso" className="animate-slide-in rounded-2xl bg-white p-6 text-slate-900 shadow-[0_32px_64px_-32px_rgb(0_0_0/.7)] sm:p-10">{children}</div>
-            <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">Dados públicos do DJEN/CNJ. Produto independente, sem vínculo com o CNJ.</p>
+            <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">Dados públicos do DJEN/CNJ. Produto independente, sem vínculo com o CNJ. <Link href="/seguranca" className="underline hover:text-slate-200">Segurança e privacidade</Link></p>
           </div>
         </main>
 

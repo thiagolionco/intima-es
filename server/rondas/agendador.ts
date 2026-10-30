@@ -35,6 +35,20 @@ function agendarDataJud() {
   setInterval(rodar, 6 * HORA).unref?.();
 }
 
+/** Monitor de precedentes: confere a cada 6 horas; cada tema só é pesquisado quando vence a frequência dele. */
+function agendarMonitor() {
+  const rodar = async () => {
+    try {
+      const r = await container().monitor.rodarTodos();
+      if (r.verificados) console.info(`[monitor] ${r.verificados} tema(s) pesquisado(s), ${r.alertas} novidade(s), ${r.erros} erro(s).`);
+    } catch (e) {
+      console.error("[monitor] falhou:", e);
+    }
+  };
+  setTimeout(rodar, 10 * MINUTO).unref?.();
+  setInterval(rodar, 6 * HORA).unref?.();
+}
+
 /**
  * Roda a busca automática no próprio processo do servidor: alguns minutos depois de subir e
  * depois a cada RONDA_COMUNICA_INTERVALO_HORAS. Para um agendador externo, use POST /api/rondas/comunica.
@@ -44,6 +58,7 @@ export function iniciarAgendador() {
   g.__agendadorClepsa = true;
   const { config } = container();
   agendarAvisos();
+  if (container().monitor.disponivel) agendarMonitor();
   if (config.datajud.rondaLigada) agendarDataJud();
   else console.info("[datajud] consulta automática desligada (RONDA_DATAJUD).");
   if (!config.comunica.rondaLigada) {

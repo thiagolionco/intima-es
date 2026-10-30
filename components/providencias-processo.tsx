@@ -2,12 +2,15 @@
 
 import clsx from "clsx";
 import { Check, CheckCircle2, FileText, ListChecks, Plus, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { api } from "@/lib/auth/api";
+import { referencia } from "@/lib/processos";
 import { ordenarProvidencias, type Providencia, type ProvidenciasDoProcesso, SITUACAO_PROVIDENCIA_LABEL } from "@/lib/providencias";
 import { mensagemDe, useApi } from "@/lib/use-api";
+import { useProcessos } from "@/lib/use-processos";
 import { diffDays, formatDate, formatDateTime, hojeISO } from "@/lib/utils";
-import { SeletorResponsavel } from "./equipe";
+import { SeletorResponsavel, SeloResponsavel } from "./equipe";
 import { useToast } from "./toast";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, Input, Spinner } from "./ui";
 
@@ -179,6 +182,34 @@ export function ProvidenciasDoProcessoAba({ processoId, estado }: { processoId: 
           })}
         </ul>
       )}
+    </Card>
+  );
+}
+
+/** Providências confirmadas e pendentes de todos os processos, para a tela Hoje. */
+export function ProvidenciasPendentes() {
+  const { dados } = useApi<{ pendentes: { processoId: string; item: Providencia }[] }>("/api/providencias");
+  const { processos } = useProcessos();
+  if (!dados?.pendentes.length) return null;
+  const nomes = new Map((processos ?? []).map((p) => [p.id, referencia(p)]));
+  const lista = [...dados.pendentes].sort((a, b) => (a.item.prazo ?? "9999").localeCompare(b.item.prazo ?? "9999")).slice(0, 10);
+  return (
+    <Card className="mt-6">
+      <CardHeader title="Providências dos processos" subtitle={`${dados.pendentes.length} pendente(s), das que têm prazo mais perto.`} />
+      <ul className="divide-y divide-slate-100">
+        {lista.map(({ processoId, item }) => (
+          <li key={`${processoId}-${item.id}`} className="flex flex-wrap items-center gap-3 px-5 py-3">
+            <div className="min-w-0 flex-1">
+              <Link href={`/processos/${processoId}?aba=providencias`} className="text-sm text-slate-900 hover:text-brand-700">
+                {item.descricao}
+              </Link>
+              <p className="text-xs text-slate-500">{nomes.get(processoId) ?? "Processo"}</p>
+            </div>
+            <SeloPrazo prazo={item.prazo} feita={false} />
+            <SeloResponsavel id={item.responsavelId} />
+          </li>
+        ))}
+      </ul>
     </Card>
   );
 }

@@ -8,7 +8,8 @@ on:
   schedule:
     # Avisos de prazo e Google Agenda: de hora em hora (cada conta escolhe a hora do e-mail).
     - cron: "7 * * * *"
-    # Busca no Comunica e andamentos no DataJud: a cada 6 horas (horário UTC).
+    # Busca no Comunica, andamentos no DataJud e monitor de precedentes: a cada 6 horas (horário UTC).
+    # Cada tema do monitor só é pesquisado quando vence a frequência escolhida para ele.
     - cron: "17 */6 * * *"
   workflow_dispatch:
 
@@ -39,6 +40,10 @@ jobs:
         if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch') }}
         run: >-
           curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/datajud"
+      - name: Monitor de precedentes
+        if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch') }}
+        run: >-
+          curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/monitores"
       - name: Sem RONDA_TOKEN
         if: env.RONDA_TOKEN == ''
         run: echo "::notice::Configure o segredo RONDA_TOKEN no GitHub para ligar as rondas."
