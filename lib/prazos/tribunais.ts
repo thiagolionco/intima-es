@@ -79,3 +79,21 @@ export const CALENDARIO_OFICIAL: Record<string, string> = {
 export function calendarioOficial(tribunal: string): string {
   return CALENDARIO_OFICIAL[siglaTribunal(tribunal)] ?? "https://www.aasp.org.br/produtos-servicos/expediente-forense/feriados-forenses-2026/";
 }
+
+/** Outros documentos que o Clepsa lê junto com o calendário (ex.: a página do TJPR é montada pelo navegador). */
+const FONTES_EXTRAS: Record<string, string[]> = {
+  TJPR: ["https://posse.tjpr.jus.br/documents/d/comunicacao/sei_12428873_decreto"],
+  TRF3: ["https://www.trf3.jus.br/documentos/seju/Feriados/2025/2026_-_calendario_de_feriados_-_at_25.06.2026.pdf"],
+};
+
+/** Endereços que o servidor lê para montar o calendário do tribunal dentro do Clepsa. */
+export function fontesDoTribunal(tribunal: string): string[] {
+  const t = siglaTribunal(tribunal);
+  return [CALENDARIO_OFICIAL[t], ...(FONTES_EXTRAS[t] ?? [])].filter((u): u is string => !!u);
+}
+
+/** Domínio do site do tribunal (trt9.jus.br), onde a pesquisa procura quando a leitura direta falha. */
+export function dominioTribunal(tribunal: string): string | undefined {
+  const t = siglaTribunal(tribunal);
+  return GRUPOS_TRIBUNAIS.some((g) => g.siglas.includes(t)) ? `${t.toLowerCase()}.jus.br` : undefined;
+}

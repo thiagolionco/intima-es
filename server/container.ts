@@ -68,6 +68,7 @@ import { ProvidenciasService } from "./ia/providencias.ts";
 import { RevisoesService } from "./ia/revisoes.ts";
 import { EditorIaService } from "./ia/editor.ts";
 import { PesquisaService } from "./ia/pesquisa.ts";
+import { CalendarioOficialService } from "./prazos/calendario-oficial.ts";
 import { AgenteService } from "./ia/agente.ts";
 import { FluxosIaService } from "./ia/fluxos.ts";
 import { PedidosService } from "./ia/pedidos.ts";
@@ -314,6 +315,7 @@ function montar() {
   const revisoes = new RevisoesService({ repo: registrosRepo, processos: processosRepo, contexto: contextoProcesso, padroes, ia, clock, limitar: limiteIa("revisao", 200) });
   const editorIa = new EditorIaService({ contexto: contextoProcesso, padroes, ia, limitar: limiteIa("editor", 80) });
   const pesquisa = new PesquisaService({ padroes, ia, limitar: limiteIa("pesquisa", 60) });
+  const calendarioOficial = new CalendarioOficialService({ ia, clock, limitar: limiteIa("calendario-oficial", 30) });
   const agente = new AgenteService({
     repo: registrosRepo,
     contexto: contextoProcesso,
@@ -474,6 +476,7 @@ function montar() {
     revisoes,
     editorIa,
     pesquisa,
+    calendarioOficial,
     agente,
     fluxosIa,
     pedidos,
