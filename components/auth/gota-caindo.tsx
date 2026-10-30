@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { EVENTO_ONDA, type DetalheOnda } from "./campo-de-letras";
 
 /**
  * Fundo animado das telas de acesso: uma gota nasce no alto, cai no vão entre o texto e o cartão,
- * respinga e abre ondas; os pontos do fundo acendem quando a onda passa por eles.
+ * respinga e abre ondas; os pontos do fundo (e as letras do CampoDeLetras) acendem quando a onda passa por eles.
  * Só no desktop (no celular o cartão vem primeiro e a cena atrapalharia). Com movimento reduzido,
  * desenha um quadro parado logo depois do impacto.
  */
@@ -19,7 +20,7 @@ export function GotaCaindo({ textoId, cartaoId }: { textoId: string; cartaoId: s
     const CICLO = 7, BROTO = 0.8, QUEDA = 1.25, VIDA = 3.6, ANEIS = 4, RAZAO = 0.24;
     const tImp = BROTO + QUEDA;
 
-    let W = 0, H = 0, ix = 0, iy = 0, escala = 1, raio = 400, ativo = false, quadroId = 0;
+    let W = 0, H = 0, ix = 0, iy = 0, escala = 1, raio = 400, ativo = false, quadroId = 0, cicloAvisado = -1;
     const t0 = performance.now();
     const estrelas = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), b: 0.08 + Math.random() * 0.32, g: Math.random() < 0.08 }));
 
@@ -140,7 +141,15 @@ export function GotaCaindo({ textoId, cartaoId }: { textoId: string; cartaoId: s
     }
 
     function quadro(agora: number) {
-      if (ativo) desenhar((Math.max(0, agora - t0) / 1000) % CICLO);
+      const total = Math.max(0, agora - t0) / 1000, t = total % CICLO, ciclo = Math.floor(total / CICLO);
+      if (ativo) {
+        desenhar(t);
+        // Avisa o fundo de letras uma vez por queda, no toque na água.
+        if (t >= tImp && ciclo !== cicloAvisado) {
+          cicloAvisado = ciclo;
+          dispatchEvent(new CustomEvent<DetalheOnda>(EVENTO_ONDA, { detail: { x: ix, y: iy, raio, razao: RAZAO, vida: VIDA } }));
+        }
+      }
       quadroId = requestAnimationFrame(quadro);
     }
 
