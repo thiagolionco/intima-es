@@ -5,14 +5,17 @@ import { ArrowLeft, Inbox, Pencil, Stamp, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { AssistenteDoProcesso } from "@/components/assistente-processo";
 import { AnaliseDoProcesso, CartaoRisco, SeloRisco, useAnalises } from "@/components/analise-processo";
 import { DocumentosDoProcesso, useDocumentos } from "@/components/documentos-processo";
 import { SeloResponsavel } from "@/components/equipe";
 import { IntimacaoCard } from "@/components/intimacao-card";
-import { CartaoMovimentacao, MovimentacoesDoProcesso, useMovimentacoes } from "@/components/movimentacoes-processo";
+import { LinhaDoTempoDoProcesso, useLinhaDoTempo } from "@/components/linha-do-tempo";
+import { CartaoMovimentacao, useMovimentacoes } from "@/components/movimentacoes-processo";
 import { ParecerDoProcesso, usePareceres } from "@/components/parecer-processo";
 import { ConfirmDialog } from "@/components/modal";
 import { ProcessoNaoEncontrado } from "@/components/processos";
+import { ProvidenciasDoProcessoAba, useProvidencias } from "@/components/providencias-processo";
 import { ModalProtocolo, SeloParticular, SeloPrescricao } from "@/components/quadro-processos";
 import { useToast } from "@/components/toast";
 import { Badge, Button, Card, CardHeader, EmptyState, Spinner } from "@/components/ui";
@@ -31,8 +34,14 @@ function Item({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   );
 }
 
-const ABAS = ["resumo", "andamentos", "risco", "parecer", "documentos", "intimacoes"] as const;
+const ABAS = ["resumo", "linha-do-tempo", "providencias", "assistente", "risco", "parecer", "documentos", "intimacoes"] as const;
 type Aba = (typeof ABAS)[number];
+
+/** Endereços antigos: a aba Andamentos virou a Linha do tempo (filtrada nos andamentos). */
+function abaPedida(pedida: string | null): { aba: Aba; filtro?: "andamento" } {
+  if (pedida === "andamentos") return { aba: "linha-do-tempo", filtro: "andamento" };
+  return { aba: ABAS.includes(pedida as Aba) ? (pedida as Aba) : "resumo" };
+}
 
 export default function DetalheProcessoPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,14 +49,16 @@ export default function DetalheProcessoPage() {
   const { ready, intimacoes, atualizarIntimacao, podeExcluir } = useStore();
   const { processo: p, erro, carregando, substituir } = useProcesso(id);
   const { toast } = useToast();
-  const pedida = useSearchParams().get("aba");
-  const [aba, setAba] = useState<Aba>(ABAS.includes(pedida as Aba) ? (pedida as Aba) : "resumo");
+  const pedida = abaPedida(useSearchParams().get("aba"));
+  const [aba, setAba] = useState<Aba>(pedida.aba);
   const [confirmar, setConfirmar] = useState(false);
   const [protocolar, setProtocolar] = useState(false);
   const docs = useDocumentos(id);
   const pareceres = usePareceres(id);
   const analises = useAnalises(id);
   const andamentos = useMovimentacoes(id);
+  const linhaDoTempo = useLinhaDoTempo(id);
+  const providencias = useProvidencias(id);
 
   if (!ready || carregando) return <Spinner />;
   if (!p) return <ProcessoNaoEncontrado mensagem={erro} />;
@@ -57,7 +68,9 @@ export default function DetalheProcessoPage() {
   const parecer = pareceres.pareceres?.[0];
   const abas: { id: Aba; rotulo: string; contagem?: number }[] = [
     { id: "resumo", rotulo: "Resumo" },
-    { id: "andamentos", rotulo: "Andamentos", contagem: andamentos.dados?.movimentos.length || undefined },
+    { id: "linha-do-tempo", rotulo: "Linha do tempo" },
+    { id: "providencias", rotulo: "Providências", contagem: providencias.dados?.providencias.itens.filter((x) => x.situacao === "pendente").length || undefined },
+    { id: "assistente", rotulo: "Assistente (IA)" },
     { id: "risco", rotulo: "Risco (IA)" },
     { id: "parecer", rotulo: "Parecer" },
     { id: "documentos", rotulo: "Documentos", contagem: docs.documentos?.length },
@@ -187,7 +200,7 @@ export default function DetalheProcessoPage() {
             )}
           </div>
           <div className="space-y-6">
-            <CartaoMovimentacao estado={andamentos} onVer={() => setAba("andamentos")} />
+            <CartaoMovimentacao estado={andamentos} onVer={() => setAba("linha-do-tempo")} />
             <CartaoRisco estado={analises} temDocumentos={!!docs.documentos?.length} onVer={() => setAba("risco")} />
             <Card>
               <CardHeader title="Última intimação" />
@@ -209,11 +222,41 @@ export default function DetalheProcessoPage() {
         </div>
       )}
 
-      {aba === "andamentos" && <MovimentacoesDoProcesso estado={andamentos} />}
+      {aba === "linha-do-tempo" && (
+        <LinhaDoTempoDoProcesso
+          processo={p}
+          estado={linhaDoTempo}
+          andamentos={andamentos}
+          intimacoes={ligadas}
+          pareceres={pareceres.pareceres}
+          analises={analises.analises}
+          filtroInicial={pedida.filtro}
+        />
+      )}
+
+      {aba === "providencias" && <ProvidenciasDoProcessoAba processoId={p.id} estado={providencias} />}
+
+      {aba === "assistente" && (
+        <AssistenteDoProcesso
+          processoId={p.id}
+          titulo={referencia(p)}
+          onAbrirParecer={(texto) => {
+            pareceres.editar(texto);
+            pareceres.setOrigemIa({ texto, fontes: ["Assistente do caso"], documentos: [], modelo: "" });
+            setAba("parecer");
+          }}
+          onMudou={() => {
+            void linhaDoTempo.recarregar();
+            void providencias.recarregar();
+            void analises.recarregar();
+            void pareceres.recarregar();
+          }}
+        />
+      )}
 
       {aba === "risco" && <AnaliseDoProcesso processoId={p.id} estado={analises} documentos={docs.documentos} />}
 
-      {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} area={p.area} />}
+      {aba === "parecer" && <ParecerDoProcesso processoId={p.id} estado={pareceres} area={p.area} titulo={referencia(p)} />}
 
       {aba === "documentos" && <DocumentosDoProcesso
           processoId={p.id}
@@ -261,7 +304,7 @@ export default function DetalheProcessoPage() {
         title="Excluir processo?"
         description={
           <>
-            O cadastro do processo <strong className={p.numero ? "font-mono" : undefined}>{p.numero ? formatProcesso(p.numero) : referencia(p)}</strong> os PDFs anexados, o parecer, as análises de risco e os andamentos guardados serão apagados. As intimações continuam na lista de intimações.
+            O cadastro do processo <strong className={p.numero ? "font-mono" : undefined}>{p.numero ? formatProcesso(p.numero) : referencia(p)}</strong> os PDFs anexados, o parecer, as análises de risco, a linha do tempo, as providências e os pedidos ao assistente serão apagados. As intimações continuam na lista de intimações.
           </>
         }
         onConfirm={async () => {

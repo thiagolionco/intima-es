@@ -42,7 +42,11 @@ export default function LayoutAcesso({ children }: { children: React.ReactNode }
           </div>
         </main>
 
-        <footer className="text-[13px] leading-relaxed text-slate-400">© {new Date().getFullYear()} Clepsa · Fonte: Comunica PJe, Diário de Justiça Eletrônico Nacional</footer>
+        <footer className="text-[13px] leading-relaxed text-slate-400">© {new Date().getFullYear()} Clepsa · Fonte: Comunica PJe, Diário de Justiça Eletrônico Nacional ·{" "}
+          <Link href="/seguranca" className="underline hover:text-slate-200">
+            Segurança e privacidade
+          </Link>
+        </footer>
       </div>
     </div>
   );

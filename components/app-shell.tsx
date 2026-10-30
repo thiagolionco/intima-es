@@ -1,12 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { BookOpen, CalendarDays, Database, Sun, FileSearch, History, LayoutDashboard, ListChecks, Menu, X, UsersRound, FileText, FolderOpen, ShieldCheck } from "lucide-react";
+import { BookOpen, CalendarDays, Database, Sun, FileSearch, History, Inbox, LayoutDashboard, ListChecks, Menu, X, UsersRound, FileText, FolderOpen, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizacao";
 import { MenuUsuario } from "@/components/auth/menu-usuario";
+import { api } from "@/lib/auth/api";
 import { useSessao } from "@/lib/auth/sessao";
 import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { useToast } from "@/components/toast";
@@ -23,11 +24,12 @@ const NAV = [
   { href: "/hoje", label: "Hoje", icon: Sun },
   { href: "/intimacoes", label: "Intimações", icon: ListChecks },
   { href: "/processos", label: "Processos", icon: FolderOpen },
+  { href: "/pedidos", label: "Pedidos", icon: Inbox },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
   { href: "/comunica", label: "Comunica PJe", icon: FileSearch },
   { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },
   { href: "/equipe", label: "Equipe", icon: UsersRound },
-  { href: "/relatorios", label: "Relatório por cliente", icon: FileText },
+  { href: "/relatorios", label: "Clientes e portal", icon: FileText },
   { href: "/dados", label: "Dados e backup", icon: Database },
 ];
 
@@ -42,6 +44,21 @@ function ativo(pathname: string, href: string) {
   return [href, ...(IRMAS[href] ?? [])].some((h) => pathname.startsWith(h));
 }
 
+/** Pedidos novos (formulário e portal), conferidos ao trocar de página. */
+function usePedidosNovos(pathname: string) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    api<{ novos: number }>("/api/pedidos/novos", { silencioso401: true })
+      .then((r) => vivo && setN(r.novos))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, [pathname]);
+  return n;
+}
+
 function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { intimacoes, ready } = useStore();
@@ -49,6 +66,7 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
   const urgentes = contarUrgentes(intimacoes, hojeISO());
   const { usuario } = useSessao();
   const itens = usuario?.administrador ? [...NAV, NAV_ADMIN] : NAV;
+  const pedidosNovos = usePedidosNovos(pathname);
 
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
@@ -67,6 +85,11 @@ function Navegacao({ onNavigate }: { onNavigate?: () => void }) {
           {href === "/hoje" && ready && urgentes > 0 && (
             <span className="rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white" title={`${urgentes} prazo(s) vencido(s) ou vencendo hoje`}>
               {urgentes}
+            </span>
+          )}
+          {href === "/pedidos" && pedidosNovos > 0 && (
+            <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-semibold text-white" title={`${pedidosNovos} pedido(s) novo(s)`}>
+              {pedidosNovos}
             </span>
           )}
           {href === "/intimacoes" && ready && novas > 0 && (

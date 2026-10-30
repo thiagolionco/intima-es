@@ -13,6 +13,7 @@ import { FluxoService } from "../server/fluxo/fluxo.ts";
 import { motorPadrao } from "../lib/fluxo/motor.ts";
 import { ParecerRepositoryPostgres } from "../server/infra/postgres/pareceres.ts";
 import { ProcessoRepositoryPostgres } from "../server/infra/postgres/processos.ts";
+import { RegistrosRepositoryPostgres } from "../server/infra/postgres/registros.ts";
 import { AuditoriaPostgres, EspacoTrabalhoRepositoryPostgres, UsuarioRepositoryPostgres } from "../server/infra/postgres/repositorios.ts";
 import { convites, escritorios, membros, processos } from "../server/infra/postgres/schema.ts";
 import { ProcessosService } from "../server/processos/processos.ts";
@@ -280,4 +281,40 @@ test("a ronda passa uma vez só por escritório, mesmo com várias contas nele",
   const r = await ronda.todos();
   assert.equal(r.contas, 2, "o escritório da Ana e o do Solo");
   assert.deepEqual(gravacoes, [ana.id], "a busca dos clientes do escritório rodou uma vez, pela Ana");
+});
+
+test("registros das ferramentas de IA: do escritório para a equipe, pessoais e de processo particular só para quem pode", opcoes, async () => {
+  const ana = await escritorioDaAna();
+  await servico.convidar(ana.id, { email: "beto@alfa.adv.br", papel: "advogado" }, ctx);
+  await servico.aceitarComContaNova(tokenDoUltimoEmail(), { nome: "Beto Lima", senha: "Cavalo-Trovao-Azul-91!", aceitouTermos: true }, ctx);
+  const beto = (await usuariosRepo.porEmail("beto@alfa.adv.br"))!;
+  const carlos = usuario("Carlos", "carlos@beta.adv.br");
+  await usuariosRepo.criar(carlos);
+  await espacosRepo.salvar(carlos.id, { intimacoes: [], termos: [] }, 0);
+  const srv = new ProcessosService(new ProcessoRepositoryPostgres(banco.db), relogio, undefined, servico);
+  const doEscritorio = await srv.criar(ana.id, { cliente: "Cliente", polo: "ativo" });
+  const particular = await srv.criar(beto.id, { cliente: "Reservado", polo: "ativo", particular: true });
+  const repo = new RegistrosRepositoryPostgres(banco.db);
+  const agora = relogio.agora().toISOString();
+  const reg = (tipo: "padrao" | "providencias", extra: { processoId?: string; donoId?: string } = {}) => ({ id: novoId(), tipo, valor: { x: 1 }, criadoEm: agora, atualizadoEm: agora, ...extra });
+
+  const doEscritorioPadrao = reg("padrao");
+  const pessoal = reg("padrao", { donoId: beto.id });
+  await repo.gravar(ana.id, doEscritorioPadrao);
+  await repo.gravar(beto.id, pessoal);
+  assert.deepEqual((await repo.listar(beto.id, "padrao")).map((r) => r.id).sort(), [doEscritorioPadrao.id, pessoal.id].sort());
+  assert.deepEqual((await repo.listar(ana.id, "padrao")).map((r) => r.id), [doEscritorioPadrao.id], "o pessoal do Beto não aparece para a dona");
+  assert.equal(await repo.obter(ana.id, "padrao", pessoal.id), null);
+  await assert.rejects(repo.gravar(ana.id, reg("padrao", { donoId: beto.id })), "ninguém grava registro pessoal em nome de outra pessoa");
+  assert.deepEqual(await repo.listar(carlos.id, "padrao"), [], "outro escritório não vê nada");
+
+  await repo.gravar(beto.id, reg("providencias", { processoId: particular.id }));
+  await repo.gravar(ana.id, reg("providencias", { processoId: doEscritorio.id }));
+  assert.equal((await repo.listar(beto.id, "providencias")).length, 2);
+  assert.equal((await repo.listar(ana.id, "providencias")).length, 1, "o que pende do processo particular segue o processo");
+  await assert.rejects(repo.gravar(ana.id, reg("providencias", { processoId: particular.id })));
+  assert.equal(await repo.alterar(carlos.id, "padrao", doEscritorioPadrao.id, () => ({ y: 2 }), agora), null, "nem alterar de fora");
+
+  await srv.excluir(beto.id, particular.id);
+  assert.equal((await repo.listar(beto.id, "providencias")).length, 1, "excluir o processo apaga o que pendia dele");
 });

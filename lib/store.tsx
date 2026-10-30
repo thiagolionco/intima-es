@@ -99,6 +99,8 @@ interface StoreValue {
   podeExcluir: boolean;
   /** Pode mexer na lista da equipe (só o dono). */
   gerenciaEquipe: boolean;
+  /** Pode criar links para fora do escritório (portal do cliente, formulário de atendimento). */
+  compartilhaExterno: boolean;
 }
 
 const emAberto = (i: Intimacao) => i.status === "nova" || i.status === "em_analise";
@@ -412,6 +414,7 @@ export function StoreProvider({ children, repositorio = repositorioApi, onConfli
       papel,
       podeExcluir: pode(papel ?? "dono", "excluir"),
       gerenciaEquipe: pode(papel ?? "dono", "gerenciar_equipe"),
+      compartilhaExterno: pode(papel ?? "dono", "compartilhar_externo"),
       delegarIntimacoes,
     }),
     [equipe, salvarEquipe, papel, delegarIntimacoes, resumir, preferencias, recarregar, suspensoes, salvarSuspensoes, calcularPrazosPendentes, ready, erroPersistencia, sincronizacao, ultimaGravacao, legado, importarDadosLegados, descartarDadosLegados, intimacoes, termos, adicionarIntimacao, atualizarIntimacao, excluirIntimacao, excluirIntimacoes, importarDoComunica, existeNoAcervo, substituirTudo, adicionarTermo, atualizarTermo, excluirTermo],

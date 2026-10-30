@@ -9,7 +9,8 @@
  *   `escritorio_id`. O app só as acessa com o papel `sentinela_app` dentro de
  *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas);
  *   a 0011 traz os convites e os processos particulares; a 0012, o fluxo da Central de casos;
- *   a 0013, a biblioteca do escritório (biblioteca_itens).
+ *   a 0013, a biblioteca do escritório (biblioteca_itens); a 0014, os registros por tipo
+ *   (escritorio_registros) das ferramentas de IA, do portal do cliente e dos pedidos.
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { PapelNoEscritorio } from "../../../lib/escritorio.ts";
@@ -345,4 +346,26 @@ export const bibliotecaItens = pgTable(
     atualizadoEm: instante("atualizado_em").notNull(),
   },
   (t) => [index("biblioteca_itens_escritorio_idx").on(t.escritorioId)],
+);
+
+/**
+ * Registros do escritório por tipo (padrões da IA, verificações de citação, fatos da linha do
+ * tempo, providências, revisões em tabela, pedidos, links do portal, monitores e alertas,
+ * execuções do assistente). O conteúdo de cada tipo vive em `valor`; o tipo decide a forma.
+ * `processo_id` liga ao processo (some com ele e segue a visibilidade dele); `dono_id` marca o
+ * que é só de uma pessoa (padrão pessoal), invisível para o resto do escritório.
+ */
+export const escritorioRegistros = pgTable(
+  "escritorio_registros",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    tipo: text("tipo").notNull(),
+    processoId: uuid("processo_id").references(() => processos.id, { onDelete: "cascade" }),
+    donoId: uuid("dono_id").references(() => usuarios.id, { onDelete: "cascade" }),
+    valor: jsonb("valor").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+    atualizadoEm: instante("atualizado_em").notNull(),
+  },
+  (t) => [index("escritorio_registros_tipo_idx").on(t.escritorioId, t.tipo), index("escritorio_registros_processo_idx").on(t.processoId)],
 );

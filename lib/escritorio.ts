@@ -23,11 +23,13 @@ export type Acao =
   /** Excluir intimações, processos e PDFs. */
   | "excluir"
   /** Transformar um processo do escritório em particular. */
-  | "tornar_particular";
+  | "tornar_particular"
+  /** Abrir dados para fora: links do portal do cliente e o formulário público de pedidos. */
+  | "compartilhar_externo";
 
 const PERMISSOES: Record<PapelNoEscritorio, ReadonlySet<Acao>> = {
-  dono: new Set<Acao>(["gerenciar_equipe", "excluir", "tornar_particular"]),
-  advogado: new Set<Acao>(["excluir"]),
+  dono: new Set<Acao>(["gerenciar_equipe", "excluir", "tornar_particular", "compartilhar_externo"]),
+  advogado: new Set<Acao>(["excluir", "compartilhar_externo"]),
   estagiario: new Set<Acao>(),
 };
 

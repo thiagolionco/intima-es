@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { SeloResponsavel } from "@/components/equipe";
 import { Card, EmptyState, Input, PageHeader, Select, Skeleton, StatusBadge } from "@/components/ui";
+import { ProvidenciasPendentes } from "@/components/providencias-processo";
 import { FaixaCobertura } from "@/components/vigilia";
 import { seloDeVigilia } from "@/lib/cobertura";
 import { abasPorCliente, aberta, filaDeHoje, FILTROS_HOJE, type FiltrosHoje, type ItemHoje, type StatusHoje, type Urgencia } from "@/lib/hoje";
@@ -174,6 +175,8 @@ export default function HojePage() {
           </ul>
         )}
       </Card>
+
+      <ProvidenciasPendentes />
     </>
   );
 }

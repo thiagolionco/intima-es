@@ -392,4 +392,5 @@ const MENSAGEM_SEM_PERMISSAO: Record<Acao, (papel: PapelNoEscritorio) => string>
   gerenciar_equipe: () => "Só o dono do escritório pode mexer na equipe e nos acessos.",
   excluir: (papel) => `Como ${ROTULO_PAPEL[papel].toLowerCase()}, você não pode excluir. Peça a um advogado ou ao dono do escritório.`,
   tornar_particular: () => "Só o dono do escritório pode tornar particular um processo que já é do escritório.",
+  compartilhar_externo: (papel) => `Como ${ROTULO_PAPEL[papel].toLowerCase()}, você não pode abrir links para fora do escritório. Peça a um advogado ou ao dono.`,
 };

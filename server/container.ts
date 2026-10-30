@@ -57,6 +57,21 @@ import { RedatorClaude } from "./processos/redator-claude.ts";
 import { type BibliotecaRepository, BibliotecaRepositoryDocumentos, BibliotecaService } from "./biblioteca/biblioteca.ts";
 import { BibliotecaRepositoryPostgres } from "./infra/postgres/biblioteca.ts";
 import { Totp } from "./infra/totp.ts";
+import { type RegistrosRepository, RegistrosRepositoryDocumentos } from "./registros/registros.ts";
+import { RegistrosRepositoryPostgres } from "./infra/postgres/registros.ts";
+import { IaClaude } from "./ia/ia.ts";
+import { PadroesService } from "./ia/padroes.ts";
+import { ContextoProcesso } from "./ia/contexto-processo.ts";
+import { CitacoesService } from "./ia/citacoes.ts";
+import { LinhaDoTempoService } from "./ia/linha-do-tempo.ts";
+import { ProvidenciasService } from "./ia/providencias.ts";
+import { RevisoesService } from "./ia/revisoes.ts";
+import { EditorIaService } from "./ia/editor.ts";
+import { PesquisaService } from "./ia/pesquisa.ts";
+import { AgenteService } from "./ia/agente.ts";
+import { PedidosService } from "./ia/pedidos.ts";
+import { PortalService } from "./ia/portal.ts";
+import { MonitorService } from "./ia/monitor.ts";
 import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
@@ -161,6 +176,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       fluxoRepo: new FluxoRepositoryPostgres(db, (u, id) => processosPg.porId(u, id)) as FluxoRepository,
       documentosRepo: new DocumentoRepositoryPostgres(db) as DocumentoRepository,
       bibliotecaRepo: new BibliotecaRepositoryPostgres(db) as BibliotecaRepository,
+      registrosRepo: new RegistrosRepositoryPostgres(db) as RegistrosRepository,
       pareceresRepo: new ParecerRepositoryPostgres(db) as ParecerRepository,
       analisesRepo: new AnaliseRepositoryPostgres(db) as AnaliseRepository,
       movimentacoesRepo: new MovimentacaoRepositoryPostgres(db) as MovimentacaoRepository,
@@ -185,6 +201,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     fluxoRepo: new FluxoRepositoryDocumentos(arquivos, processosDoc) as FluxoRepository,
     documentosRepo: new DocumentoRepositoryDocumentos(arquivos) as DocumentoRepository,
     bibliotecaRepo: new BibliotecaRepositoryDocumentos(arquivos) as BibliotecaRepository,
+    registrosRepo: new RegistrosRepositoryDocumentos(arquivos) as RegistrosRepository,
     pareceresRepo: new ParecerRepositoryDocumentos(arquivos) as ParecerRepository,
     analisesRepo: new AnaliseRepositoryDocumentos(arquivos) as AnaliseRepository,
     movimentacoesRepo: new MovimentacaoRepositoryDocumentos(arquivos) as MovimentacaoRepository,
@@ -206,12 +223,16 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, bibliotecaRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, bibliotecaRepo, registrosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
   const biblioteca = new BibliotecaService({ repo: bibliotecaRepo, arquivos: criarArquivos(config, config.bucketBiblioteca), clock });
   const fluxo = new FluxoService({ repo: fluxoRepo, processos: processosRepo, motor: motorPadrao, clock });
+  // Ferramentas de IA novas: mesma chave dos resumos; sem ANTHROPIC_API_KEY, cada uma se desliga.
+  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined;
+  const padroes = new PadroesService({ repo: registrosRepo, clock });
+  const contextoProcesso = new ContextoProcesso({ processos: processosRepo, documentos: documentosArquivos });
 
   const deps: DependenciasAuth = {
     ...repositorios,
@@ -245,6 +266,7 @@ function montar() {
     analisador: config.resumos.chave ? new AnalisadorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
     clock,
     limitar: (usuarioId) => deps.limitador.consumir(`analise-risco:${usuarioId}`, LIMITES_ANALISE.porDia, DIA),
+    padroes: (usuarioId) => padroes.instrucoes(usuarioId, "risco"),
   });
   const redacaoParecer = new RedacaoParecerService({
     processos: processosRepo,
@@ -254,6 +276,7 @@ function montar() {
     analises,
     redator: config.resumos.chave ? new RedatorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
     limitar: (usuarioId) => deps.limitador.consumir(`parecer-ia:${usuarioId}`, LIMITES_REDACAO.porDia, DIA),
+    padroes: (usuarioId) => padroes.instrucoes(usuarioId, "parecer"),
   });
   const movimentacoes = new MovimentacoesService({
     repo: movimentacoesRepo,
@@ -263,6 +286,68 @@ function montar() {
     limitar: (usuarioId) => deps.limitador.consumir(`datajud:${usuarioId}`, 60, HORA),
     listarUsuarios: () => deps.usuarios.listarConfirmados(),
     pausaMs: 1500,
+  });
+  // Teto comum por conta para as ferramentas novas de IA (cada uma também tem o seu).
+  const limiteIa = (nome: string, porDia: number) => (usuarioId: string) => {
+    deps.limitador.consumir(`ia-total:${usuarioId}`, 300, DIA);
+    deps.limitador.consumir(`${nome}:${usuarioId}`, porDia, DIA);
+  };
+  const citacoes = new CitacoesService({ repo: registrosRepo, biblioteca, contexto: contextoProcesso, padroes, ia, clock, limitar: limiteIa("citacoes", 60) });
+  const linhaDoTempo = new LinhaDoTempoService({ repo: registrosRepo, contexto: contextoProcesso, padroes, ia, clock, limitar: limiteIa("linha-do-tempo", 40) });
+  const providencias = new ProvidenciasService({ repo: registrosRepo, contexto: contextoProcesso, padroes, ia, clock, limitar: limiteIa("providencias", 40) });
+  const revisoes = new RevisoesService({ repo: registrosRepo, processos: processosRepo, contexto: contextoProcesso, padroes, ia, clock, limitar: limiteIa("revisao", 200) });
+  const editorIa = new EditorIaService({ contexto: contextoProcesso, padroes, ia, limitar: limiteIa("editor", 80) });
+  const pesquisa = new PesquisaService({ padroes, ia, limitar: limiteIa("pesquisa", 60) });
+  const agente = new AgenteService({
+    repo: registrosRepo,
+    contexto: contextoProcesso,
+    padroes,
+    ferramentas: { analises, linhaDoTempo, providencias, pesquisa, redacao: redacaoParecer, pareceres, citacoes, movimentacoes },
+    ia,
+    clock,
+    limitar: limiteIa("assistente", 60),
+  });
+  const processosServico = new ProcessosService(processosRepo, clock, {
+    caminhosDoProcesso: (usuarioId, processoId) => documentosArquivos.caminhosDoProcesso(usuarioId, processoId),
+    async aposExcluirProcesso(usuarioId, processoId, caminhos) {
+      await pareceres.excluirDoProcesso(usuarioId, processoId);
+      await fluxo.excluirDoProcesso(usuarioId, processoId);
+      await analises.excluirDoProcesso(usuarioId, processoId);
+      await movimentacoes.excluirDoProcesso(usuarioId, processoId);
+      await registrosRepo.excluirDoProcesso(usuarioId, processoId);
+      await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
+    },
+  }, escritorio, fluxo);
+  const nomeDoEscritorio = async (usuarioId: string) => (await escritorioRepo.doUsuario(usuarioId))?.nome || "Escritório";
+  const pedidos = new PedidosService({
+    repo: registrosRepo,
+    chaves: db,
+    padroes,
+    ia,
+    clock,
+    limitar: (chave, limite, janela) => deps.limitador.consumir(chave, limite, janela),
+    criarProcesso: async (usuarioId, dados) => processosServico.criar(usuarioId, dados),
+  });
+  const portal = new PortalService({
+    repo: registrosRepo,
+    chaves: db,
+    processos: processosRepo,
+    documentos: documentosArquivos,
+    movimentacoes,
+    linhaDoTempo,
+    pedidos,
+    nomeDoEscritorio,
+    clock,
+    limitar: (chave, limite, janela) => deps.limitador.consumir(chave, limite, janela),
+  });
+  const monitor = new MonitorService({
+    repo: registrosRepo,
+    processos: processosRepo,
+    padroes,
+    ia,
+    clock,
+    listarUsuarios: () => deps.usuarios.listarConfirmados(),
+    escritorioDe: (id) => escritorio.escritorioDe(id),
   });
   const segredo = segredoDosLinks(config);
   const assinador = new AssinadorDeLinks(segredo);
@@ -339,21 +424,13 @@ function montar() {
         await fluxo.excluirDaConta(id);
         await analises.excluirDaConta(id);
         await movimentacoes.excluirDaConta(id);
+        await registrosRepo.excluirDoUsuario(id);
         await coberturaRepo.excluirDoUsuario(id);
         await processosRepo.excluirDoUsuario(id);
       },
       (id) => processosRepo.listar(id),
     ),
-    processos: new ProcessosService(processosRepo, clock, {
-      caminhosDoProcesso: (usuarioId, processoId) => documentosArquivos.caminhosDoProcesso(usuarioId, processoId),
-      async aposExcluirProcesso(usuarioId, processoId, caminhos) {
-        await pareceres.excluirDoProcesso(usuarioId, processoId);
-        await fluxo.excluirDoProcesso(usuarioId, processoId);
-        await analises.excluirDoProcesso(usuarioId, processoId);
-        await movimentacoes.excluirDoProcesso(usuarioId, processoId);
-        await documentosArquivos.aposExcluirProcesso(usuarioId, processoId, caminhos);
-      },
-    }, escritorio, fluxo),
+    processos: processosServico,
     documentosProcesso: documentosArquivos,
     fluxo,
     pareceres,
@@ -361,6 +438,18 @@ function montar() {
     biblioteca,
     analises,
     movimentacoes,
+    padroes,
+    citacoes,
+    linhaDoTempo,
+    providencias,
+    revisoes,
+    editorIa,
+    pesquisa,
+    agente,
+    pedidos,
+    portal,
+    monitor,
+    nomeDoEscritorio,
     espacos: new EspacoTrabalhoService(espacosRepo, (id) => agenda.agendar(id), (id) => escritorio.papelDe(id)),
     escritorio,
     usuarios: deps.usuarios,

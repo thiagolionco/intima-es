@@ -145,9 +145,27 @@ Em **Equipe** você cadastra quem trabalha no escritório. Cada intimação pode
 
 Por enquanto a equipe é uma lista de nomes dentro da conta: as pessoas não entram no Clepsa com login próprio. Isso muda quando o banco por escritório (Fase 1) estiver no ar.
 
-### Relatório por cliente
+### Clientes e portal
 
-Em **Relatório por cliente** (ou pelo atalho "Relatório" em cada cliente monitorado), escolha o cliente e o período: mês passado, este mês, últimos 30 dias ou datas livres. O relatório mostra quantas intimações saíram e em quantos processos, o que já teve providência, os prazos vencidos e os próximos, e cada intimação com o resumo (ou o começo do texto). **Gerar PDF** abre a versão para imprimir ou salvar em PDF; **Copiar para e-mail** copia um texto curto para colar na mensagem ao cliente. Observações internas, o responsável e os prazos vencidos ficam de fora do que vai ao cliente, a menos que você marque para incluir (na tela, os vencidos sempre aparecem para o escritório).
+Em **Clientes e portal**, aba **Relatório do período** (ou pelo atalho "Relatório" em cada cliente monitorado), escolha o cliente e o período: mês passado, este mês, últimos 30 dias ou datas livres. O relatório mostra quantas intimações saíram e em quantos processos, o que já teve providência, os prazos vencidos e os próximos, e cada intimação com o resumo (ou o começo do texto). **Gerar PDF** abre a versão para imprimir ou salvar em PDF; **Copiar para e-mail** copia um texto curto para colar na mensagem ao cliente. Observações internas, o responsável e os prazos vencidos ficam de fora do que vai ao cliente, a menos que você marque para incluir (na tela, os vencidos sempre aparecem para o escritório).
+
+### Ferramentas de IA (inspiradas na Legora)
+
+Todas usam a API da Anthropic (`ANTHROPIC_API_KEY`); sem a chave, as telas continuam e só os botões de IA somem. Os dados ficam numa tabela só, `escritorio_registros` (migração 0014), com RLS por escritório, por processo (particular segue o processo) e por pessoa (registros pessoais). Cada conta tem um teto diário de chamadas de IA.
+
+| Onde | O que faz |
+| --- | --- |
+| **Biblioteca → Padrões da IA** | Instruções do escritório (ou só suas) que a IA segue sempre: no parecer, na análise de risco, na tabela, no assistente etc. Há modelos prontos para adotar. |
+| **Biblioteca → Pesquisa com IA** | Pergunta jurídica respondida só com fontes oficiais (planalto.gov.br, STF, STJ, TST, CNJ…), cada uma com link; dá para guardar na biblioteca. |
+| **Biblioteca → Monitor de precedentes** | Temas acompanhados; a ronda pesquisa novidades (súmulas, temas, leis) na frequência escolhida e mostra o impacto nos processos. |
+| **Processo → Linha do tempo** | Substitui a antiga aba Andamentos: junta andamentos do DataJud, intimações, fatos com data tirados dos PDFs (com página), e-mails e anotações coladas (com resumo da IA) e marcos do escritório. Recados podem ir ao portal do cliente. |
+| **Processo → Providências** | Lista do que fazer, com prazo e responsável; a IA sugere a partir dos PDFs, sempre com a página, e só vale depois de confirmada. As pendentes aparecem em **Hoje**. |
+| **Processo → Assistente (IA)** | Pedido em linguagem comum vira um plano com as ferramentas do Clepsa; executa passo a passo (um pedido HTTP por passo) e no fim revisa se o pedido foi atendido. Nada sai do escritório sozinho. |
+| **Processo → Parecer** | Verificador de citações (súmula, tema, precedente, artigo) contra a biblioteca e as fontes oficiais; IA no editor (revisar, melhorar, anonimizar com aceitar/recusar cada troca, traduzir); **Baixar Word**. |
+| **Processos → Revisão em tabela** | Mesmas perguntas para vários processos: a IA preenche linha a linha com a página de onde tirou; células editáveis, conferidas e travadas; pergunta livre à tabela; planilha CSV. |
+| **Pedidos** | Caixa de entrada do formulário público de atendimento (`/pedido/<token>`, com isca contra robôs, consentimento LGPD e limite por IP), das mensagens do portal e de contatos anotados; triagem da IA, rascunho de resposta e "Virar caso". |
+| **Clientes e portal → Portal do cliente** | Link secreto com validade (`/portal/<token>`) para o cliente ver fase, andamentos, recados e os PDFs escolhidos, e mandar mensagens. Só o hash do token é guardado. |
+| **/seguranca** | Página pública de segurança e LGPD. |
 
 ## Autenticação e contas (Versão 2)
 
@@ -289,7 +307,7 @@ erro, e o botão **Buscar OAB e processos agora** roda na hora para a sua conta.
 | --- | --- | --- |
 | `RONDA_COMUNICA` | `ligada` em produção, `desligada` em dev | Liga ou desliga a busca dentro do servidor. |
 | `RONDA_COMUNICA_INTERVALO_HORAS` | `6` | Intervalo entre as buscas. |
-| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica` e `POST /api/rondas/avisos` com `Authorization: Bearer <token>`, para um agendador externo. |
+| `RONDA_TOKEN` | (vazio) | Libera `POST /api/rondas/comunica`, `/avisos`, `/datajud` e `/monitores` com `Authorization: Bearer <token>`, para um agendador externo. |
 
 Se o servidor ficar desligado, a busca seguinte cobre os dias que faltaram
 (até 30 dias para trás). Se a tela estiver aberta enquanto a busca grava, as duas versões são
