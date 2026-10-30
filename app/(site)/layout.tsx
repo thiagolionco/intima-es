@@ -1,0 +1,54 @@
+import { Inter } from "next/font/google";
+import Link from "next/link";
+import { ClepsaMarca } from "@/components/marca/clepsa-simbolo";
+
+const sans = Inter({ subsets: ["latin"], display: "swap" });
+
+const NAVEGACAO = [
+  { href: "/sobre", rotulo: "Sobre" },
+  { href: "/docs", rotulo: "Documentação" },
+  { href: "/contato", rotulo: "Contato" },
+];
+
+const RODAPE = [...NAVEGACAO, { href: "/privacidade", rotulo: "Privacidade" }, { href: "/llms.txt", rotulo: "llms.txt" }];
+
+/** Site público (início, sobre, contato, privacidade, documentação): renderizado no servidor, legível sem JavaScript. */
+export default function LayoutSite({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`${sans.className} relative isolate flex min-h-screen flex-col bg-[#050a18] text-slate-50`}>
+      <div
+        className="pointer-events-none absolute inset-0 -z-10"
+        style={{ background: "radial-gradient(55% 40% at 78% 10%, rgb(33 71 237 / .16), transparent 70%), radial-gradient(45% 40% at 10% 30%, rgb(33 71 237 / .07), transparent 70%)" }}
+        aria-hidden
+      />
+      <header className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-8 lg:px-12">
+        <Link href="/" className="block w-fit rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400">
+          <ClepsaMarca legenda="Monitoramento de intimações e prazos" />
+        </Link>
+        <nav aria-label="Principal" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          {NAVEGACAO.map((l) => (
+            <Link key={l.href} href={l.href} className="text-slate-300 hover:text-white">
+              {l.rotulo}
+            </Link>
+          ))}
+          <Link href="/entrar" className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">
+            Entrar
+          </Link>
+        </nav>
+      </header>
+
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-8 sm:py-14">{children}</main>
+
+      <footer className="mx-auto w-full max-w-[1200px] px-4 py-6 text-[13px] leading-relaxed text-slate-400 sm:px-8 lg:px-12">
+        <nav aria-label="Rodapé" className="flex flex-wrap gap-x-4 gap-y-1">
+          {RODAPE.map((l) => (
+            <Link key={l.href} href={l.href} className="hover:text-slate-200">
+              {l.rotulo}
+            </Link>
+          ))}
+        </nav>
+        <p className="mt-2">© {new Date().getFullYear()} Clepsa · Fonte: Comunica PJe, Diário de Justiça Eletrônico Nacional</p>
+      </footer>
+    </div>
+  );
+}
