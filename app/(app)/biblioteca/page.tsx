@@ -2,6 +2,7 @@
 
 import { BookOpen, Plus, Search, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
+import { AbasBiblioteca } from "@/components/abas-rota";
 import { CartaoItem, ExcluirItem, FormItem, PesquisaExterna, useBiblioteca } from "@/components/biblioteca";
 import { Alert, Button, Card, CardHeader, EmptyState, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import { filtrarItens, type ItemBiblioteca, TIPO_ITEM_LABEL, type TipoItemBiblioteca, TIPOS_ITEM } from "@/lib/biblioteca";
@@ -36,6 +37,7 @@ export default function BibliotecaPage() {
           </Button>
         }
       />
+      <AbasBiblioteca atual="itens" />
 
       <Card className="mb-6">
         <div className="space-y-4 p-5">

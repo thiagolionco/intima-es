@@ -74,7 +74,6 @@ const hora = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { ...FUS
 
 const ehNova = (m: Movimentacao) => Date.now() - Date.parse(m.dataHora) < DIAS_MOVIMENTACAO_NOVA * 24 * 60 * 60 * 1000;
 
-const AVISO = "Andamentos informados pelos tribunais ao DataJud, do CNJ. Costumam chegar com alguns dias de atraso: confira no site do tribunal antes de contar prazo.";
 
 function Linha({ m }: { m: Movimentacao }) {
   return (
@@ -108,7 +107,7 @@ export function CartaoMovimentacao({ estado, onVer }: { estado: Estado; onVer: (
         action={
           dados?.movimentos.length ? (
             <Button size="sm" variant="ghost" className="whitespace-nowrap" onClick={onVer}>
-              Ver todos
+              Ver na linha do tempo
             </Button>
           ) : undefined
         }
@@ -121,61 +120,6 @@ export function CartaoMovimentacao({ estado, onVer }: { estado: Estado; onVer: (
         <p className="px-5 py-4 text-sm text-slate-500">
           {consultando || dados === undefined ? "Consultando o DataJud…" : dados?.encontrado === false ? "O DataJud ainda não tem este processo." : "Nenhum andamento no DataJud."}
         </p>
-      )}
-    </Card>
-  );
-}
-
-/** Aba Andamentos da tela do processo. */
-export function MovimentacoesDoProcesso({ estado }: { estado: Estado }) {
-  const { dados, disponivel, erro, consultando, consultar } = estado;
-  const botao = disponivel && (
-    <Button size="sm" variant="secondary" className="whitespace-nowrap" icon={<RefreshCw className="h-4 w-4" />} loading={consultando} onClick={() => void consultar()}>
-      {consultando ? "Consultando…" : "Consultar agora"}
-    </Button>
-  );
-  const detalhes = dados && [`Consultado em ${formatDateTime(dados.consultadoEm)}`, dados.atualizadoNoTribunal && `tribunal atualizou em ${formatDateTime(dados.atualizadoNoTribunal)}`].filter(Boolean).join(" · ");
-
-  return (
-    <Card>
-      <CardHeader title="Andamentos" subtitle={AVISO} action={botao || undefined} />
-      {erro ? (
-        <div className="p-5">
-          <Alert>{erro}</Alert>
-        </div>
-      ) : dados === undefined || (consultando && !dados) ? (
-        <Spinner label="Consultando o DataJud…" />
-      ) : (
-        <>
-          {dados?.erro && (
-            <div className="px-5 pt-5">
-              <Alert tone="warning">
-                A última consulta falhou: {dados.erro}
-                {dados.movimentos.length ? " Abaixo estão os andamentos da consulta anterior." : ""}
-              </Alert>
-            </div>
-          )}
-          {dados?.movimentos.length ? (
-            <>
-              <p className="px-5 pt-4 text-xs text-slate-500">{detalhes}</p>
-              <ul className="divide-y divide-slate-100">
-                {dados.movimentos.map((m, i) => (
-                  <Linha key={`${m.dataHora}-${i}`} m={m} />
-                ))}
-              </ul>
-            </>
-          ) : (
-            <EmptyState
-              icon={<Activity className="h-6 w-6" />}
-              title={!disponivel && !dados ? "Consulta ao DataJud desligada" : dados?.encontrado === false ? "Processo ainda não está no DataJud" : "Nenhum andamento"}
-              description={
-                dados?.encontrado === false
-                  ? "Os tribunais enviam os processos ao CNJ com atraso, e processos em segredo de justiça não aparecem. O Clepsa consulta de novo todo dia."
-                  : detalhes || "Os andamentos aparecem aqui depois da primeira consulta."
-              }
-            />
-          )}
-        </>
       )}
     </Card>
   );

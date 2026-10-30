@@ -1,5 +1,5 @@
 import { blocoDosPadroes } from "../../lib/padroes.ts";
-import { type AcaoEditor, LIMITES_EDITOR, type SugestaoEditor } from "../../lib/editor.ts";
+import { type AcaoEditor, IDIOMA_LABEL, LIMITES_EDITOR, type SugestaoEditor } from "../../lib/editor.ts";
 import { novoId } from "../core/crypto.ts";
 import { AppError } from "../core/errors.ts";
 import { idValido } from "../registros/registros.ts";
@@ -42,7 +42,7 @@ const INSTRUCOES_TRADUCAO = `Traduza o texto jurídico para o idioma pedido, man
 Termos sem equivalente exato: traduza e deixe o original entre parênteses na primeira vez (por exemplo, "interlocutory appeal (agravo de instrumento)").
 Responda só com a tradução, sem comentários.`;
 
-const IDIOMAS: Record<string, string> = { en: "inglês", es: "espanhol", fr: "francês", it: "italiano", de: "alemão" };
+const IDIOMAS = IDIOMA_LABEL;
 
 /** Mantém só as trocas cujo trecho original existe uma vez no texto e de fato muda algo. */
 export function filtrarSugestoes(texto: string, brutas: unknown): SugestaoEditor[] {

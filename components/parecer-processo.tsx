@@ -5,9 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ErroApi } from "@/lib/auth/api";
 import { type AreaAtuacao, LIMITES_PARECER, type ParecerProcesso } from "@/lib/processos";
 import { formatDateTime } from "@/lib/utils";
+import { BotaoWord, FerramentasEditorIa } from "./editor-ia";
 import { DialogoRascunhoIa, type RascunhoIa, useRedacaoDisponivel } from "./rascunho-ia";
 import { useToast } from "./toast";
 import { Alert, Button, Card, CardHeader, EmptyState, Spinner, Textarea } from "./ui";
+import { VerificadorCitacoes } from "./verificador-citacoes";
 
 /**
  * Versões do parecer, lidas do servidor, e o rascunho em edição. Fica na página do processo para
@@ -55,7 +57,7 @@ type Estado = ReturnType<typeof usePareceres>;
 
 const descricao = (p: ParecerProcesso) => `Versão ${p.versao} · ${p.autorNome} · ${formatDateTime(p.criadoEm)}`;
 
-function Editor({ processoId, estado }: { processoId: string; estado: Estado }) {
+function Editor({ processoId, estado, titulo }: { processoId: string; estado: Estado; titulo: string }) {
   const { toast } = useToast();
   const { rascunho = "", setRascunho, baseVersao, setBaseVersao, recarregar, fechar, origemIa } = estado;
   const [salvando, setSalvando] = useState(false);
@@ -96,8 +98,8 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
       {origemIa && (
         <Alert tone="info" title="Rascunho feito pela IA: revise antes de salvar">
           <p>
-            Base: {[...origemIa.documentos.map((d) => `PDF ${d}`), ...origemIa.fontes].join("; ") || "dados do processo"}. Confira cada citação; o que não veio da biblioteca nem dos
-            PDFs está marcado com [conferir].
+            Base: {[...origemIa.documentos.map((d) => `PDF ${d}`), ...origemIa.fontes].join("; ") || "dados do processo"}. Use o verificador de citações abaixo do texto
+            antes de salvar: ele confere cada súmula, tema, precedente e artigo na biblioteca e nas fontes oficiais.
           </p>
         </Alert>
       )}
@@ -107,6 +109,7 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
           <p className="max-h-64 overflow-y-auto whitespace-pre-wrap break-words border-t border-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700">{aviso.outra.texto}</p>
         </details>
       )}
+      <FerramentasEditorIa processoId={processoId} texto={rascunho} onTexto={setRascunho} titulo={titulo} />
       <label htmlFor="parecer" className="sr-only">
         Texto do parecer
       </label>
@@ -124,7 +127,8 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
         <p className={excedeu ? "text-xs font-medium text-red-600" : "text-xs text-slate-500"}>
           {rascunho.length.toLocaleString("pt-BR")} de {LIMITES_PARECER.caracteres.toLocaleString("pt-BR")} caracteres
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <BotaoWord titulo={titulo} subtitulo="Parecer (rascunho)" texto={rascunho} />
           <Button variant="secondary" onClick={fechar} disabled={salvando}>
             Cancelar
           </Button>
@@ -133,11 +137,13 @@ function Editor({ processoId, estado }: { processoId: string; estado: Estado }) 
           </Button>
         </div>
       </div>
+      <VerificadorCitacoes processoId={processoId} texto={rascunho} compacto />
     </div>
   );
 }
 
-export function ParecerDoProcesso({ processoId, estado, area }: { processoId: string; estado: Estado; area?: AreaAtuacao }) {
+/** `titulo` vai no documento Word (a referência do processo). */
+export function ParecerDoProcesso({ processoId, estado, area, titulo }: { processoId: string; estado: Estado; area?: AreaAtuacao; titulo: string }) {
   const { pareceres, erro, rascunho, editar, setOrigemIa } = estado;
   const [atual, ...anteriores] = pareceres ?? [];
   const editando = rascunho !== undefined;
@@ -154,6 +160,7 @@ export function ParecerDoProcesso({ processoId, estado, area }: { processoId: st
     atual && !editando ? (
       <div className="flex flex-wrap justify-end gap-2">
         {botaoIa}
+        <BotaoWord titulo={titulo} subtitulo={`Parecer, versão ${atual.versao}`} texto={atual.texto} />
         <Button size="sm" variant="secondary" icon={<Pencil className="h-4 w-4" />} onClick={() => editar(atual.texto)}>
           Editar parecer
         </Button>
@@ -175,7 +182,7 @@ export function ParecerDoProcesso({ processoId, estado, area }: { processoId: st
         ) : !pareceres ? (
           <Spinner />
         ) : editando ? (
-          <Editor processoId={processoId} estado={estado} />
+          <Editor processoId={processoId} estado={estado} titulo={titulo} />
         ) : atual ? (
           <p className="whitespace-pre-wrap break-words p-5 text-sm leading-relaxed text-slate-800">{atual.texto}</p>
         ) : (
@@ -194,6 +201,8 @@ export function ParecerDoProcesso({ processoId, estado, area }: { processoId: st
           />
         )}
       </Card>
+
+      {atual && !editando && <VerificadorCitacoes processoId={processoId} texto={atual.texto} />}
 
       <DialogoRascunhoIa
         aberto={dialogoIa}

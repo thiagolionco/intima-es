@@ -16,6 +16,9 @@ export interface SugestaoEditor {
   motivo: string;
 }
 
+/** Idiomas da tradução. */
+export const IDIOMA_LABEL: Record<string, string> = { en: "inglês", es: "espanhol", fr: "francês", it: "italiano", de: "alemão" };
+
 export const LIMITES_EDITOR = { texto: 50_000, sugestoes: 40 } as const;
 
 /** Aplica uma troca; devolve null se o trecho original não estiver mais no texto. */
