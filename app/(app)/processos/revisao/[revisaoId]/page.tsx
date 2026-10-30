@@ -328,7 +328,7 @@ export default function RevisaoPage() {
           >
             <div className="flex gap-2">
               <Input value={pergunta} onChange={(e) => setPergunta(e.target.value)} maxLength={500} placeholder="Sua pergunta sobre a carteira" aria-label="Pergunta sobre a tabela" className="min-w-0 flex-1" />
-              <Button type="submit" icon={<MessageSquare className="h-4 w-4" />} loading={perguntando} disabled={!pergunta.trim()}>
+              <Button type="submit" icon={<MessageSquare className="h-4 w-4" />} ia loading={perguntando} disabled={!pergunta.trim()}>
                 Perguntar
               </Button>
             </div>

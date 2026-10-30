@@ -1,13 +1,14 @@
 "use client";
 
 import clsx from "clsx";
-import { History, Loader2, ShieldAlert, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { History, ShieldAlert, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/auth/api";
 import { type AnaliseRisco, type DocumentoProcesso, NIVEL_RISCO_LABEL, type NivelRisco, type PontoAnalise } from "@/lib/processos";
 import { formatDateTime } from "@/lib/utils";
 import { useToast } from "./toast";
 import { Alert, Button, Card, CardHeader, EmptyState, Spinner } from "./ui";
+import { IaAnimacao, IaPensando } from "@/components/ia/ia-pensando";
 
 const ESTILO_NIVEL: Record<NivelRisco, string> = {
   baixo: "bg-emerald-50 text-emerald-700 ring-emerald-200",
@@ -97,9 +98,7 @@ export function CartaoRisco({ estado, temDocumentos, onVer }: { estado: Estado; 
       />
       <div className="space-y-3 p-5">
         {analisando ? (
-          <p className="flex items-center gap-2 text-sm text-slate-600">
-            <Loader2 className="h-4 w-4 animate-spin text-brand-600" aria-hidden /> A IA está lendo os PDFs…
-          </p>
+          <IaPensando compacto label="A IA está lendo os PDFs…" />
         ) : atual ? (
           <>
             <SeloRisco nivel={atual.nivel} />
@@ -169,7 +168,7 @@ export function AnaliseDoProcesso({ processoId, estado, documentos }: { processo
   const temDocumentos = !!documentos?.length;
 
   const botao = disponivel && temDocumentos && (
-    <Button size="sm" variant={atual ? "secondary" : "primary"} icon={<Sparkles className="h-4 w-4" />} loading={analisando} onClick={() => void analisar()}>
+    <Button size="sm" variant={atual ? "secondary" : "primary"} icon={<Sparkles className="h-4 w-4" />} ia loading={analisando} onClick={() => void analisar()}>
       {analisando ? "Analisando…" : atual ? "Reanalisar" : "Analisar risco"}
     </Button>
   );
@@ -185,14 +184,14 @@ export function AnaliseDoProcesso({ processoId, estado, documentos }: { processo
         ) : !analises ? (
           <Spinner />
         ) : analisando && !atual ? (
-          <Spinner label="A IA está lendo os PDFs. Pode levar alguns minutos…" />
+          <IaPensando label="A IA está lendo os PDFs. Pode levar alguns minutos…" />
         ) : atual ? (
           <div className="space-y-4 p-5">
             <div className="flex flex-wrap items-center gap-3">
               <SeloRisco nivel={atual.nivel} className="px-3 py-1 text-sm" />
               {analisando && (
                 <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> Fazendo uma nova análise…
+                  <IaAnimacao className="-my-1 h-6 w-6" /> Fazendo uma nova análise…
                 </span>
               )}
             </div>

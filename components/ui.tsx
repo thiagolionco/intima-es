@@ -2,6 +2,7 @@
 
 import clsx from "clsx";
 import { Loader2 } from "lucide-react";
+import { IaAnimacao } from "@/components/ia/ia-pensando";
 import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import type { StatusIntimacao } from "@/lib/types";
 import { STATUS_LABEL, STATUS_STYLE } from "@/lib/utils";
@@ -20,10 +21,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: "sm" | "md";
   loading?: boolean;
   icon?: ReactNode;
+  /** Ação que espera a IA: enquanto carrega, mostra a estrela da IA no lugar do círculo girando. */
+  ia?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = "primary", size = "md", loading, icon, className, children, disabled, ...rest },
+  { variant = "primary", size = "md", loading, icon, ia, className, children, disabled, ...rest },
   ref,
 ) {
   return (
@@ -38,7 +41,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       )}
       {...rest}
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : icon}
+      {loading ? ia ? <IaAnimacao className="-my-1 h-6 w-6" /> : <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : icon}
       {children}
     </button>
   );

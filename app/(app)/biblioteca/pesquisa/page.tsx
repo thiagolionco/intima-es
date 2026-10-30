@@ -4,10 +4,11 @@ import { ExternalLink, Search, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { AbasBiblioteca } from "@/components/abas-rota";
 import { GuardarNaBiblioteca } from "@/components/guardar-na-biblioteca";
-import { Alert, Badge, Button, Card, CardHeader, EmptyState, PageHeader, Spinner, Textarea } from "@/components/ui";
+import { Alert, Badge, Button, Card, CardHeader, EmptyState, PageHeader, Textarea } from "@/components/ui";
 import { api } from "@/lib/auth/api";
 import type { ResultadoPesquisa } from "@/lib/pesquisa";
 import { mensagemDe, useApi } from "@/lib/use-api";
+import { IaPensando } from "@/components/ia/ia-pensando";
 
 const TIPO = { legislacao: "Legislação", sumula: "Súmula", jurisprudencia: "Jurisprudência" } as const;
 
@@ -55,7 +56,7 @@ export default function PesquisaPage() {
                 placeholder="Ex.: Cabe dano moral por negativação quando já havia outra inscrição legítima? Qual o entendimento atual do STJ?"
               />
               <div className="flex justify-end">
-                <Button icon={<Search className="h-4 w-4" />} loading={pesquisando} disabled={!pergunta.trim()} onClick={() => void pesquisar()}>
+                <Button icon={<Search className="h-4 w-4" />} ia loading={pesquisando} disabled={!pergunta.trim()} onClick={() => void pesquisar()}>
                   {pesquisando ? "Pesquisando…" : "Pesquisar"}
                 </Button>
               </div>
@@ -64,7 +65,7 @@ export default function PesquisaPage() {
 
           {erro && <Alert>{erro}</Alert>}
           {pesquisando ? (
-            <Spinner label="A IA está pesquisando nas fontes oficiais. Pode levar um ou dois minutos…" />
+            <IaPensando label="A IA está pesquisando nas fontes oficiais. Pode levar um ou dois minutos…" />
           ) : resultado ? (
             <div className="space-y-6">
               <Card>

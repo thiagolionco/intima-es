@@ -108,7 +108,7 @@ export function VerificadorCitacoes({ processoId, texto, compacto }: { processoI
         subtitle={subtitulo}
         action={
           achadas.length > 0 && (
-            <Button size="sm" variant={emDia ? "ghost" : "secondary"} loading={verificando} onClick={() => void verificar()}>
+            <Button size="sm" variant={emDia ? "ghost" : "secondary"} ia loading={verificando} onClick={() => void verificar()}>
               {verificando ? "Conferindo…" : emDia ? "Conferir de novo" : "Verificar citações"}
             </Button>
           )

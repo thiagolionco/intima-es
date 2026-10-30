@@ -209,7 +209,7 @@ export function LinhaDoTempoDoProcesso({
         Colar e-mail ou anotação
       </Button>
       {dados?.disponivel && (
-        <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} loading={lendo} onClick={() => void lerFatos()}>
+        <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} ia loading={lendo} onClick={() => void lerFatos()}>
           {dados.fatos ? "Ler os PDFs de novo" : "Tirar fatos dos PDFs"}
         </Button>
       )}
