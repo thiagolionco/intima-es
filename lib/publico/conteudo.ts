@@ -1,7 +1,7 @@
-import { CONTATO, DESCRICAO, TITULO_PRINCIPAL, URL_DO_SITE } from "./site.ts";
+import { CONTATO, DESCRICAO, TITULO_PRINCIPAL } from "./site.ts";
 
 /**
- * Texto das páginas públicas (início, sobre, contato, privacidade e documentação).
+ * Texto das páginas públicas (início, sobre, contato e privacidade).
  * Uma única fonte para o HTML e para a versão em Markdown servida a agentes (Accept: text/markdown).
  * Links no formato Markdown, [texto](/caminho), viram <a> no HTML.
  */
@@ -10,7 +10,6 @@ export interface Secao {
   titulo: string;
   paragrafos?: string[];
   itens?: string[];
-  codigo?: string;
 }
 
 export interface PaginaPublica {
@@ -58,12 +57,6 @@ const PAGINA_INICIAL: PaginaPublica = {
       titulo: "Dados e privacidade",
       paragrafos: [
         "As intimações e os processos de cada escritório ficam num banco de dados em São Paulo, separados por escritório no próprio banco. Só quem tem conta no escritório vê esses dados. Veja a [política de privacidade](/privacidade).",
-      ],
-    },
-    {
-      titulo: "Para agentes de IA e desenvolvedores",
-      paragrafos: [
-        "O Clepsa não oferece uma API pública de dados: intimações, processos e clientes só aparecem para usuários com login. As páginas públicas estão descritas em [llms.txt](/llms.txt), na [documentação](/docs) e na [especificação OpenAPI](/openapi.json).",
       ],
     },
   ],
@@ -194,54 +187,7 @@ const PRIVACIDADE: PaginaPublica = {
   ],
 };
 
-const DOCS: PaginaPublica = {
-  caminho: "/docs",
-  titulo: "Documentação para desenvolvedores e agentes",
-  descricao: "O que o Clepsa publica para agentes de IA e desenvolvedores: páginas em Markdown, llms.txt, sitemap e especificação OpenAPI. Não há API pública de dados.",
-  h1: "Documentação do Clepsa para desenvolvedores e agentes de IA",
-  introducao: [
-    "O Clepsa é um aplicativo com login. Intimações, processos, clientes e prazos são dados sigilosos de escritórios de advocacia e não ficam disponíveis fora da conta de cada escritório. Por isso não existe uma API pública de dados, nem chaves de API para terceiros, nem servidor MCP.",
-    "O que é público está listado abaixo. Tudo pode ser lido sem autenticação, só com GET.",
-  ],
-  secoes: [
-    {
-      titulo: "Recursos públicos",
-      itens: [
-        "[/llms.txt](/llms.txt): resumo do Clepsa para modelos de linguagem, com quando usar e links.",
-        "[/openapi.json](/openapi.json): especificação OpenAPI 3.1 das rotas públicas listadas aqui.",
-        "[/sitemap.xml](/sitemap.xml) e [/robots.txt](/robots.txt): páginas indexáveis e regras para robôs.",
-        "Páginas [início](/), [sobre](/sobre), [contato](/contato), [privacidade](/privacidade) e esta documentação, em HTML ou em Markdown.",
-      ],
-    },
-    {
-      titulo: "Markdown por negociação de conteúdo",
-      paragrafos: [
-        "Envie o cabeçalho Accept: text/markdown para receber qualquer página pública em Markdown, com Content-Type: text/markdown e Vary: Accept. Sem esse cabeçalho, a resposta é HTML.",
-      ],
-      codigo: `curl -H 'Accept: text/markdown' ${URL_DO_SITE}/\ncurl -H 'Accept: text/markdown' ${URL_DO_SITE}/privacidade`,
-    },
-    {
-      titulo: "Erros",
-      paragrafos: [
-        "Endereços que não existem respondem com HTTP 404. Com Accept: text/markdown, o corpo do erro vem em Markdown e aponta para esta documentação, para o sitemap e para o llms.txt.",
-      ],
-    },
-    {
-      titulo: "Autenticação",
-      paragrafos: [
-        "As rotas internas do aplicativo usam a sessão de login do navegador e servem só à interface do próprio Clepsa. Elas não são uma API estável, não aceitam chaves de terceiros e não estão descritas na especificação OpenAPI.",
-      ],
-    },
-    {
-      titulo: "Limites de uso",
-      paragrafos: [
-        "Os recursos públicos são arquivos estáticos ou quase estáticos e não têm cota por cliente. Respeite o robots.txt e evite mais de uma requisição por segundo.",
-      ],
-    },
-  ],
-};
-
-export const PAGINAS_PUBLICAS: readonly PaginaPublica[] = [PAGINA_INICIAL, SOBRE, CONTATO_PAGINA, PRIVACIDADE, DOCS];
+export const PAGINAS_PUBLICAS: readonly PaginaPublica[] = [PAGINA_INICIAL, SOBRE, CONTATO_PAGINA, PRIVACIDADE];
 
 export function paginaPublica(caminho: string): PaginaPublica | undefined {
   return PAGINAS_PUBLICAS.find((p) => p.caminho === caminho);

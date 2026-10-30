@@ -6,13 +6,12 @@ const sans = Inter({ subsets: ["latin"], display: "swap" });
 
 const NAVEGACAO = [
   { href: "/sobre", rotulo: "Sobre" },
-  { href: "/docs", rotulo: "Documentação" },
   { href: "/contato", rotulo: "Contato" },
 ];
 
-const RODAPE = [...NAVEGACAO, { href: "/privacidade", rotulo: "Privacidade" }, { href: "/llms.txt", rotulo: "llms.txt" }];
+const RODAPE = [...NAVEGACAO, { href: "/privacidade", rotulo: "Privacidade" }];
 
-/** Site público (início, sobre, contato, privacidade, documentação): renderizado no servidor, legível sem JavaScript. */
+/** Site público (início, sobre, contato, privacidade): renderizado no servidor, legível sem JavaScript. */
 export default function LayoutSite({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${sans.className} relative isolate flex min-h-screen flex-col bg-[#050a18] text-slate-50`}>
