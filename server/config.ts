@@ -48,7 +48,10 @@ export function lerConfiguracao() {
     /** Resumo das intimações pela API da Anthropic. Sem chave, o Clepsa funciona sem resumos. */
     resumos: {
       chave: env.ANTHROPIC_API_KEY || undefined,
-      modelo: env.ANTHROPIC_MODEL || "claude-opus-5-5",
+      /** Modelo principal: parecer, risco, assistente, editor, revisões, citações, pesquisa. */
+      modelo: env.ANTHROPIC_MODEL || "claude-sonnet-5-5",
+      /** Modelo das tarefas simples: resumos de intimação, resumo de anotação, triagem e resposta de pedidos. */
+      modeloSimples: env.ANTHROPIC_MODEL_SIMPLES || "claude-haiku-5-5",
     },
     /** Google Agenda (OAuth). Sem as duas chaves, a opção não aparece. */
     google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } : undefined,

@@ -11,6 +11,8 @@ export interface PedidoIa {
   /** Liga a pesquisa na web, restrita aos domínios dados (sites oficiais). */
   pesquisaWeb?: { maxUsos: number; dominios?: string[] };
   esforco?: "low" | "medium" | "high";
+  /** Tarefa simples (resumo curto, triagem, extração): vai para o modelo mais barato. Sem pesquisa na web. */
+  simples?: boolean;
 }
 
 export interface FonteWeb {
@@ -22,6 +24,8 @@ export interface RespostaIa {
   texto: string;
   /** Páginas que a pesquisa na web abriu, na ordem em que apareceram. */
   fontesWeb: FonteWeb[];
+  /** Modelo que respondeu (o simples ou o principal). */
+  modelo: string;
 }
 
 /**
@@ -34,9 +38,9 @@ export interface ServicoIa {
 }
 
 /** Pergunta e já devolve o JSON da resposta. */
-export async function perguntarJson<T>(ia: ServicoIa, p: PedidoIa & { esquema: Record<string, unknown> }): Promise<{ dados: T; fontesWeb: FonteWeb[] }> {
+export async function perguntarJson<T>(ia: ServicoIa, p: PedidoIa & { esquema: Record<string, unknown> }): Promise<{ dados: T; fontesWeb: FonteWeb[]; modelo: string }> {
   const r = await ia.perguntar(p);
-  return { dados: JSON.parse(r.texto) as T, fontesWeb: r.fontesWeb };
+  return { dados: JSON.parse(r.texto) as T, fontesWeb: r.fontesWeb, modelo: r.modelo };
 }
 
 /** Sites oficiais em que a pesquisa na web pode procurar leis, súmulas e decisões. */
@@ -61,11 +65,26 @@ function paraConteudo(b: BlocoIa): Anthropic.Beta.BetaContentBlockParam {
   return { type: "text", text: b.texto };
 }
 
+/**
+ * Marca o último documento para o cache de prompt: perguntas seguidas sobre os mesmos PDFs
+ * (em até 5 minutos) releem os documentos por cerca de 10% do preço.
+ */
+export function comCacheNosDocumentos(conteudo: Anthropic.Beta.BetaContentBlockParam[]): Anthropic.Beta.BetaContentBlockParam[] {
+  const i = conteudo.findLastIndex((b) => b.type === "document");
+  if (i < 0) return conteudo;
+  return conteudo.map((b, j) => (j === i ? ({ ...b, cache_control: { type: "ephemeral" } } as Anthropic.Beta.BetaContentBlockParam) : b));
+}
+
 /** Monta o pedido: documentos primeiro, textos depois, na ordem dada. */
 export function montarConteudoIa(blocos: BlocoIa[]): Anthropic.Beta.BetaContentBlockParam[] {
   const docs = blocos.filter((b) => b.tipo !== "texto").map(paraConteudo);
   const textos = blocos.filter((b) => b.tipo === "texto").map(paraConteudo);
-  return [...docs, ...textos];
+  return comCacheNosDocumentos([...docs, ...textos]);
+}
+
+/** O Haiku não tem o fallback do lado do servidor; os outros modelos usam o padrão da Anthropic. */
+export function opcoesDeFallback(modelo: string): { betas?: string[]; fallbacks?: "default" } {
+  return modelo.startsWith("claude-haiku") ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" };
 }
 
 /** Quantas vezes seguimos um turno que a API pausou (pesquisa na web longa). */
@@ -74,14 +93,18 @@ const RETOMADAS = 3;
 /** IA pela API da Anthropic (Claude), que lê os PDFs direto, inclusive digitalizados. */
 export class IaClaude implements ServicoIa {
   readonly modelo: string;
+  private readonly modeloSimples: string;
   private readonly cliente: Anthropic;
 
-  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch }) {
+  constructor(op: { chave: string; modelo: string; modeloSimples?: string; fetch?: typeof fetch }) {
     this.cliente = new Anthropic({ apiKey: op.chave, timeout: 10 * 60_000, maxRetries: 1, fetch: op.fetch });
     this.modelo = op.modelo;
+    this.modeloSimples = op.modeloSimples ?? op.modelo;
   }
 
   async perguntar(p: PedidoIa): Promise<RespostaIa> {
+    // A pesquisa na web pede o modelo principal (o Haiku não tem a versão com filtro).
+    const modelo = p.simples && !p.pesquisaWeb ? this.modeloSimples : this.modelo;
     const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: montarConteudoIa(p.blocos) }];
     const tools: Anthropic.Beta.BetaToolUnion[] = p.pesquisaWeb
       ? [{ type: "web_search_20260209", name: "web_search", max_uses: p.pesquisaWeb.maxUsos, ...(p.pesquisaWeb.dominios ? { allowed_domains: p.pesquisaWeb.dominios } : {}) }]
@@ -90,10 +113,9 @@ export class IaClaude implements ServicoIa {
     const vistas = new Set<string>();
     for (let i = 0; i <= RETOMADAS; i++) {
       const stream = this.cliente.beta.messages.stream({
-        model: this.modelo,
+        model: modelo,
         max_tokens: 32000,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
+        ...opcoesDeFallback(modelo),
         output_config: { effort: p.esforco ?? "high", ...(p.esquema ? { format: { type: "json_schema", schema: p.esquema } } : {}) },
         system: p.sistema,
         messages,
@@ -118,7 +140,7 @@ export class IaClaude implements ServicoIa {
       // Com pesquisa na web, o texto final é o último bloco de texto (os anteriores comentam a busca).
       const textos = r.content.flatMap((b) => (b.type === "text" ? [b.text] : []));
       const texto = p.esquema ? (textos.at(-1) ?? "") : textos.join("");
-      return { texto, fontesWeb };
+      return { texto, fontesWeb, modelo };
     }
     throw new Error("A pesquisa demorou demais.");
   }

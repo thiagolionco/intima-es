@@ -230,7 +230,7 @@ function montar() {
   const biblioteca = new BibliotecaService({ repo: bibliotecaRepo, arquivos: criarArquivos(config, config.bucketBiblioteca), clock });
   const fluxo = new FluxoService({ repo: fluxoRepo, processos: processosRepo, motor: motorPadrao, clock });
   // Ferramentas de IA novas: mesma chave dos resumos; sem ANTHROPIC_API_KEY, cada uma se desliga.
-  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined;
+  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, modeloSimples: config.resumos.modeloSimples }) : undefined;
   const padroes = new PadroesService({ repo: registrosRepo, clock });
   const contextoProcesso = new ContextoProcesso({ processos: processosRepo, documentos: documentosArquivos });
 
@@ -375,7 +375,7 @@ function montar() {
   });
   const resumos = new ResumosService({
     espacos: espacosRepo,
-    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modeloSimples }) : undefined,
     clock,
   });
   const rondaComunica = new RondaComunica({

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Intimacao } from "../../lib/types.ts";
+import { opcoesDeFallback } from "../ia/ia.ts";
 
 /** Gera o resumo de uma intimação. Sem implementação configurada, o Clepsa funciona sem resumos. */
 export interface Resumidor {
@@ -40,8 +41,7 @@ export class ResumidorClaude implements Resumidor {
     const r = await this.cliente.beta.messages.create({
       model: this.modelo,
       max_tokens: 4000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...opcoesDeFallback(this.modelo),
       output_config: { effort: "low" },
       system: INSTRUCOES,
       messages: [
