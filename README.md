@@ -127,7 +127,8 @@ Com `ANTHROPIC_API_KEY` configurada, cada intimação ganha um resumo de duas li
 
 - Sem a chave, nada muda: os botões não aparecem e a lista mostra o começo do texto.
 - Com a chave, o texto da intimação vai para a API da Anthropic. Avise os clientes do escritório se o contrato pedir.
-- O modelo padrão é `claude-opus-5-5` (troque com `ANTHROPIC_MODEL`). O pedido usa o *fallback* do lado do servidor da Anthropic: se o modelo estiver sobrecarregado, outro modelo da mesma família responde, em vez de dar erro.
+- Os resumos usam o modelo das tarefas simples, `claude-haiku-5-5` (troque com `ANTHROPIC_MODEL_SIMPLES`). As demais ferramentas de IA usam `claude-sonnet-5-5` (troque com `ANTHROPIC_MODEL`). Os pedidos ao Sonnet usam o *fallback* do lado do servidor da Anthropic: se o modelo recusar ou estiver indisponível, outro modelo responde, em vez de dar erro. O Haiku não tem esse fallback.
+- Os PDFs e documentos enviados à IA ficam no cache de prompt da Anthropic por 5 minutos: perguntas seguidas sobre o mesmo processo releem os documentos por cerca de 10% do preço.
 - Se o texto da intimação for editado, o resumo antigo é apagado.
 
 ### Prazos na Google Agenda

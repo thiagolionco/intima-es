@@ -1,8 +1,9 @@
 "use client";
 
-import { CalendarOff, ExternalLink, Plus, Sparkles, Trash2 } from "lucide-react";
+import { CalendarOff, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { ConfigAgenda } from "@/components/agenda-config";
+import { CalendarioDoTribunal } from "@/components/calendario-oficial";
 import { ConfigAvisos } from "@/components/avisos-config";
 import { DatePicker } from "@/components/date-picker";
 import { useToast } from "@/components/toast";
@@ -10,7 +11,7 @@ import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, 
 import { Calendario, ehJusticaFederal } from "@/lib/prazos/calendario";
 import { lerPrazoDoTexto } from "@/lib/prazos/calculo";
 import { dataBR, diaDaSemana, NOMES_DIAS } from "@/lib/prazos/datas";
-import { calendarioOficial, GRUPOS_TRIBUNAIS, siglaTribunal } from "@/lib/prazos/tribunais";
+import { GRUPOS_TRIBUNAIS, siglaTribunal } from "@/lib/prazos/tribunais";
 import { useStore } from "@/lib/store";
 import type { Suspensao } from "@/lib/types";
 import { hojeISO, uid } from "@/lib/utils";
@@ -41,7 +42,6 @@ export default function PrazosPage() {
     [tribunais, suspensoes],
   );
   const dias = useMemo(() => new Calendario(tribunal, suspensoes).diasDoAno(ano), [tribunal, suspensoes, ano]);
-  const locais = useMemo(() => suspensoes.filter((s) => tribunal && siglaTribunal(s.tribunal) === tribunal).length, [suspensoes, tribunal]);
 
   const erros = {
     inicio: !nova.inicio ? "Informe o primeiro dia." : undefined,
@@ -186,18 +186,7 @@ export default function PrazosPage() {
               </div>
             }
           />
-          {tribunal && (
-            <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-5 py-3 text-xs ${locais ? "border-slate-100 text-slate-600" : "border-amber-100 bg-amber-50 text-amber-800"}`}>
-              <span className="flex-1">
-                {locais
-                  ? `${locais} feriado(s) ou suspensão(ões) cadastrado(s) para o ${tribunal}, marcados abaixo.`
-                  : `Nenhum feriado local cadastrado para o ${tribunal}: a lista mostra só os dias de todo o país. Confira o calendário do tribunal e cadastre ao lado.`}
-              </span>
-              <a href={calendarioOficial(tribunal)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline">
-                Calendário oficial do {tribunal} <ExternalLink className="h-3 w-3" aria-hidden />
-              </a>
-            </div>
-          )}
+          {tribunal && <CalendarioDoTribunal key={`${tribunal}-${ano}`} tribunal={tribunal} ano={ano} />}
           <ul className="divide-y divide-slate-100">
             {dias.map((d, idx) => (
               <li key={`${d.data}-${idx}`} className="flex items-center gap-3 px-5 py-2.5 text-sm">
@@ -208,7 +197,7 @@ export default function PrazosPage() {
               </li>
             ))}
             <li className="px-5 py-3 text-xs text-slate-500">
-              Além destes, de 20/12 a 20/01 os prazos ficam suspensos (art. 220 do CPC). Corpus Christi e feriados locais não entram sozinhos porque variam de tribunal para tribunal: cadastre-os ao lado.
+              Além destes, de 20/12 a 20/01 os prazos ficam suspensos (art. 220 do CPC). Feriados locais só entram no cálculo depois de cadastrados: escolha o tribunal acima para ver o calendário dele.
             </li>
           </ul>
         </Card>

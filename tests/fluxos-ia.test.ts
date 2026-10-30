@@ -33,7 +33,7 @@ class IaFalsa implements ServicoIa {
   async perguntar(p: PedidoIa): Promise<RespostaIa> {
     this.pedidos.push(p);
     const r = this.responder(p);
-    return { texto: typeof r === "string" ? r : JSON.stringify(r), fontesWeb: [] };
+    return { texto: typeof r === "string" ? r : JSON.stringify(r), fontesWeb: [], modelo: this.modelo };
   }
 }
 

@@ -3,6 +3,7 @@ import type { AnotarUsoIa } from "../ia/uso.ts";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
 import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
+import { comCacheNosDocumentos, opcoesDeFallback } from "../ia/ia.ts";
 import { type EntradaRedacao, type RedatorParecer, rotuloFonte } from "./redacao-parecer.ts";
 
 const INSTRUCOES = `Você é um advogado brasileiro experiente que redige o parecer prévio de um caso para o escritório que representa o cliente.
@@ -68,7 +69,8 @@ export function montarConteudo(e: EntradaRedacao): Anthropic.Beta.BetaContentBlo
   if (e.orientacao) partes.push(`Orientação do advogado para este rascunho:\n${e.orientacao}`);
   partes.push("Redija o rascunho do parecer.");
   conteudo.push({ type: "text", text: partes.join("\n\n") });
-  return conteudo;
+  // Refazer o rascunho com outra orientação relê os PDFs pelo cache.
+  return comCacheNosDocumentos(conteudo);
 }
 
 /** Rascunho do parecer pela API da Anthropic (Claude), que lê os PDFs direto, inclusive digitalizados. */
@@ -87,8 +89,7 @@ export class RedatorClaude implements RedatorParecer {
     const stream = this.cliente.beta.messages.stream({
       model: this.modelo,
       max_tokens: 32000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...opcoesDeFallback(this.modelo),
       output_config: { effort: "high" },
       system: INSTRUCOES,
       messages: [{ role: "user", content: montarConteudo(entrada) }],

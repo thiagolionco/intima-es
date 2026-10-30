@@ -154,6 +154,7 @@ export class LinhaDoTempoService {
           sistema: INSTRUCOES_NOTA,
           esquema: ESQUEMA_NOTA,
           esforco: "low",
+          simples: true,
           blocos: [{ tipo: "documento", titulo: `${TIPO_NOTA_LABEL[tipo]}: ${titulo}`, texto }, { tipo: "texto", texto: "Resuma e liste as próximas ações." }],
         });
         resumo = textoLimpo(dados.resumo, 800);

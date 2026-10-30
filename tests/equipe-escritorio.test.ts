@@ -327,7 +327,7 @@ test("fluxos de IA: publicado vale para a equipe, rascunho e execução só para
   await servico.aceitarComContaNova(tokenDoUltimoEmail(), { nome: "Beto Lima", senha: "Cavalo-Trovao-Azul-91!", aceitouTermos: true }, ctx);
   const beto = (await usuariosRepo.porEmail("beto@alfa.adv.br"))!;
   const repo = new RegistrosRepositoryPostgres(banco.db);
-  const ia = { modelo: "falso", perguntar: async () => ({ texto: "Pronto.", fontesWeb: [] }) };
+  const ia = { modelo: "falso", perguntar: async () => ({ texto: "Pronto.", fontesWeb: [], modelo: "falso" }) };
   const fluxos = new FluxosIaService({
     repo,
     processos: new ProcessoRepositoryPostgres(banco.db),

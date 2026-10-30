@@ -157,11 +157,12 @@ export class PedidosService {
     let triagem: TriagemPedido;
     try {
       // O pedido pode chegar pelo formulário público, sem sessão: o uso vai para o escritório dono do link.
-      const { dados } = await comUsoIa(usuarioId, "pedidos", () =>
+      const { dados, modelo } = await comUsoIa(usuarioId, "pedidos", () =>
         perguntarJson<{ area: AreaAtuacao; urgencia: Urgencia; resumo: string; perguntas: string[]; alertaPrazo: string }>(ia, {
           sistema: INSTRUCOES_TRIAGEM,
           esquema: ESQUEMA_TRIAGEM,
           esforco: "low",
+          simples: true,
           blocos: [
             { tipo: "documento", titulo: `Pedido: ${atual.valor.assunto}`, texto: atual.valor.descricao },
             { tipo: "texto", texto: `${padroes ? `${blocoDosPadroes(padroes)}\n\n` : ""}Faça a triagem.` },
@@ -175,7 +176,7 @@ export class PedidosService {
         resumo: textoLimpo(dados.resumo, 1200) ?? "",
         perguntas: (Array.isArray(dados.perguntas) ? dados.perguntas : []).flatMap((p) => textoLimpo(p, 300) ?? []).slice(0, 6),
         ...(alerta ? { alertaPrazo: alerta } : {}),
-        modelo: ia.modelo,
+        modelo,
         feitaEm: this.clock.agora().toISOString(),
       };
     } catch (e) {
@@ -259,6 +260,7 @@ export class PedidosService {
       const r = await ia.perguntar({
         sistema: INSTRUCOES_RESPOSTA,
         esforco: "low",
+        simples: true,
         blocos: [
           { tipo: "documento", titulo: `Pedido de ${atual.valor.nome}: ${atual.valor.assunto}`, texto: atual.valor.descricao },
           {
