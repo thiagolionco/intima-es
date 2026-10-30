@@ -111,7 +111,7 @@ export function FerramentasEditorIa({ processoId, texto, onTexto, titulo }: { pr
       <div className="flex flex-wrap items-center gap-2">
         <Sparkles className="h-4 w-4 text-brand-600" aria-hidden />
         {(["revisar", "melhorar", "anonimizar"] as const).map((a) => (
-          <Button key={a} size="sm" variant="secondary" loading={rodando === a} disabled={!!rodando || !texto.trim()} onClick={() => void executar(a)}>
+          <Button key={a} size="sm" variant="secondary" ia loading={rodando === a} disabled={!!rodando || !texto.trim()} onClick={() => void executar(a)}>
             {ACAO_EDITOR_LABEL[a]}
           </Button>
         ))}
@@ -123,7 +123,7 @@ export function FerramentasEditorIa({ processoId, texto, onTexto, titulo }: { pr
               </option>
             ))}
           </Select>
-          <Button size="sm" variant="secondary" icon={<Languages className="h-4 w-4" />} loading={rodando === "traduzir"} disabled={!!rodando || !texto.trim()} onClick={() => void executar("traduzir")}>
+          <Button size="sm" variant="secondary" icon={<Languages className="h-4 w-4" />} ia loading={rodando === "traduzir"} disabled={!!rodando || !texto.trim()} onClick={() => void executar("traduzir")}>
             Traduzir
           </Button>
         </span>

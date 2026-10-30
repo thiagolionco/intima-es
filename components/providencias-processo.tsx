@@ -84,7 +84,7 @@ export function ProvidenciasDoProcessoAba({ processoId, estado }: { processoId: 
         subtitle="O que precisa ser feito no caso, com responsável e prazo. As sugeridas pela IA mostram a página do PDF de onde saíram e só valem depois de confirmadas."
         action={
           dados?.disponivel && (
-            <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} loading={lendo} onClick={() => void extrair()}>
+            <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} ia loading={lendo} onClick={() => void extrair()}>
               {lendo ? "Lendo os PDFs…" : "Sugerir pelos PDFs"}
             </Button>
           )

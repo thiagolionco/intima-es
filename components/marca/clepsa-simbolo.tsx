@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { ClepsaSimboloAnimado } from "./clepsa-simbolo-animado";
 
 /**
  * Símbolo da Clepsa: uma gota sobre duas ondas concêntricas.
@@ -17,9 +18,9 @@ export function ClepsaSimbolo({ className }: { className?: string }) {
 /** Marca completa (símbolo + nome), usada no topo das telas de acesso e na barra lateral. */
 export function ClepsaMarca({ legenda, className }: { legenda?: string; className?: string }) {
   return (
-    <span className={clsx("flex items-center gap-3", className)}>
+    <span data-gatilho-gota className={clsx("flex items-center gap-3", className)}>
       <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0b1736] ring-1 ring-inset ring-white/10">
-        <ClepsaSimbolo className="h-7 w-7" />
+        <ClepsaSimboloAnimado className="h-7 w-7" />
       </span>
       <span className="leading-tight">
         <span className="block text-[17px] font-semibold tracking-tight text-white">Clepsa</span>

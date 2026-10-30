@@ -9,7 +9,7 @@ import { IndicadorSincronizacao } from "@/components/auth/indicador-sincronizaca
 import { MenuUsuario } from "@/components/auth/menu-usuario";
 import { api } from "@/lib/auth/api";
 import { useSessao } from "@/lib/auth/sessao";
-import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
+import { ClepsaSimboloAnimado } from "@/components/marca/clepsa-simbolo-animado";
 import { useToast } from "@/components/toast";
 import { Button } from "@/components/ui";
 import { contarUrgentes } from "@/lib/hoje";
@@ -106,7 +106,7 @@ function Marca() {
   return (
     <Link href="/" className="flex items-center gap-2.5 px-6">
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0b1736] ring-1 ring-inset ring-white/10">
-        <ClepsaSimbolo className="h-6 w-6" />
+        <ClepsaSimboloAnimado className="h-6 w-6" />
       </span>
       <span className="leading-tight">
         <span className="block text-sm font-semibold text-white">Clepsa</span>

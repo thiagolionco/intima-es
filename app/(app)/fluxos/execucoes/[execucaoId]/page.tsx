@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, Copy, ExternalLink, FileText, Loader2, Pause, Play, RotateCcw, Save, SkipForward, Table2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Circle, Copy, ExternalLink, FileText, Pause, Play, RotateCcw, Save, SkipForward, Table2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,12 +13,13 @@ import { descreverPasso, type ExecucaoFluxo, FERRAMENTA_FLUXO_LABEL, passoAtual,
 import type { ParecerProcesso } from "@/lib/processos";
 import { mensagemDe, useApi } from "@/lib/use-api";
 import { formatDateTime } from "@/lib/utils";
+import { IaAnimacao } from "@/components/ia/ia-pensando";
 
 function IconeEstado({ r, ativo }: { r: ResultadoPasso; ativo: boolean }) {
   if (r.estado === "feito") return <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-label="Feito" />;
   if (r.estado === "erro") return <AlertTriangle className="h-5 w-5 text-red-600" aria-label="Erro" />;
   if (r.estado === "pulado") return <SkipForward className="h-5 w-5 text-slate-400" aria-label="Pulado" />;
-  if (ativo) return <Loader2 className="h-5 w-5 animate-spin text-brand-600" aria-label="Rodando" />;
+  if (ativo) return <span role="img" aria-label="Rodando"><IaAnimacao className="-m-1.5 h-8 w-8" /></span>;
   return <Circle className="h-5 w-5 text-slate-300" aria-label="Na fila" />;
 }
 
@@ -204,7 +205,7 @@ export default function ExecucaoFluxoPage() {
                     <div className="space-y-2">
                       <Alert>{r.erro ?? "O passo falhou."}</Alert>
                       <div className="flex flex-wrap gap-2">
-                        <Button size="sm" icon={<RotateCcw className="h-4 w-4" />} loading={rodando} onClick={() => void tocar()}>
+                        <Button size="sm" icon={<RotateCcw className="h-4 w-4" />} ia loading={rodando} onClick={() => void tocar()}>
                           Tentar de novo
                         </Button>
                         <Button size="sm" variant="secondary" icon={<SkipForward className="h-4 w-4" />} disabled={rodando} onClick={() => void tocar({ pular: true })}>

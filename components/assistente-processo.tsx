@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Bot, CheckCircle2, Circle, Copy, FileText, Loader2, Play, SkipForward, Trash2, XCircle } from "lucide-react";
+import { Bot, CheckCircle2, Circle, Copy, FileText, Play, SkipForward, Trash2, XCircle } from "lucide-react";
 import { useState } from "react";
 import { api } from "@/lib/auth/api";
 import { ACAO_AGENTE_LABEL, type ExecucaoAgente, LIMITES_AGENTE, type PassoAgente } from "@/lib/agente";
@@ -11,6 +11,7 @@ import { BotaoWord } from "./editor-ia";
 import { ConfirmDialog } from "./modal";
 import { useToast } from "./toast";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, Spinner, Textarea } from "./ui";
+import { IaAnimacao } from "@/components/ia/ia-pensando";
 
 const EXEMPLOS = [
   "Prepare o caso para a reunião com o cliente: risco, linha do tempo e o que falta fazer.",
@@ -19,7 +20,7 @@ const EXEMPLOS = [
 ];
 
 function IconePasso({ passo, rodando }: { passo: PassoAgente; rodando: boolean }) {
-  if (rodando) return <Loader2 className="h-5 w-5 animate-spin text-brand-600" aria-label="Executando" />;
+  if (rodando) return <span role="img" aria-label="Executando"><IaAnimacao className="-m-1.5 h-8 w-8" /></span>;
   if (passo.estado === "feito") return <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-label="Feito" />;
   if (passo.estado === "erro") return <XCircle className="h-5 w-5 text-red-600" aria-label="Erro" />;
   if (passo.estado === "pulado") return <SkipForward className="h-5 w-5 text-slate-400" aria-label="Pulado" />;
@@ -131,7 +132,7 @@ export function AssistenteDoProcesso({ processoId, titulo, onAbrirParecer, onMud
                   </button>
                 ))}
               </div>
-              <Button type="submit" icon={<Bot className="h-4 w-4" />} loading={planejando} disabled={!pedido.trim()}>
+              <Button type="submit" icon={<Bot className="h-4 w-4" />} ia loading={planejando} disabled={!pedido.trim()}>
                 {planejando ? "Montando o plano…" : "Montar plano"}
               </Button>
             </div>
@@ -145,7 +146,7 @@ export function AssistenteDoProcesso({ processoId, titulo, onAbrirParecer, onMud
               subtitle={`${exec.autorNome} · ${formatDateTime(exec.criadoEm)}`}
               action={
                 pendentes > 0 && (
-                  <Button size="sm" icon={<Play className="h-4 w-4" />} loading={!!rodando} disabled={ocupado} onClick={() => void executarTodos(exec)}>
+                  <Button size="sm" icon={<Play className="h-4 w-4" />} ia loading={!!rodando} disabled={ocupado} onClick={() => void executarTodos(exec)}>
                     {rodando ? "Executando…" : pendentes === exec.passos.length ? "Executar o plano" : "Continuar"}
                   </Button>
                 )

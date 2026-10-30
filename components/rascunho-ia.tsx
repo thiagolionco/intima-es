@@ -10,6 +10,7 @@ import type { AreaAtuacao } from "@/lib/processos";
 import { SeloTipo, useBiblioteca } from "./biblioteca";
 import { Modal } from "./modal";
 import { Alert, Button, Input, Spinner, Textarea } from "./ui";
+import { IaPensando } from "@/components/ia/ia-pensando";
 
 /** Igual ao limite do servidor (LIMITES_REDACAO). */
 const MAX_ITENS = 8;
@@ -112,7 +113,7 @@ export function DialogoRascunhoIa({
           <Button variant="secondary" onClick={onFechar} disabled={redigindo}>
             Cancelar
           </Button>
-          <Button icon={<Sparkles className="h-4 w-4" />} loading={redigindo} onClick={() => void redigir()}>
+          <Button icon={<Sparkles className="h-4 w-4" />} ia loading={redigindo} onClick={() => void redigir()}>
             {redigindo ? "Redigindo…" : "Redigir rascunho"}
           </Button>
         </>
@@ -120,7 +121,7 @@ export function DialogoRascunhoIa({
     >
       {redigindo ? (
         <div className="py-4">
-          <Spinner label="A IA está lendo os documentos e redigindo. Pode levar alguns minutos…" />
+          <IaPensando label="A IA está lendo os documentos e redigindo. Pode levar alguns minutos…" />
         </div>
       ) : (
         <div className="-mx-5 max-h-[68vh] space-y-4 overflow-y-auto px-5">

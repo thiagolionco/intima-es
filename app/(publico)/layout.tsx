@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
+import { ClepsaSimboloAnimado } from "@/components/marca/clepsa-simbolo-animado";
 
 export const metadata: Metadata = {
   // Os links do portal e do formulário levam um código no endereço: não vai para outros sites.
@@ -15,7 +15,7 @@ export default function LayoutPublico({ children }: { children: React.ReactNode 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-xs text-slate-500 sm:px-6">
           <span className="inline-flex items-center gap-1.5">
-            <ClepsaSimbolo className="h-4 w-4" /> Feito com o Clepsa
+            <ClepsaSimboloAnimado modo="hover" className="h-4 w-4" /> Feito com o Clepsa
           </span>
           <Link href="/seguranca" className="hover:text-slate-800 hover:underline">
             Segurança e privacidade
