@@ -5,11 +5,18 @@ import { ClepsaMarca } from "@/components/marca/clepsa-simbolo";
 const sans = Inter({ subsets: ["latin"], display: "swap" });
 
 const NAVEGACAO = [
+  { href: "/#funcionalidades", rotulo: "Funcionalidades" },
+  { href: "/#como-funciona", rotulo: "Como funciona" },
+  { href: "/#seguranca", rotulo: "Segurança" },
   { href: "/sobre", rotulo: "Sobre" },
-  { href: "/contato", rotulo: "Contato" },
 ];
 
-const RODAPE = [...NAVEGACAO, { href: "/privacidade", rotulo: "Privacidade" }];
+const RODAPE = [
+  { href: "/sobre", rotulo: "Sobre" },
+  { href: "/contato", rotulo: "Contato" },
+  { href: "/seguranca", rotulo: "Segurança" },
+  { href: "/privacidade", rotulo: "Privacidade" },
+];
 
 /** Site público (início, sobre, contato, privacidade): renderizado no servidor, legível sem JavaScript. */
 export default function LayoutSite({ children }: { children: React.ReactNode }) {
@@ -24,19 +31,22 @@ export default function LayoutSite({ children }: { children: React.ReactNode }) 
         <Link href="/" className="block w-fit rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400">
           <ClepsaMarca legenda="Monitoramento de intimações e prazos" />
         </Link>
-        <nav aria-label="Principal" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+        <nav aria-label="Principal" className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           {NAVEGACAO.map((l) => (
-            <Link key={l.href} href={l.href} className="text-slate-300 hover:text-white">
+            <Link key={l.href} href={l.href} className="hidden text-slate-300 hover:text-white lg:inline">
               {l.rotulo}
             </Link>
           ))}
-          <Link href="/entrar" className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">
+          <Link href="/entrar" className="text-slate-200 hover:text-white">
             Entrar
+          </Link>
+          <Link href="/criar-conta" className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-500">
+            Começar agora
           </Link>
         </nav>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-8 sm:py-14">{children}</main>
+      <main className="w-full flex-1">{children}</main>
 
       <footer className="mx-auto w-full max-w-[1200px] px-4 py-6 text-[13px] leading-relaxed text-slate-400 sm:px-8 lg:px-12">
         <nav aria-label="Rodapé" className="flex flex-wrap gap-x-4 gap-y-1">
