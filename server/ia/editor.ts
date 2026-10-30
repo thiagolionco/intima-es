@@ -38,7 +38,7 @@ const ESQUEMA = {
   },
 };
 
-const INSTRUCOES_TRADUCAO = `Traduza o texto jurídico para o idioma pedido, mantendo os parágrafos, os títulos e a estrutura.
+export const INSTRUCOES_TRADUCAO = `Traduza o texto jurídico para o idioma pedido, mantendo os parágrafos, os títulos e a estrutura.
 Termos sem equivalente exato: traduza e deixe o original entre parênteses na primeira vez (por exemplo, "interlocutory appeal (agravo de instrumento)").
 Responda só com a tradução, sem comentários.`;
 
