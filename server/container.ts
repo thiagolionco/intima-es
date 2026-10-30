@@ -69,6 +69,7 @@ import { RevisoesService } from "./ia/revisoes.ts";
 import { EditorIaService } from "./ia/editor.ts";
 import { PesquisaService } from "./ia/pesquisa.ts";
 import { AgenteService } from "./ia/agente.ts";
+import { FluxosIaService } from "./ia/fluxos.ts";
 import { PedidosService } from "./ia/pedidos.ts";
 import { PortalService } from "./ia/portal.ts";
 import { MonitorService } from "./ia/monitor.ts";
@@ -307,6 +308,19 @@ function montar() {
     clock,
     limitar: limiteIa("assistente", 60),
   });
+  const fluxosIa = new FluxosIaService({
+    repo: registrosRepo,
+    processos: processosRepo,
+    contexto: contextoProcesso,
+    padroes,
+    revisoes,
+    pesquisa,
+    citacoes,
+    biblioteca,
+    ia,
+    clock,
+    limitar: limiteIa("fluxos", 100),
+  });
   const processosServico = new ProcessosService(processosRepo, clock, {
     caminhosDoProcesso: (usuarioId, processoId) => documentosArquivos.caminhosDoProcesso(usuarioId, processoId),
     async aposExcluirProcesso(usuarioId, processoId, caminhos) {
@@ -446,6 +460,7 @@ function montar() {
     editorIa,
     pesquisa,
     agente,
+    fluxosIa,
     pedidos,
     portal,
     monitor,

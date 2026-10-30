@@ -17,7 +17,7 @@ export const ARQUIVOS_PUBLICOS = ["/llms.txt", "/sitemap.xml", "/robots.txt", "/
  */
 export const SEGMENTOS_CONHECIDOS = new Set([
   // app/(app): telas com login
-  "administracao", "biblioteca", "clientes", "comunica", "conta", "dados", "equipe", "hoje", "intimacoes", "pedidos", "prazos", "processos", "relatorios",
+  "administracao", "biblioteca", "clientes", "comunica", "conta", "dados", "equipe", "fluxos", "hoje", "intimacoes", "pedidos", "prazos", "processos", "relatorios",
   // app/(auth): telas de acesso
   "confirmar-email", "convite", "criar-conta", "cumprir", "entrar", "esqueci-a-senha", "redefinir-senha", "verifique-seu-email",
   // páginas abertas (portal do cliente, formulário, segurança) e o site público
