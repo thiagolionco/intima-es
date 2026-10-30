@@ -9,6 +9,7 @@ import { idValido, nomeDoAutor, type Registro, type RegistrosRepository, textoLi
 import { falhaDaIa, semIa } from "./contexto-processo.ts";
 import { DOMINIOS_OFICIAIS, perguntarJson, type ServicoIa } from "./ia.ts";
 import type { PadroesService } from "./padroes.ts";
+import { comUsoIa } from "./uso.ts";
 
 const INSTRUCOES = `Você acompanha a jurisprudência brasileira para um escritório de advocacia.
 Recebe um tema e a data da última verificação. Pesquise nas fontes oficiais (STF, STJ, TST, tribunais, Planalto) o que saiu DEPOIS dessa data sobre o tema: súmulas novas ou canceladas, temas de repercussão geral ou repetitivos afetados ou julgados, mudanças de lei, decisões relevantes dos tribunais indicados.
@@ -282,7 +283,7 @@ export class MonitorService {
           return r;
         }
         try {
-          r.alertas += (await this.verificar(u.id, m.id)).length;
+          r.alertas += (await comUsoIa(u.id, "monitor", () => this.verificar(u.id, m.id))).length;
           r.verificados++;
         } catch {
           r.erros++;

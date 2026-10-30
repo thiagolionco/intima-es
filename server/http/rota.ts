@@ -4,6 +4,7 @@ import type { ContextoRequisicao, Sessao, Usuario } from "../auth/model";
 import { container, origemDaRequisicao } from "../container";
 import { AppError } from "../core/errors";
 import { ehAdministrador } from "../admin/administracao";
+import { comUsoIa, funcaoDaRota } from "../ia/uso";
 
 const LIMITE_CORPO_PADRAO = 64 * 1024;
 
@@ -105,7 +106,9 @@ export function rotaAutenticada<P = unknown>(handler: (r: RequisicaoAutenticada,
         resp.cookies.delete(NOME_COOKIE_SESSAO);
         return resp;
       }
-      return handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO), ...valida }, await segmento?.params);
+      const params = await segmento?.params;
+      // A IA usada nesta requisição conta para quem está logado, pela área da rota (/api/<funcao>/…).
+      return comUsoIa(valida.usuario.id, funcaoDaRota(req.nextUrl.pathname), () => handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO), ...valida }, params));
     });
 }
 

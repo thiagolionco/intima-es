@@ -10,7 +10,8 @@
  *   `comEscritorio` (contexto.ts). Políticas e papéis estão nas migrações 0001 e 0003 a 0008 (0010 só acrescenta colunas);
  *   a 0011 traz os convites e os processos particulares; a 0012, o fluxo da Central de casos;
  *   a 0013, a biblioteca do escritório (biblioteca_itens); a 0014, os registros por tipo
- *   (escritorio_registros) das ferramentas de IA, do portal do cliente e dos pedidos.
+ *   (escritorio_registros) das ferramentas de IA, do portal do cliente e dos pedidos; a 0015, o
+ *   uso da IA (uso_ia), que o administrador da plataforma também lê.
  */
 import { bigint, bigserial, boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import type { PapelNoEscritorio } from "../../../lib/escritorio.ts";
@@ -368,4 +369,27 @@ export const escritorioRegistros = pgTable(
     atualizadoEm: instante("atualizado_em").notNull(),
   },
   (t) => [index("escritorio_registros_tipo_idx").on(t.escritorioId, t.tipo), index("escritorio_registros_processo_idx").on(t.processoId)],
+);
+
+/**
+ * Uso da IA: uma linha por chamada à API da Anthropic, com os tokens gastos. Só se acrescenta.
+ * O custo em dólar é calculado na leitura, pela tabela de preços em `server/ia/uso.ts`.
+ */
+export const usoIa = pgTable(
+  "uso_ia",
+  {
+    id: uuid("id").primaryKey(),
+    escritorioId: uuid("escritorio_id").notNull().references(() => escritorios.id, { onDelete: "cascade" }),
+    /** Sem chave estrangeira: o registro continua se a pessoa sair do escritório. */
+    usuarioId: uuid("usuario_id").notNull(),
+    funcao: text("funcao").notNull(),
+    modelo: text("modelo").notNull(),
+    entrada: integer("entrada").notNull(),
+    saida: integer("saida").notNull(),
+    cacheEscrita: integer("cache_escrita").notNull(),
+    cacheLeitura: integer("cache_leitura").notNull(),
+    buscasWeb: integer("buscas_web").notNull(),
+    criadoEm: instante("criado_em").notNull(),
+  },
+  (t) => [index("uso_ia_escritorio_idx").on(t.escritorioId, t.criadoEm)],
 );

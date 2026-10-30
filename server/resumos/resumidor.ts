@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Intimacao } from "../../lib/types.ts";
+import type { AnotarUsoIa } from "../ia/uso.ts";
 
 /** Gera o resumo de uma intimação. Sem implementação configurada, o Clepsa funciona sem resumos. */
 export interface Resumidor {
@@ -29,10 +30,12 @@ export class ResumidorClaude implements Resumidor {
   readonly nome = "Claude";
   private readonly cliente: Anthropic;
   private readonly modelo: string;
+  private readonly anotarUso?: AnotarUsoIa;
 
-  constructor(op: { chave: string; modelo: string }) {
+  constructor(op: { chave: string; modelo: string; anotarUso?: AnotarUsoIa }) {
     this.cliente = new Anthropic({ apiKey: op.chave, timeout: 60_000, maxRetries: 2 });
     this.modelo = op.modelo;
+    this.anotarUso = op.anotarUso;
   }
 
   async resumir(i: Pick<Intimacao, "texto" | "tipoDocumento" | "classe" | "orgao">): Promise<string> {
@@ -51,6 +54,7 @@ export class ResumidorClaude implements Resumidor {
         },
       ],
     });
+    void this.anotarUso?.("resumo", r.model, r.usage);
     if (r.stop_reason === "refusal") throw new Error("O serviço de resumo recusou este texto.");
     const saida = r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n");
     const resumo = normalizarResumo(saida);

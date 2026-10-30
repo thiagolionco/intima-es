@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { AnotarUsoIa } from "../ia/uso.ts";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
 import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
@@ -74,10 +75,12 @@ export function montarConteudo(e: EntradaRedacao): Anthropic.Beta.BetaContentBlo
 export class RedatorClaude implements RedatorParecer {
   readonly modelo: string;
   private readonly cliente: Anthropic;
+  private readonly anotarUso?: AnotarUsoIa;
 
-  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch }) {
+  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch; anotarUso?: AnotarUsoIa }) {
     this.cliente = new Anthropic({ apiKey: op.chave, timeout: 10 * 60_000, maxRetries: 1, fetch: op.fetch });
     this.modelo = op.modelo;
+    this.anotarUso = op.anotarUso;
   }
 
   async redigir(entrada: EntradaRedacao): Promise<string> {
@@ -91,6 +94,7 @@ export class RedatorClaude implements RedatorParecer {
       messages: [{ role: "user", content: montarConteudo(entrada) }],
     });
     const r = await stream.finalMessage();
+    void this.anotarUso?.("parecer", r.model, r.usage);
     if (r.stop_reason === "refusal") throw new Error("O serviço recusou os documentos.");
     if (r.stop_reason === "max_tokens") throw new Error("O rascunho passou do tamanho máximo de resposta.");
     return r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");

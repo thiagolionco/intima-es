@@ -3,6 +3,7 @@ import type { Auditoria, SessaoRepository, UsuarioRepository } from "../auth/por
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
 import type { ArmazenamentoDocumentos } from "../infra/armazenamento.ts";
+import { agruparPorEscritorio, periodoDoMes, type UsoDoEscritorio, type UsoIaRepository } from "../ia/uso.ts";
 
 /**
  * Administração da plataforma: um administrador vê as contas de todos os escritórios e pode
@@ -83,7 +84,18 @@ interface Deps {
   sessoes: SessaoRepository;
   auditoria: Auditoria;
   diretorio: DiretorioDeContas;
+  /** Ausente nos testes que não tratam do uso da IA. */
+  usoIa?: UsoIaRepository;
   clock: Clock;
+}
+
+/** Uso da IA de todos os escritórios num mês, com o custo estimado em dólares. */
+export interface RelatorioUsoIa {
+  /** AAAA-MM, no horário de Brasília. */
+  mes: string;
+  custoUsd: number;
+  chamadas: number;
+  escritorios: UsoDoEscritorio[];
 }
 
 export const ehAdministrador = (u: Usuario | null | undefined): u is Usuario => !!u?.administrador && !u.desativadoEm;
@@ -136,6 +148,27 @@ export class AdministracaoService {
   }
 
   /** Desativa a conta e encerra todas as sessões dela na hora. */
+  async usoIa(administradorId: string, mes: unknown): Promise<RelatorioUsoIa> {
+    await this.exigirAdministrador(administradorId);
+    const repo = this.d.usoIa;
+    if (!repo) throw new AppError("indisponivel", "O registro de uso da IA não está ligado neste servidor.");
+    const atual = new Date(this.d.clock.agora().getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 7);
+    const escolhido = typeof mes === "string" && mes ? mes : atual;
+    let periodo: { desde: Date; ate: Date };
+    try {
+      periodo = periodoDoMes(escolhido);
+    } catch {
+      throw new AppError("dados_invalidos", "Mês inválido. Use o formato AAAA-MM.");
+    }
+    const escritorios = agruparPorEscritorio(await repo.somarPorEscritorio(administradorId, periodo.desde, periodo.ate));
+    return {
+      mes: escolhido,
+      custoUsd: escritorios.reduce((t, e) => t + e.custoUsd, 0),
+      chamadas: escritorios.reduce((t, e) => t + e.chamadas, 0),
+      escritorios,
+    };
+  }
+
   async desativar(administradorId: string, alvoId: unknown, ctx: ContextoRequisicao): Promise<void> {
     const admin = await this.exigirAdministrador(administradorId);
     const alvo = await this.alvo(admin, alvoId);

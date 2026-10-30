@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { AnotarUsoIa } from "../ia/uso.ts";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
 import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
@@ -60,10 +61,12 @@ function descreverProcesso(p: Processo, nomes: string[], padroes?: string): stri
 export class AnalisadorClaude implements AnalisadorRisco {
   readonly modelo: string;
   private readonly cliente: Anthropic;
+  private readonly anotarUso?: AnotarUsoIa;
 
-  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch }) {
+  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch; anotarUso?: AnotarUsoIa }) {
     this.cliente = new Anthropic({ apiKey: op.chave, timeout: 10 * 60_000, maxRetries: 1, fetch: op.fetch });
     this.modelo = op.modelo;
+    this.anotarUso = op.anotarUso;
   }
 
   async analisar({ processo, documentos, padroes }: { processo: Processo; documentos: { nome: string; bytes: Uint8Array }[]; padroes?: string }): Promise<ResultadoBruto> {
@@ -87,6 +90,7 @@ export class AnalisadorClaude implements AnalisadorRisco {
       messages: [{ role: "user", content: conteudo }],
     });
     const r = await stream.finalMessage();
+    void this.anotarUso?.("analise_risco", r.model, r.usage);
     if (r.stop_reason === "refusal") throw new Error("O serviço de análise recusou os documentos.");
     if (r.stop_reason === "max_tokens") throw new Error("A análise passou do tamanho máximo de resposta.");
     const texto = r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("");
