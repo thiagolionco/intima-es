@@ -3,6 +3,7 @@
 import { Copy, FileText, Printer } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
+import { AbasClientes } from "@/components/abas-rota";
 import { DatePicker } from "@/components/date-picker";
 import { useToast } from "@/components/toast";
 import { Button, Card, CardHeader, EmptyState, Field, PageHeader, Select, Spinner } from "@/components/ui";
@@ -69,7 +70,8 @@ function Relatorios() {
   if (!clientes.length) {
     return (
       <>
-        <PageHeader title="Relatório por cliente" />
+        <PageHeader title="Clientes e portal" />
+        <AbasClientes atual="relatorio" />
         <Card>
           <EmptyState icon={<FileText className="h-6 w-6" />} title="Nenhum cliente ainda" description="Os relatórios aparecem quando houver intimações vinculadas a um cliente." />
         </Card>
@@ -80,8 +82,8 @@ function Relatorios() {
   return (
     <>
       <PageHeader
-        title="Relatório por cliente"
-        description="Prestação de contas do período para mandar ao cliente: o que foi publicado, o que já foi feito e os próximos prazos."
+        title="Clientes e portal"
+        description="Prestação de contas do período para mandar ao cliente: o que foi publicado, o que já foi feito e os próximos prazos. Para o cliente acompanhar sozinho, use o Portal do cliente."
         actions={
           <>
             <Button variant="secondary" icon={<Copy className="h-4 w-4" />} onClick={copiar} disabled={!r}>
@@ -93,6 +95,8 @@ function Relatorios() {
           </>
         }
       />
+
+      <AbasClientes atual="relatorio" />
 
       <Card className="mb-6">
         <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">

@@ -42,3 +42,17 @@ export function AbasBiblioteca({ atual }: { atual: "itens" | "pesquisa" | "padro
     />
   );
 }
+
+/** As abas da área de clientes: relatório do período e portal do cliente. */
+export function AbasClientes({ atual }: { atual: "relatorio" | "portal" }) {
+  return (
+    <AbasDeRota
+      rotulo="Clientes"
+      atual={atual}
+      abas={[
+        { id: "relatorio", rotulo: "Relatório do período", href: "/relatorios" },
+        { id: "portal", rotulo: "Portal do cliente", href: "/relatorios/portal" },
+      ]}
+    />
+  );
+}
