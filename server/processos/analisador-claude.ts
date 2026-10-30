@@ -3,6 +3,7 @@ import type { AnotarUsoIa } from "../ia/uso.ts";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
 import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
+import { opcoesDeFallback } from "../ia/ia.ts";
 import type { AnalisadorRisco, ResultadoBruto } from "./analises.ts";
 
 const INSTRUCOES = `Você é um advogado brasileiro experiente que faz a análise prévia de risco de processos judiciais para o escritório que representa o cliente.
@@ -83,8 +84,7 @@ export class AnalisadorClaude implements AnalisadorRisco {
     const stream = this.cliente.beta.messages.stream({
       model: this.modelo,
       max_tokens: 32000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
+      ...opcoesDeFallback(this.modelo),
       output_config: { effort: "high", format: { type: "json_schema", schema: ESQUEMA } },
       system: INSTRUCOES,
       messages: [{ role: "user", content: conteudo }],

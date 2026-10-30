@@ -246,7 +246,7 @@ function montar() {
   // Ferramentas de IA novas: mesma chave dos resumos; sem ANTHROPIC_API_KEY, cada uma se desliga.
   // Toda chamada à API da Anthropic anota os tokens gastos no escritório de quem pediu.
   const { anotar: anotarUso } = new MedidorUsoIa({ repo: usoIaRepo, clock });
-  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, anotarUso }) : undefined;
+  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, modeloSimples: config.resumos.modeloSimples, anotarUso }) : undefined;
   const padroes = new PadroesService({ repo: registrosRepo, clock });
   const contextoProcesso = new ContextoProcesso({ processos: processosRepo, documentos: documentosArquivos });
 
@@ -404,7 +404,7 @@ function montar() {
   });
   const resumos = new ResumosService({
     espacos: espacosRepo,
-    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, anotarUso }) : undefined,
+    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modeloSimples, anotarUso }) : undefined,
     clock,
   });
   const rondaComunica = new RondaComunica({
