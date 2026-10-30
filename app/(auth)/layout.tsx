@@ -1,4 +1,3 @@
-import { Clock } from "lucide-react";
 import { Instrument_Serif, Inter } from "next/font/google";
 import Link from "next/link";
 import { CampoDeLetras } from "@/components/auth/campo-de-letras";
@@ -36,20 +35,10 @@ export default function LayoutAcesso({ children }: { children: React.ReactNode }
               Nenhuma intimação <em className="block text-brand-300">passa despercebida.</em>
             </h2>
             <p className="mt-6 max-w-[42ch] text-[17px] leading-relaxed text-slate-300">Monitoramos as publicações jurídicas para você não perder prazos.</p>
-            <div className="mt-10 flex max-w-[46ch] gap-4">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-300 ring-1 ring-inset ring-brand-400/25">
-                <Clock className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <p className="text-[15px] font-medium text-slate-100">Clientes monitorados</p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-400">Cadastre clientes, OABs e processos uma vez e consulte as novas publicações do Comunica PJe sempre que quiser.</p>
-              </div>
-            </div>
           </section>
 
           <div className="order-1 mx-auto w-full max-w-[480px] lg:order-2 lg:max-w-none">
             <div id="cartao-acesso" className="animate-slide-in rounded-2xl bg-white p-6 text-slate-900 shadow-[0_32px_64px_-32px_rgb(0_0_0/.7)] sm:p-10">{children}</div>
-            <p className="mt-4 text-center text-xs leading-relaxed text-slate-400">Dados públicos do DJEN/CNJ. Produto independente, sem vínculo com o CNJ.</p>
           </div>
         </main>
 
