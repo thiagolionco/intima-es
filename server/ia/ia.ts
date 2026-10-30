@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { AnotarUsoIa } from "./uso.ts";
 
 /** Um pedaço do que a IA lê: PDF, documento de texto com título ou texto solto. */
 export type BlocoIa = { tipo: "pdf"; titulo: string; bytes: Uint8Array } | { tipo: "documento"; titulo: string; texto: string } | { tipo: "texto"; texto: string };
@@ -75,10 +76,12 @@ const RETOMADAS = 3;
 export class IaClaude implements ServicoIa {
   readonly modelo: string;
   private readonly cliente: Anthropic;
+  private readonly anotarUso?: AnotarUsoIa;
 
-  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch }) {
+  constructor(op: { chave: string; modelo: string; fetch?: typeof fetch; anotarUso?: AnotarUsoIa }) {
     this.cliente = new Anthropic({ apiKey: op.chave, timeout: 10 * 60_000, maxRetries: 1, fetch: op.fetch });
     this.modelo = op.modelo;
+    this.anotarUso = op.anotarUso;
   }
 
   async perguntar(p: PedidoIa): Promise<RespostaIa> {
@@ -100,6 +103,8 @@ export class IaClaude implements ServicoIa {
         ...(tools.length ? { tools } : {}),
       });
       const r = await stream.finalMessage();
+      // A função vem do contexto (a rota ou a rotina que pediu).
+      void this.anotarUso?.(undefined, r.model, r.usage);
       for (const b of r.content) {
         if (b.type !== "web_search_tool_result" || !Array.isArray(b.content)) continue;
         for (const s of b.content) {

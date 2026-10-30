@@ -8,6 +8,7 @@ import type { ArmazenamentoDocumentos } from "../infra/armazenamento.ts";
 import { idValido, nomeDoAutor, type Registro, type RegistrosRepository, textoLimpo } from "../registros/registros.ts";
 import { falhaDaIa, semIa } from "./contexto-processo.ts";
 import { perguntarJson, type ServicoIa } from "./ia.ts";
+import { comUsoIa } from "./uso.ts";
 import type { PadroesService } from "./padroes.ts";
 
 const INSTRUCOES_TRIAGEM = `Você faz a triagem de pedidos que chegam a um escritório de advocacia brasileiro (de clientes ou de interessados).
@@ -155,15 +156,18 @@ export class PedidosService {
     const padroes = await this.padroes.instrucoes(usuarioId, "pedidos");
     let triagem: TriagemPedido;
     try {
-      const { dados } = await perguntarJson<{ area: AreaAtuacao; urgencia: Urgencia; resumo: string; perguntas: string[]; alertaPrazo: string }>(ia, {
-        sistema: INSTRUCOES_TRIAGEM,
-        esquema: ESQUEMA_TRIAGEM,
-        esforco: "low",
-        blocos: [
-          { tipo: "documento", titulo: `Pedido: ${atual.valor.assunto}`, texto: atual.valor.descricao },
-          { tipo: "texto", texto: `${padroes ? `${blocoDosPadroes(padroes)}\n\n` : ""}Faça a triagem.` },
-        ],
-      });
+      // O pedido pode chegar pelo formulário público, sem sessão: o uso vai para o escritório dono do link.
+      const { dados } = await comUsoIa(usuarioId, "pedidos", () =>
+        perguntarJson<{ area: AreaAtuacao; urgencia: Urgencia; resumo: string; perguntas: string[]; alertaPrazo: string }>(ia, {
+          sistema: INSTRUCOES_TRIAGEM,
+          esquema: ESQUEMA_TRIAGEM,
+          esforco: "low",
+          blocos: [
+            { tipo: "documento", titulo: `Pedido: ${atual.valor.assunto}`, texto: atual.valor.descricao },
+            { tipo: "texto", texto: `${padroes ? `${blocoDosPadroes(padroes)}\n\n` : ""}Faça a triagem.` },
+          ],
+        }),
+      );
       const alerta = textoLimpo(dados.alertaPrazo, 400);
       triagem = {
         ...(dados.area in AREA_LABEL ? { area: dados.area } : {}),
