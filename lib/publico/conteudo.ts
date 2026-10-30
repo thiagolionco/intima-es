@@ -99,14 +99,6 @@ const SOBRE: PaginaPublica = {
         "Documentos e informações que o próprio escritório cadastra.",
       ],
     },
-    {
-      titulo: "Princípios",
-      itens: [
-        "Os dados de um escritório nunca aparecem para outro.",
-        "A inteligência artificial sugere e mostra a fonte; quem decide e assina é sempre uma pessoa.",
-        "O Clepsa não protocola peças nem responde a clientes sozinho.",
-      ],
-    },
   ],
 };
 
