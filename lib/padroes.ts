@@ -13,6 +13,7 @@ export const USO_PADRAO_LABEL = {
   agente: "Assistente do caso",
   pedidos: "Triagem de pedidos",
   monitor: "Monitor de precedentes",
+  fluxos: "Fluxos de IA",
 } as const;
 
 export type UsoPadrao = keyof typeof USO_PADRAO_LABEL;

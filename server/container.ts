@@ -43,7 +43,7 @@ import { CoberturaRepositoryPostgres } from "./infra/postgres/cobertura.ts";
 import { DiretorioDeContasPostgres } from "./infra/postgres/diretorio.ts";
 import { EscritorioRepositoryPostgres } from "./infra/postgres/escritorio.ts";
 import { type EscritorioRepository, EscritorioRepositoryDocumentos, EscritorioService } from "./escritorio/escritorio.ts";
-import { AdministracaoService, type DiretorioDeContas, DiretorioDeContasDocumentos } from "./admin/administracao.ts";
+import { AdministracaoService, type DiretorioDeContas, DiretorioDeContasDocumentos, ehAdministrador } from "./admin/administracao.ts";
 import { type CoberturaRepository, CoberturaRepositoryDocumentos, CoberturaService } from "./rondas/cobertura.ts";
 import { type MovimentacaoRepository, MovimentacaoRepositoryDocumentos, MovimentacoesService } from "./processos/movimentacoes.ts";
 import { criarConsultaDataJud } from "./processos/datajud.ts";
@@ -69,9 +69,12 @@ import { RevisoesService } from "./ia/revisoes.ts";
 import { EditorIaService } from "./ia/editor.ts";
 import { PesquisaService } from "./ia/pesquisa.ts";
 import { AgenteService } from "./ia/agente.ts";
+import { FluxosIaService } from "./ia/fluxos.ts";
 import { PedidosService } from "./ia/pedidos.ts";
 import { PortalService } from "./ia/portal.ts";
 import { MonitorService } from "./ia/monitor.ts";
+import { MedidorUsoIa, type UsoIaRepository, UsoIaRepositoryDocumentos } from "./ia/uso.ts";
+import { UsoIaRepositoryPostgres } from "./infra/postgres/uso-ia.ts";
 import { type ProcessoRepository, ProcessoRepositoryDocumentos, ProcessosService } from "./processos/processos.ts";
 import { type EspacoTrabalhoRepository, EspacoTrabalhoRepositoryDocumentos, EspacoTrabalhoService } from "./workspace/espaco-trabalho.ts";
 import { criarBuscadorComunica } from "./comunica/cliente.ts";
@@ -183,6 +186,7 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
       coberturaRepo: new CoberturaRepositoryPostgres(db, clock) as CoberturaRepository,
       diretorio: new DiretorioDeContasPostgres(db) as DiretorioDeContas,
       escritorioRepo: new EscritorioRepositoryPostgres(db) as EscritorioRepository,
+      usoIaRepo: new UsoIaRepositoryPostgres(db) as UsoIaRepository,
       // Conexão do Google Agenda e registro dos avisos enviados (não são do escritório: ficam fora do RLS).
       documentos: new ArmazenamentoPostgres(db) as ArmazenamentoDocumentos,
     };
@@ -208,6 +212,16 @@ function criarRepositorios(config: Configuracao, arquivos: ArmazenamentoEmArquiv
     coberturaRepo: new CoberturaRepositoryDocumentos(arquivos, clock) as CoberturaRepository,
     diretorio: new DiretorioDeContasDocumentos(arquivos) as DiretorioDeContas,
     escritorioRepo: new EscritorioRepositoryDocumentos(new UsuarioRepositoryDocumentos(arquivos)) as EscritorioRepository,
+    usoIaRepo: new UsoIaRepositoryDocumentos({
+      db: arquivos,
+      clock,
+      // Sem Postgres, cada conta é o próprio escritório (como no diretório de contas).
+      nomeDoEscritorio: async (id) => {
+        const u = await new UsuarioRepositoryDocumentos(arquivos).porId(id);
+        return u?.escritorio?.trim() || u?.nome || "Conta removida";
+      },
+      ehAdministrador: async (id) => ehAdministrador(await new UsuarioRepositoryDocumentos(arquivos).porId(id)),
+    }) as UsoIaRepository,
     documentos: arquivos as ArmazenamentoDocumentos,
   };
 }
@@ -223,14 +237,16 @@ function montar() {
   // A caixa de saída de desenvolvimento fica sempre em arquivo, mesmo com Postgres.
   const caixaDeSaida = new CaixaDeSaidaLocal(arquivos, clock);
   const enviador = criarEnviador(config, caixaDeSaida);
-  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, bibliotecaRepo, registrosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, documentos: db } = criarRepositorios(config, arquivos);
+  const { repositorios, espacosRepo, processosRepo, fluxoRepo, documentosRepo, bibliotecaRepo, registrosRepo, pareceresRepo, analisesRepo, movimentacoesRepo, coberturaRepo, diretorio, escritorioRepo, usoIaRepo, documentos: db } = criarRepositorios(config, arquivos);
 
   const documentosArquivos = new DocumentosService({ repo: documentosRepo, processos: processosRepo, arquivos: criarArquivos(config), clock });
   const pareceres = new PareceresService({ repo: pareceresRepo, processos: processosRepo, clock });
   const biblioteca = new BibliotecaService({ repo: bibliotecaRepo, arquivos: criarArquivos(config, config.bucketBiblioteca), clock });
   const fluxo = new FluxoService({ repo: fluxoRepo, processos: processosRepo, motor: motorPadrao, clock });
   // Ferramentas de IA novas: mesma chave dos resumos; sem ANTHROPIC_API_KEY, cada uma se desliga.
-  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, modeloSimples: config.resumos.modeloSimples }) : undefined;
+  // Toda chamada à API da Anthropic anota os tokens gastos no escritório de quem pediu.
+  const { anotar: anotarUso } = new MedidorUsoIa({ repo: usoIaRepo, clock });
+  const ia = config.resumos.chave ? new IaClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, modeloSimples: config.resumos.modeloSimples, anotarUso }) : undefined;
   const padroes = new PadroesService({ repo: registrosRepo, clock });
   const contextoProcesso = new ContextoProcesso({ processos: processosRepo, documentos: documentosArquivos });
 
@@ -263,7 +279,7 @@ function montar() {
     processos: processosRepo,
     documentos: documentosArquivos,
     // Mesma chave dos resumos: sem ANTHROPIC_API_KEY, só a análise fica desligada.
-    analisador: config.resumos.chave ? new AnalisadorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    analisador: config.resumos.chave ? new AnalisadorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, anotarUso }) : undefined,
     clock,
     limitar: (usuarioId) => deps.limitador.consumir(`analise-risco:${usuarioId}`, LIMITES_ANALISE.porDia, DIA),
     padroes: (usuarioId) => padroes.instrucoes(usuarioId, "risco"),
@@ -274,7 +290,7 @@ function montar() {
     biblioteca,
     pareceres,
     analises,
-    redator: config.resumos.chave ? new RedatorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo }) : undefined,
+    redator: config.resumos.chave ? new RedatorClaude({ chave: config.resumos.chave, modelo: config.resumos.modelo, anotarUso }) : undefined,
     limitar: (usuarioId) => deps.limitador.consumir(`parecer-ia:${usuarioId}`, LIMITES_REDACAO.porDia, DIA),
     padroes: (usuarioId) => padroes.instrucoes(usuarioId, "parecer"),
   });
@@ -306,6 +322,19 @@ function montar() {
     ia,
     clock,
     limitar: limiteIa("assistente", 60),
+  });
+  const fluxosIa = new FluxosIaService({
+    repo: registrosRepo,
+    processos: processosRepo,
+    contexto: contextoProcesso,
+    padroes,
+    revisoes,
+    pesquisa,
+    citacoes,
+    biblioteca,
+    ia,
+    clock,
+    limitar: limiteIa("fluxos", 100),
   });
   const processosServico = new ProcessosService(processosRepo, clock, {
     caminhosDoProcesso: (usuarioId, processoId) => documentosArquivos.caminhosDoProcesso(usuarioId, processoId),
@@ -375,7 +404,7 @@ function montar() {
   });
   const resumos = new ResumosService({
     espacos: espacosRepo,
-    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modeloSimples }) : undefined,
+    resumidor: config.resumos.chave ? new ResumidorClaude({ chave: config.resumos.chave, modelo: config.resumos.modeloSimples, anotarUso }) : undefined,
     clock,
   });
   const rondaComunica = new RondaComunica({
@@ -446,6 +475,7 @@ function montar() {
     editorIa,
     pesquisa,
     agente,
+    fluxosIa,
     pedidos,
     portal,
     monitor,
@@ -464,7 +494,7 @@ function montar() {
     avisos,
     resumos,
     agenda,
-    administracao: new AdministracaoService({ usuarios: deps.usuarios, sessoes: deps.sessoes, auditoria: deps.auditoria, diretorio, clock }),
+    administracao: new AdministracaoService({ usuarios: deps.usuarios, sessoes: deps.sessoes, auditoria: deps.auditoria, diretorio, usoIa: usoIaRepo, clock }),
     limitador: deps.limitador,
   };
 }

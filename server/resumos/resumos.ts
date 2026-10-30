@@ -2,6 +2,7 @@ import type { Intimacao, ResumoIntimacao } from "../../lib/types.ts";
 import type { Clock } from "../core/clock.ts";
 import { AppError } from "../core/errors.ts";
 import type { EspacoTrabalhoRepository } from "../workspace/espaco-trabalho.ts";
+import { comUsoIa } from "../ia/uso.ts";
 import type { Resumidor } from "./resumidor.ts";
 
 /** Quantas intimações um pedido resume no máximo. */
@@ -39,7 +40,12 @@ export class ResumosService {
    * Resume as intimações pedidas (ou, sem `ids`, as mais recentes sem resumo), até `limite`.
    * Os resumos são pedidos fora da gravação, que depois tenta de novo se outra escrita chegou antes.
    */
-  async resumir(usuarioId: string, ids?: string[], limite = MAXIMO_POR_PEDIDO): Promise<ResultadoResumos> {
+  resumir(usuarioId: string, ids?: string[], limite = MAXIMO_POR_PEDIDO): Promise<ResultadoResumos> {
+    // Também roda na ronda automática, fora de uma rota: o uso da IA vai para a conta dona das intimações.
+    return comUsoIa(usuarioId, "resumo", () => this.gerar(usuarioId, ids, limite));
+  }
+
+  private async gerar(usuarioId: string, ids: string[] | undefined, limite: number): Promise<ResultadoResumos> {
     const resumidor = this.d.resumidor;
     if (!resumidor) throw new AppError("indisponivel", "O resumo automático não está ligado neste servidor.");
 

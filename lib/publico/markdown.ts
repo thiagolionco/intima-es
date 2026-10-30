@@ -30,9 +30,8 @@ export function paginaEmMarkdown(pagina: PaginaPublica): string {
     linhas.push(`## ${secao.titulo}`, "");
     for (const p of secao.paragrafos ?? []) linhas.push(linksAbsolutos(p), "");
     if (secao.itens?.length) linhas.push(...secao.itens.map((i) => `- ${linksAbsolutos(i)}`), "");
-    if (secao.codigo) linhas.push("```sh", secao.codigo, "```", "");
   }
-  linhas.push("---", "", `${NOME} · [Início](${urlAbsoluta("/")}) · [Documentação](${urlAbsoluta("/docs")}) · [llms.txt](${urlAbsoluta("/llms.txt")})`, "");
+  linhas.push("---", "", `${NOME} · [Início](${urlAbsoluta("/")}) · [Sobre](${urlAbsoluta("/sobre")}) · [Contato](${urlAbsoluta("/contato")})`, "");
   return linhas.join("\n");
 }
 
@@ -44,9 +43,8 @@ export function naoEncontradoEmMarkdown(caminho: string): string {
     "",
     "Para descobrir o que está disponível:",
     "",
-    `- [Documentação](${urlAbsoluta("/docs")})`,
+    `- [Início](${urlAbsoluta("/")})`,
     `- [Sitemap](${urlAbsoluta("/sitemap.xml")})`,
-    `- [llms.txt](${urlAbsoluta("/llms.txt")})`,
     "",
   ].join("\n");
 }

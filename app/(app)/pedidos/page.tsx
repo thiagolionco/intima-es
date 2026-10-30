@@ -266,7 +266,7 @@ function DetalhePedido({ pedido, triagemDisponivel, onTrocar, onExcluido }: { pe
           </div>
         ) : (
           triagemDisponivel && (
-            <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} loading={triando} onClick={() => void triar()}>
+            <Button size="sm" variant="secondary" icon={<Sparkles className="h-4 w-4" />} ia loading={triando} onClick={() => void triar()}>
               Triar com a IA
             </Button>
           )
@@ -302,7 +302,7 @@ function DetalhePedido({ pedido, triagemDisponivel, onTrocar, onExcluido }: { pe
             </Button>
           )}
           {triagemDisponivel && (
-            <Button size="sm" variant="secondary" icon={<Mail className="h-4 w-4" />} loading={redigindo} onClick={() => void redigir()}>
+            <Button size="sm" variant="secondary" icon={<Mail className="h-4 w-4" />} ia loading={redigindo} onClick={() => void redigir()}>
               Rascunho da resposta
             </Button>
           )}

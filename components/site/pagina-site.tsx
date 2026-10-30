@@ -40,7 +40,6 @@ export function SecaoSite({ secao }: { secao: Secao }) {
           ))}
         </ul>
       )}
-      {secao.codigo && <pre className="overflow-x-auto rounded-xl bg-white/5 p-4 text-[13px] leading-relaxed text-slate-200 ring-1 ring-inset ring-white/10">{secao.codigo}</pre>}
     </section>
   );
 }

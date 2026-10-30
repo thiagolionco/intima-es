@@ -9,7 +9,7 @@ export const CAMINHO_INICIO_PUBLICO = "/inicio";
 export const CAMINHO_INEXISTENTE = "/_nao-encontrado";
 
 /** Arquivos para robôs e agentes, sempre abertos. */
-export const ARQUIVOS_PUBLICOS = ["/llms.txt", "/sitemap.xml", "/robots.txt", "/openapi.json", "/opengraph-image"];
+export const ARQUIVOS_PUBLICOS = ["/sitemap.xml", "/robots.txt", "/opengraph-image"];
 
 /**
  * Primeiro segmento de cada endereço que existe no app. Um teste confere que toda pasta de
@@ -17,11 +17,11 @@ export const ARQUIVOS_PUBLICOS = ["/llms.txt", "/sitemap.xml", "/robots.txt", "/
  */
 export const SEGMENTOS_CONHECIDOS = new Set([
   // app/(app): telas com login
-  "administracao", "biblioteca", "clientes", "comunica", "conta", "dados", "equipe", "hoje", "intimacoes", "pedidos", "prazos", "processos", "relatorios",
+  "administracao", "biblioteca", "clientes", "comunica", "conta", "dados", "equipe", "fluxos", "hoje", "intimacoes", "pedidos", "prazos", "processos", "relatorios",
   // app/(auth): telas de acesso
   "confirmar-email", "convite", "criar-conta", "cumprir", "entrar", "esqueci-a-senha", "redefinir-senha", "verifique-seu-email",
   // páginas abertas (portal do cliente, formulário, segurança) e o site público
-  "portal", "pedido", "seguranca", "inicio", "sobre", "contato", "privacidade", "docs",
+  "portal", "pedido", "seguranca", "inicio", "sobre", "contato", "privacidade",
   // infraestrutura
   "api", "dev", "_next",
   ...ARQUIVOS_PUBLICOS.map((a) => a.slice(1)),

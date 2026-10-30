@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { Search, ShieldCheck, ShieldOff, UserCheck, UserX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { UsoIaAdmin } from "@/components/admin/uso-ia";
 import { Avatar } from "@/components/auth/menu-usuario";
 import { ConfirmDialog } from "@/components/modal";
 import { useToast } from "@/components/toast";
@@ -262,6 +263,8 @@ export default function AdministracaoPage() {
           </ul>
         )}
       </Card>
+
+      <UsoIaAdmin />
 
       {acao && (
         <ConfirmDialog

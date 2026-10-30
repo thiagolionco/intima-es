@@ -14,6 +14,8 @@ import { motorPadrao } from "../lib/fluxo/motor.ts";
 import { ParecerRepositoryPostgres } from "../server/infra/postgres/pareceres.ts";
 import { ProcessoRepositoryPostgres } from "../server/infra/postgres/processos.ts";
 import { RegistrosRepositoryPostgres } from "../server/infra/postgres/registros.ts";
+import { FluxosIaService } from "../server/ia/fluxos.ts";
+import { PadroesService } from "../server/ia/padroes.ts";
 import { AuditoriaPostgres, EspacoTrabalhoRepositoryPostgres, UsuarioRepositoryPostgres } from "../server/infra/postgres/repositorios.ts";
 import { convites, escritorios, membros, processos } from "../server/infra/postgres/schema.ts";
 import { ProcessosService } from "../server/processos/processos.ts";
@@ -317,4 +319,36 @@ test("registros das ferramentas de IA: do escritório para a equipe, pessoais e 
 
   await srv.excluir(beto.id, particular.id);
   assert.equal((await repo.listar(beto.id, "providencias")).length, 1, "excluir o processo apaga o que pendia dele");
+});
+
+test("fluxos de IA: publicado vale para a equipe, rascunho e execução só para quem criou", opcoes, async () => {
+  const ana = await escritorioDaAna();
+  await servico.convidar(ana.id, { email: "beto@alfa.adv.br", papel: "advogado" }, ctx);
+  await servico.aceitarComContaNova(tokenDoUltimoEmail(), { nome: "Beto Lima", senha: "Cavalo-Trovao-Azul-91!", aceitouTermos: true }, ctx);
+  const beto = (await usuariosRepo.porEmail("beto@alfa.adv.br"))!;
+  const repo = new RegistrosRepositoryPostgres(banco.db);
+  const ia = { modelo: "falso", perguntar: async () => ({ texto: "Pronto.", fontesWeb: [], modelo: "falso" }) };
+  const fluxos = new FluxosIaService({
+    repo,
+    processos: new ProcessoRepositoryPostgres(banco.db),
+    padroes: new PadroesService({ repo, clock: relogio }),
+    contexto: undefined as never,
+    revisoes: undefined as never,
+    pesquisa: undefined as never,
+    citacoes: undefined as never,
+    biblioteca: undefined as never,
+    ia,
+    clock: relogio,
+  });
+  const passos = [{ ferramenta: "prompt", instrucao: "Escreva." }];
+  const publicado = await fluxos.criar(ana, { titulo: "Do escritório", publicado: true, passos });
+  const rascunho = await fluxos.criar(ana, { titulo: "Rascunho da Ana", passos });
+  assert.deepEqual((await fluxos.listar(beto.id)).map((f) => f.id), [publicado.id]);
+  assert.equal((await erro(fluxos.obter(beto.id, rascunho.id))).codigo, "nao_encontrado");
+
+  const exec = await fluxos.iniciar(beto, publicado.id, {});
+  const pronta = await fluxos.avancar(beto, exec.id);
+  assert.equal(pronta.relatorio, "Pronto.");
+  assert.deepEqual(await fluxos.listarExecucoes(ana.id), [], "a execução do Beto é só dele");
+  assert.equal((await erro(fluxos.obterExecucao(ana.id, exec.id))).codigo, "nao_encontrado");
 });

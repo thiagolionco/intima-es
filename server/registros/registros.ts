@@ -17,7 +17,9 @@ export type TipoRegistro =
   | "formulario_pedidos"
   | "pedido"
   | "monitor"
-  | "alerta";
+  | "alerta"
+  | "fluxo_ia"
+  | "execucao_fluxo";
 
 export interface Registro<T = unknown> {
   id: string;
