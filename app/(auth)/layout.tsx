@@ -1,6 +1,7 @@
 import { Clock } from "lucide-react";
 import { Instrument_Serif, Inter } from "next/font/google";
 import Link from "next/link";
+import { CampoDeLetras } from "@/components/auth/campo-de-letras";
 import { GotaCaindo } from "@/components/auth/gota-caindo";
 import { ClepsaMarca } from "@/components/marca/clepsa-simbolo";
 
@@ -9,7 +10,7 @@ const sans = Inter({ subsets: ["latin"], display: "swap" });
 
 /**
  * Layout das telas de acesso: a mensagem da Clepsa à esquerda, o formulário num cartão à direita
- * e, entre os dois, a gota que cai e abre ondas no fundo. Em telas estreitas vira uma coluna, com o cartão primeiro.
+ * e, entre os dois, a gota que cai e abre ondas no fundo. Atrás de tudo, letras que aparecem onde o cursor passa. Em telas estreitas vira uma coluna, com o cartão primeiro.
  */
 export default function LayoutAcesso({ children }: { children: React.ReactNode }) {
   return (
@@ -19,12 +20,15 @@ export default function LayoutAcesso({ children }: { children: React.ReactNode }
         style={{ background: "radial-gradient(55% 60% at 78% 48%, rgb(33 71 237 / .16), transparent 70%), radial-gradient(45% 50% at 18% 55%, rgb(33 71 237 / .07), transparent 70%)" }}
         aria-hidden
       />
+      <CampoDeLetras atenuarIds={["marca-acesso", "texto-acesso"]} />
       <GotaCaindo textoId="texto-acesso" cartaoId="cartao-acesso" />
 
       <div className="mx-auto flex min-h-screen max-w-[1200px] flex-col px-4 py-6 sm:px-8 sm:py-8 lg:px-12">
-        <Link href="/entrar" className="w-fit rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400">
-          <ClepsaMarca legenda="Monitoramento de intimações e prazos" />
-        </Link>
+        <div id="marca-acesso" className="w-fit">
+          <Link href="/entrar" className="block w-fit rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400">
+            <ClepsaMarca legenda="Monitoramento de intimações e prazos" />
+          </Link>
+        </div>
 
         <main className="grid flex-1 content-center items-center gap-12 py-8 sm:py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-16">
           <section id="texto-acesso" className="order-2 mx-auto w-full max-w-[480px] lg:order-1 lg:mx-0 lg:max-w-none">
