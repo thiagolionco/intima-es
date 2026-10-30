@@ -1,12 +1,13 @@
 "use client";
 
 import clsx from "clsx";
-import { History, KeyRound, MonitorSmartphone, ShieldCheck, UserRound } from "lucide-react";
+import { History, KeyRound, Lightbulb, MonitorSmartphone, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { AbaAtividade } from "@/components/conta/atividade";
 import { AbaPerfil } from "@/components/conta/perfil";
+import { AbaPreferencias } from "@/components/conta/preferencias";
 import { AbaPrivacidade } from "@/components/conta/privacidade";
 import { AbaSeguranca } from "@/components/conta/seguranca";
 import { AbaSessoes } from "@/components/conta/sessoes";
@@ -15,6 +16,7 @@ import { PageHeader } from "@/components/ui";
 const ABAS = [
   { id: "perfil", rotulo: "Perfil", descricao: "Nome, escritório e OAB", icone: UserRound, Componente: AbaPerfil },
   { id: "seguranca", rotulo: "Segurança", descricao: "Senha e duas etapas", icone: KeyRound, Componente: AbaSeguranca },
+  { id: "preferencias", rotulo: "Preferências", descricao: "Dicas das telas", icone: Lightbulb, Componente: AbaPreferencias },
   { id: "sessoes", rotulo: "Dispositivos", descricao: "Sessões conectadas", icone: MonitorSmartphone, Componente: AbaSessoes },
   { id: "atividade", rotulo: "Atividade", descricao: "Registro de auditoria", icone: History, Componente: AbaAtividade },
   { id: "privacidade", rotulo: "Privacidade e dados", descricao: "Exportar ou excluir (LGPD)", icone: ShieldCheck, Componente: AbaPrivacidade },

@@ -126,7 +126,7 @@ export default function DetalheProcessoPage() {
         </div>
       </div>
 
-      <div className="mb-6 border-b border-slate-200" role="tablist" aria-label="Seções do processo">
+      <div data-tour="abas-processo" className="mb-6 border-b border-slate-200" role="tablist" aria-label="Seções do processo">
         <div className="-mb-px flex gap-6 overflow-x-auto">
           {abas.map((a) => (
             <button
