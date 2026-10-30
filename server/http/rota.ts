@@ -89,6 +89,12 @@ export function rotaPublica(handler: (r: RequisicaoAnonima) => Promise<Response>
   return (req: NextRequest) => executar(req, () => handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO) }));
 }
 
+/** Rota pública com segmentos dinâmicos (link do portal do cliente, formulário de pedidos). */
+export function rotaPublicaComParams<P>(handler: (r: RequisicaoAnonima, params: P) => Promise<Response>, opcoes: Opcoes = {}) {
+  return (req: NextRequest, segmento: { params: Promise<P> }) =>
+    executar(req, async () => handler({ req, ctx: contexto(req), corpo: lerCorpo(req, opcoes.limiteCorpo ?? LIMITE_CORPO_PADRAO) }, await segmento.params));
+}
+
 /** Rota que exige sessão válida; o usuário vem sempre do cookie, nunca do corpo. */
 export function rotaAutenticada<P = unknown>(handler: (r: RequisicaoAutenticada, params: P) => Promise<Response>, opcoes: Opcoes = {}) {
   return (req: NextRequest, segmento: { params: Promise<P> }) =>

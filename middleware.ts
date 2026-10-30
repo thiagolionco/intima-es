@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { NOME_COOKIE_SESSAO } from "@/lib/auth/cookie";
 
 /** Páginas acessíveis sem login. */
-const PUBLICAS = ["/convite", "/cumprir", "/entrar", "/criar-conta", "/esqueci-a-senha", "/redefinir-senha", "/confirmar-email", "/verifique-seu-email", "/dev/caixa-de-saida"];
+const PUBLICAS = ["/portal", "/pedido", "/seguranca", "/manifest.webmanifest", "/convite", "/cumprir", "/entrar", "/criar-conta", "/esqueci-a-senha", "/redefinir-senha", "/confirmar-email", "/verifique-seu-email", "/dev/caixa-de-saida"];
 
 /**
  * Primeira barreira (runtime edge): sem cookie de sessão não há acesso às páginas internas.
@@ -14,7 +14,7 @@ export function middleware(req: NextRequest) {
 
   if (pathname.startsWith("/api/")) {
     // /api/rondas/ é chamada por agendadores externos, que se autenticam com RONDA_TOKEN.
-    if (pathname.startsWith("/api/auth/") || pathname.startsWith("/api/dev/") || pathname.startsWith("/api/rondas/") || pathname.startsWith("/api/avisos/cumprir") || pathname.startsWith("/api/convite/") || temSessao) return NextResponse.next();
+    if (pathname.startsWith("/api/auth/") || pathname.startsWith("/api/dev/") || pathname.startsWith("/api/rondas/") || pathname.startsWith("/api/avisos/cumprir") || pathname.startsWith("/api/convite/") || pathname.startsWith("/api/portal-publico/") || pathname.startsWith("/api/pedido-publico/") || temSessao) return NextResponse.next();
     return NextResponse.json({ erro: { codigo: "nao_autenticado", mensagem: "Entre para continuar." } }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
+import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
 import type { AnalisadorRisco, ResultadoBruto } from "./analises.ts";
 
@@ -37,7 +38,7 @@ const ESQUEMA = {
   },
 };
 
-function descreverProcesso(p: Processo, nomes: string[]): string {
+function descreverProcesso(p: Processo, nomes: string[], padroes?: string): string {
   const linhas = [
     p.numero ? `Número: ${formatProcesso(p.numero)}` : "Ainda sem número (não protocolado)",
     p.area && `Área: ${AREA_LABEL[p.area]}`,
@@ -51,7 +52,8 @@ function descreverProcesso(p: Processo, nomes: string[]): string {
     p.prescricao && `Prescrição em: ${p.prescricao}`,
     p.valorCausa !== undefined && `Valor da causa: ${formatarValor(p.valorCausa)}`,
   ].filter(Boolean);
-  return `Dados do processo:\n${linhas.join("\n")}\n\nDocumentos anexados, na ordem:\n${nomes.map((n, i) => `${i + 1}. ${n}`).join("\n")}\n\nAnalise o risco do processo para o cliente.`;
+  const regras = padroes ? `${blocoDosPadroes(padroes)}\n\n` : "";
+  return `Dados do processo:\n${linhas.join("\n")}\n\nDocumentos anexados, na ordem:\n${nomes.map((n, i) => `${i + 1}. ${n}`).join("\n")}\n\n${regras}Analise o risco do processo para o cliente.`;
 }
 
 /** Análise de risco pela API da Anthropic (Claude), que lê os PDFs direto, inclusive digitalizados. */
@@ -64,7 +66,7 @@ export class AnalisadorClaude implements AnalisadorRisco {
     this.modelo = op.modelo;
   }
 
-  async analisar({ processo, documentos }: { processo: Processo; documentos: { nome: string; bytes: Uint8Array }[] }): Promise<ResultadoBruto> {
+  async analisar({ processo, documentos, padroes }: { processo: Processo; documentos: { nome: string; bytes: Uint8Array }[]; padroes?: string }): Promise<ResultadoBruto> {
     const conteudo: Anthropic.Beta.BetaContentBlockParam[] = [
       ...documentos.map(
         (d): Anthropic.Beta.BetaContentBlockParam => ({
@@ -73,7 +75,7 @@ export class AnalisadorClaude implements AnalisadorRisco {
           source: { type: "base64", media_type: "application/pdf", data: Buffer.from(d.bytes).toString("base64") },
         }),
       ),
-      { type: "text", text: descreverProcesso(processo, documentos.map((d) => d.nome)) },
+      { type: "text", text: descreverProcesso(processo, documentos.map((d) => d.nome), padroes) },
     ];
     const stream = this.cliente.beta.messages.stream({
       model: this.modelo,

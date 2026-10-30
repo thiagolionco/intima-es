@@ -55,7 +55,7 @@ export interface ResultadoBruto {
 /** Lê os PDFs e devolve o risco. Sem implementação configurada, a análise fica desligada. */
 export interface AnalisadorRisco {
   readonly modelo: string;
-  analisar(entrada: { processo: Processo; documentos: { nome: string; bytes: Uint8Array }[] }): Promise<ResultadoBruto>;
+  analisar(entrada: { processo: Processo; documentos: { nome: string; bytes: Uint8Array }[]; padroes?: string }): Promise<ResultadoBruto>;
 }
 
 export const LIMITES_ANALISE = {
@@ -103,6 +103,7 @@ export class AnalisesService {
   private readonly analisador?: AnalisadorRisco;
   private readonly clock: Clock;
   private readonly limitar: (usuarioId: string) => void;
+  private readonly padroes: (usuarioId: string) => Promise<string>;
   /** Processos com análise em andamento nesta instância (evita pagar duas vezes pelo mesmo clique). */
   private readonly emAndamento = new Set<string>();
 
@@ -113,11 +114,13 @@ export class AnalisesService {
     analisador?: AnalisadorRisco;
     clock: Clock;
     limitar?: (usuarioId: string) => void;
+    padroes?: (usuarioId: string) => Promise<string>;
   }) {
     this.repo = d.repo;
     this.processos = d.processos;
     this.documentos = d.documentos;
     this.analisador = d.analisador;
+    this.padroes = d.padroes ?? (async () => "");
     this.clock = d.clock;
     this.limitar = d.limitar ?? (() => undefined);
   }
@@ -163,9 +166,10 @@ export class AnalisesService {
       const arquivos = [];
       for (const d of escolhidos) arquivos.push({ nome: d.nome, bytes: (await this.documentos.abrir(autor.id, processoId, d.id)).bytes });
       const documentos = escolhidos.map(({ id, nome }) => ({ id, nome }));
+      const padroes = await this.padroes(autor.id);
       let resultado: ReturnType<typeof normalizarResultado>;
       try {
-        resultado = normalizarResultado(await analisador.analisar({ processo, documentos: arquivos }), documentos);
+        resultado = normalizarResultado(await analisador.analisar({ processo, documentos: arquivos, ...(padroes ? { padroes } : {}) }), documentos);
       } catch (e) {
         console.error("[analises] falha na análise:", e instanceof Error ? e.message : e);
         throw new AppError("indisponivel", "A IA não conseguiu analisar os documentos agora. Tente de novo em alguns minutos.");

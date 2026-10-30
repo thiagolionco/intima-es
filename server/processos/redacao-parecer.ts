@@ -25,6 +25,8 @@ export interface EntradaRedacao {
   parecerAtual?: string;
   risco?: { nivel: string; justificativa: string };
   orientacao?: string;
+  /** Padrões do escritório para o parecer (texto já montado). */
+  padroes?: string;
 }
 
 /** Redige o rascunho do parecer. Sem implementação configurada, o botão fica desligado. */
@@ -71,6 +73,7 @@ export class RedacaoParecerService {
   private readonly analises: AnalisesService;
   private readonly redator?: RedatorParecer;
   private readonly limitar: (usuarioId: string) => void;
+  private readonly padroes: (usuarioId: string) => Promise<string>;
   private readonly emAndamento = new Set<string>();
 
   constructor(d: {
@@ -81,10 +84,12 @@ export class RedacaoParecerService {
     analises: AnalisesService;
     redator?: RedatorParecer;
     limitar?: (usuarioId: string) => void;
+    padroes?: (usuarioId: string) => Promise<string>;
   }) {
     this.processos = d.processos;
     this.documentos = d.documentos;
     this.biblioteca = d.biblioteca;
+    this.padroes = d.padroes ?? (async () => "");
     this.pareceres = d.pareceres;
     this.analises = d.analises;
     this.redator = d.redator;
@@ -142,6 +147,7 @@ export class RedacaoParecerService {
       for (const d of escolhidos) documentos.push({ nome: d.nome, bytes: (await this.documentos.abrir(usuarioId, processoId, d.id)).bytes });
       const [parecer] = await this.pareceres.listar(usuarioId, processoId);
       const [analise] = await this.analises.listar(usuarioId, processoId);
+      const padroes = await this.padroes(usuarioId);
       let texto: string;
       try {
         texto = normalizarRascunho(
@@ -152,6 +158,7 @@ export class RedacaoParecerService {
             ...(parecer ? { parecerAtual: parecer.texto } : {}),
             ...(analise ? { risco: { nivel: NIVEL_RISCO_LABEL[analise.nivel], justificativa: analise.justificativa } } : {}),
             ...(orientacao ? { orientacao } : {}),
+            ...(padroes ? { padroes } : {}),
           }),
         );
       } catch (e) {

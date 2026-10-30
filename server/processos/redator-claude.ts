@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AREA_LABEL, formatarValor, POLO_CLIENTE_LABEL, type Processo, TIPO_DEMANDA_LABEL } from "../../lib/processos.ts";
+import { blocoDosPadroes } from "../../lib/padroes.ts";
 import { formatProcesso } from "../../lib/utils.ts";
 import { type EntradaRedacao, type RedatorParecer, rotuloFonte } from "./redacao-parecer.ts";
 
@@ -20,6 +21,7 @@ Regras:
 - Se citar algo que não está na biblioteca nem nos PDFs, escreva [conferir] logo depois, para o advogado verificar antes de usar.
 - Se houver um modelo de peça na biblioteca, siga a estrutura e o estilo dele naquilo que couber num parecer.
 - Se já houver um parecer anterior, mantenha o que continuar valendo e atualize o resto.
+- Se houver padrões do escritório, siga-os; a orientação do advogado para este rascunho prevalece sobre eles.
 - Se o advogado der uma orientação, siga-a.
 - Seja objetivo: o parecer é para uso interno do escritório.`;
 
@@ -61,6 +63,7 @@ export function montarConteudo(e: EntradaRedacao): Anthropic.Beta.BetaContentBlo
   if (e.biblioteca.length) partes.push(`Itens da biblioteca do escritório:\n${e.biblioteca.map((f) => `- ${rotuloFonte(f)}`).join("\n")}`);
   if (e.risco) partes.push(`Última análise de risco feita pela IA: ${e.risco.nivel}. ${e.risco.justificativa}`);
   if (e.parecerAtual) partes.push(`Parecer atual do escritório (atualize em vez de começar do zero):\n${e.parecerAtual}`);
+  if (e.padroes) partes.push(blocoDosPadroes(e.padroes));
   if (e.orientacao) partes.push(`Orientação do advogado para este rascunho:\n${e.orientacao}`);
   partes.push("Redija o rascunho do parecer.");
   conteudo.push({ type: "text", text: partes.join("\n\n") });
