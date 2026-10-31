@@ -102,3 +102,13 @@ export function jaCadastrados(dias: DiaOficial[], suspensoes: Suspensao[], tribu
 export function descricaoDoDia(d: DiaOficial): string {
   return d.local ? `${d.descricao} (${d.local})` : d.descricao;
 }
+
+/** Cidades, comarcas ou varas que aparecem no calendário, em ordem alfabética. */
+export function locaisDoCalendario(dias: DiaOficial[]): string[] {
+  return [...new Set(dias.map((d) => d.local).filter((l): l is string => !!l))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+/** Com um local escolhido, ficam os dias do tribunal todo e os daquele local; sem local, todos. */
+export function filtrarPorLocal(dias: DiaOficial[], local: string): DiaOficial[] {
+  return local ? dias.filter((d) => !d.local || d.local === local) : dias;
+}

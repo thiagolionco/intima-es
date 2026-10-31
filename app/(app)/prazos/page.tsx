@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarOff, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ConfigAgenda } from "@/components/agenda-config";
 import { CalendarioDoTribunal } from "@/components/calendario-oficial";
 import { ConfigAvisos } from "@/components/avisos-config";
@@ -11,12 +11,15 @@ import { Badge, Button, Card, CardHeader, EmptyState, Field, Input, PageHeader, 
 import { Calendario, ehJusticaFederal } from "@/lib/prazos/calendario";
 import { lerPrazoDoTexto } from "@/lib/prazos/calculo";
 import { dataBR, diaDaSemana, NOMES_DIAS } from "@/lib/prazos/datas";
-import { GRUPOS_TRIBUNAIS, siglaTribunal } from "@/lib/prazos/tribunais";
+import { GRUPOS_TRIBUNAIS, nomeTribunal, ramoDoTribunal, siglaTribunal } from "@/lib/prazos/tribunais";
 import { useStore } from "@/lib/store";
 import type { Suspensao } from "@/lib/types";
 import { hojeISO, uid } from "@/lib/utils";
 
 const VAZIA = { inicio: "", fim: "", descricao: "", tribunal: "" };
+const SEUS = "seus";
+/** Última escolha de Justiça e tribunal, só neste navegador. */
+const CHAVE_FILTRO = "clepsa:prazos:tribunal";
 
 function periodo(s: Pick<Suspensao, "inicio" | "fim">) {
   return s.inicio === s.fim ? dataBR(s.inicio) : `${dataBR(s.inicio)} a ${dataBR(s.fim)}`;
@@ -29,7 +32,27 @@ export default function PrazosPage() {
   const [tentou, setTentou] = useState(false);
   const anoAtual = Number(hojeISO().slice(0, 4));
   const [ano, setAno] = useState(anoAtual);
+  const [ramo, setRamo] = useState("");
   const [tribunal, setTribunal] = useState("");
+  useEffect(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(CHAVE_FILTRO) ?? "null") as { ramo?: string; tribunal?: string } | null;
+      const r = salvo?.ramo || ramoDoTribunal(salvo?.tribunal ?? "");
+      if (r) setRamo(r);
+      if (salvo?.tribunal) setTribunal(siglaTribunal(salvo.tribunal));
+    } catch {
+      // Sem acesso ao armazenamento do navegador: começa sem filtro.
+    }
+  }, []);
+  const escolher = (r: string, t: string) => {
+    setRamo(r);
+    setTribunal(t);
+    try {
+      localStorage.setItem(CHAVE_FILTRO, JSON.stringify({ ramo: r, tribunal: t }));
+    } catch {
+      // A escolha só não fica lembrada.
+    }
+  };
 
   const pendentes = useMemo(
     () => intimacoes.filter((i) => (i.status === "nova" || i.status === "em_analise") && !i.prazo && !i.regraPrazo && lerPrazoDoTexto(i.texto)).length,
@@ -42,6 +65,7 @@ export default function PrazosPage() {
     [tribunais, suspensoes],
   );
   const dias = useMemo(() => new Calendario(tribunal, suspensoes).diasDoAno(ano), [tribunal, suspensoes, ano]);
+  const opcoesTribunal = ramo === SEUS ? seus : (GRUPOS_TRIBUNAIS.find((g) => g.nome === ramo)?.siglas ?? []);
 
   const erros = {
     inicio: !nova.inicio ? "Informe o primeiro dia." : undefined,
@@ -154,38 +178,36 @@ export default function PrazosPage() {
             title="Dias sem contagem"
             subtitle={ehJusticaFederal(tribunal) ? "Feriados nacionais e os da Lei 5.010/1966 (Justiça Federal)" : "Feriados nacionais e suspensões cadastradas"}
             action={
-              <div className="flex gap-2">
-                <Select value={tribunal} onChange={(e) => setTribunal(e.target.value)} className="w-36" aria-label="Tribunal">
-                  <option value="">Todos os tribunais</option>
-                  {seus.length > 0 && (
-                    <optgroup label="Seus tribunais">
-                      {seus.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {GRUPOS_TRIBUNAIS.map((g) => (
-                    <optgroup key={g.nome} label={g.nome}>
-                      {g.siglas
-                        .filter((t) => !seus.includes(t))
-                        .map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </Select>
-                <Select value={ano} onChange={(e) => setAno(Number(e.target.value))} className="w-24" aria-label="Ano">
-                  {[anoAtual - 1, anoAtual, anoAtual + 1].map((a) => (
-                    <option key={a}>{a}</option>
-                  ))}
-                </Select>
-              </div>
+              <Select value={ano} onChange={(e) => setAno(Number(e.target.value))} className="w-28" aria-label="Ano">
+                {[anoAtual - 1, anoAtual, anoAtual + 1].map((a) => (
+                  <option key={a}>{a}</option>
+                ))}
+              </Select>
             }
           />
+          <div className="grid gap-3 border-b border-slate-100 px-5 pb-4 sm:grid-cols-2">
+            <Field label="Justiça" htmlFor="dias-ramo">
+              <Select id="dias-ramo" value={ramo} onChange={(e) => escolher(e.target.value, "")}>
+                <option value="">Só os feriados nacionais</option>
+                {seus.length > 0 && <option value={SEUS}>Seus tribunais</option>}
+                {GRUPOS_TRIBUNAIS.map((g) => (
+                  <option key={g.nome} value={g.nome}>
+                    {g.nome}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Tribunal" htmlFor="dias-tribunal">
+              <Select id="dias-tribunal" value={tribunal} onChange={(e) => escolher(ramo, e.target.value)} disabled={!ramo}>
+                <option value="">{ramo ? "Escolha o tribunal" : "Escolha primeiro a Justiça"}</option>
+                {opcoesTribunal.map((t) => (
+                  <option key={t} value={t}>
+                    {nomeTribunal(t)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
           {tribunal && <CalendarioDoTribunal key={`${tribunal}-${ano}`} tribunal={tribunal} ano={ano} />}
           <ul className="divide-y divide-slate-100">
             {dias.map((d, idx) => (
@@ -197,7 +219,7 @@ export default function PrazosPage() {
               </li>
             ))}
             <li className="px-5 py-3 text-xs text-slate-500">
-              Além destes, de 20/12 a 20/01 os prazos ficam suspensos (art. 220 do CPC). Feriados locais só entram no cálculo depois de cadastrados: escolha o tribunal acima para ver o calendário dele.
+              Além destes, de 20/12 a 20/01 os prazos ficam suspensos (art. 220 do CPC). Feriados locais só entram no cálculo depois de cadastrados: escolha a Justiça e o tribunal acima para ver o calendário dele.
             </li>
           </ul>
         </Card>
