@@ -1,9 +1,7 @@
-import { AlarmClock, ArrowRight, BellRing, Bot, CalendarCheck2, Check, Database, FileStack, KeyRound, MapPin, Radar, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
+import { ArrowRight, BookMarked, Bot, Check, Database, FolderKanban, KeyRound, MapPin, Radar, ScanSearch, ShieldCheck, Sparkles, UserPlus, UsersRound } from "lucide-react";
 import { Instrument_Serif } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { CampoDeLetras } from "@/components/auth/campo-de-letras";
-import { GotaCaindo } from "@/components/auth/gota-caindo";
 import { metadadosDaPagina } from "@/components/site/pagina-site";
 import { PainelIlustrado } from "@/components/site/painel-ilustrado";
 import { paginaPublicaObrigatoria } from "@/lib/publico/conteudo";
@@ -16,19 +14,19 @@ const pagina = paginaPublicaObrigatoria("/");
 export const metadata = metadadosDaPagina(pagina);
 
 const FUNCIONALIDADES = [
-  { icone: Radar, titulo: "Busca automática", texto: "A cada 6 horas o Clepsa consulta o Comunica PJe pelos nomes e números de OAB que o escritório monitora." },
-  { icone: AlarmClock, titulo: "Prazos com responsável", texto: "Cada intimação ganha prazo, responsável e situação: nova, em análise, respondida ou arquivada." },
-  { icone: BellRing, titulo: "Avisos e tela Hoje", texto: "Avisos por e-mail e uma tela com o que venceu, o que vence hoje e amanhã e o que acabou de chegar." },
-  { icone: FileStack, titulo: "Processos por fase", texto: "Andamentos do DataJud, documentos em PDF, pareceres e um quadro que mostra em que fase está cada caso." },
-  { icone: Bot, titulo: "Inteligência artificial", texto: "Resumos e sugestões sempre com a fonte. Nada é usado sem uma pessoa revisar antes." },
-  { icone: UsersRound, titulo: "Equipe e relatórios", texto: "Papéis de dono, advogado e estagiário, processos particulares, relatórios para clientes e Google Agenda." },
+  { icone: Radar, titulo: "Intimações e prazos", texto: "Busca automática no Comunica PJe, prazo contado com responsável, avisos por e-mail e a tela Hoje com o que vence agora." },
+  { icone: ScanSearch, titulo: "Análise de processos", texto: "Leitura do PDF, parecer do caso, avaliação de risco pela IA e os andamentos do DataJud no mesmo lugar." },
+  { icone: Bot, titulo: "Agentes de IA", texto: "Fluxos de IA que executam etapas em vários processos de uma vez, pesquisa com fonte e rascunhos para revisar." },
+  { icone: UsersRound, titulo: "Gestão de clientes", texto: "Cadastro de clientes, portal para o cliente acompanhar o caso, pedidos e relatórios do período." },
+  { icone: FolderKanban, titulo: "Gestão de processos", texto: "Quadro por fase, central de casos, protocolados, controle de prescrição e processos particulares da equipe." },
+  { icone: BookMarked, titulo: "Teses e biblioteca", texto: "As principais teses do escritório, modelos, jurisprudência e um monitor de precedentes que pesquisa as novidades sozinho." },
 ];
 
 const PASSOS = [
-  { icone: UserPlus, titulo: "Crie a conta do escritório", texto: "Convide a equipe e defina o papel de cada pessoa." },
-  { icone: Radar, titulo: "Cadastre quem monitorar", texto: "Clientes, advogados e números de OAB. Uma vez só." },
-  { icone: CalendarCheck2, titulo: "O Clepsa vigia o diário", texto: "Cada intimação nova entra na lista com o prazo contado." },
-  { icone: Check, titulo: "A equipe cumpre", texto: "Responsável, aviso e registro do que foi feito." },
+  { icone: UserPlus, titulo: "Monte o escritório", texto: "Crie a conta, convide a equipe e defina o papel de cada pessoa." },
+  { icone: UsersRound, titulo: "Traga clientes e processos", texto: "Cadastre clientes, OABs e processos. O Clepsa passa a acompanhar tudo." },
+  { icone: Sparkles, titulo: "A IA faz o trabalho pesado", texto: "Lê intimações e processos, resume, pesquisa e prepara rascunhos." },
+  { icone: Check, titulo: "A equipe decide", texto: "Cada sugestão com fonte, revisada e assinada por uma pessoa." },
 ];
 
 const SEGURANCA = [
@@ -37,9 +35,6 @@ const SEGURANCA = [
   { icone: MapPin, titulo: "Dados no Brasil", texto: "O banco de dados e o servidor ficam em São Paulo, com conexão sempre criptografada." },
   { icone: ShieldCheck, titulo: "IA sob revisão", texto: "A IA sugere e mostra a fonte. Quem decide é sempre uma pessoa." },
 ];
-
-// Faixa da vigília: 14 dias verificados, um com falha na consulta, para ilustrar a diferença.
-const DIAS_VIGILIA = ["ok", "ok", "ok", "ok", "ok", "ok", "falha", "ok", "ok", "ok", "ok", "ok", "ok", "hoje"] as const;
 
 function Titulo({ antes, destaque, depois, id }: { antes: string; destaque: string; depois?: string; id?: string }) {
   return (
@@ -66,19 +61,14 @@ export default function InicioPublicoPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonParaScript(dadosEstruturados()) }} />
-      <CampoDeLetras atenuarIds={["texto-inicio"]} />
-      <GotaCaindo textoId="texto-inicio" cartaoId="painel-inicio" />
 
       <Secao className="grid items-center gap-14 pb-20 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-16">
         <div id="texto-inicio" className="space-y-7">
-          <p className="w-fit rounded-full bg-white/[.04] px-3 py-1 text-[13px] text-slate-300 ring-1 ring-inset ring-white/10">
-            Monitoramento de intimações do Comunica PJe
-          </p>
           <p className={`${serifa.className} w-fit text-[44px] leading-[1.02] tracking-tight text-white sm:text-[60px] xl:text-[68px]`}>
             Nenhuma intimação <em className="block text-brand-300">passa despercebida.</em>
           </p>
           <h1 className="max-w-[34ch] text-lg font-medium leading-snug text-slate-100 sm:text-xl">
-            O Clepsa vigia o Diário de Justiça Eletrônico pelo seu escritório e transforma cada intimação em um prazo com responsável.
+            Intimações, processos, clientes e teses do escritório num só lugar, com agentes de IA que trabalham junto com a equipe.
           </h1>
           <div className="flex flex-wrap gap-3">
             <Link href="/criar-conta" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-3 font-medium text-white hover:bg-brand-500">
@@ -96,7 +86,7 @@ export default function InicioPublicoPage() {
 
       <Secao id="funcionalidades" className="py-20">
         <Titulo antes="O que o" destaque="Clepsa faz" />
-        <p className="mt-4 max-w-[52ch] text-[17px] text-slate-300">Do diário oficial ao prazo cumprido, num só lugar e com a equipe inteira olhando para a mesma lista.</p>
+        <p className="mt-4 max-w-[52ch] text-[17px] text-slate-300">Da intimação à estratégia do caso, com a equipe inteira trabalhando sobre a mesma informação.</p>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FUNCIONALIDADES.map(({ icone: Icone, titulo, texto }) => (
             <li key={titulo} className="group rounded-2xl bg-white/[.025] p-6 ring-1 ring-inset ring-white/[.07] transition hover:bg-white/[.045] hover:ring-brand-400/30">
@@ -134,47 +124,6 @@ export default function InicioPublicoPage() {
               </li>
             ))}
           </ol>
-        </div>
-      </Secao>
-
-      <Secao id="vigilia" className="py-20">
-        <div className="grid items-center gap-12 rounded-3xl bg-gradient-to-br from-brand-600/[.12] to-transparent p-6 ring-1 ring-inset ring-white/[.07] sm:p-10 lg:grid-cols-2">
-          <div>
-            <Titulo antes="Sem resultado não é" destaque="sem intimação." />
-            <p className="mt-5 text-[17px] leading-relaxed text-slate-300">
-              Quando uma consulta ao diário falha, uma tela vazia pode parecer um dia tranquilo. O Clepsa registra cada dia verificado e avisa quando uma verificação não deu certo.
-              Você sabe exatamente o que foi conferido.
-            </p>
-          </div>
-          <div aria-label="Ilustração: dias verificados nas últimas duas semanas, com um dia em que a consulta falhou" role="img">
-            <div className="grid grid-cols-7 gap-2 sm:gap-3">
-              {DIAS_VIGILIA.map((d, i) => (
-                <span
-                  key={i}
-                  className={
-                    d === "falha"
-                      ? "flex aspect-square items-center justify-center rounded-xl bg-amber-400/15 text-amber-300 ring-1 ring-inset ring-amber-300/40"
-                      : d === "hoje"
-                        ? "flex aspect-square items-center justify-center rounded-xl bg-brand-600 text-white shadow-[0_0_24px_rgb(55_102_248/.5)]"
-                        : "flex aspect-square items-center justify-center rounded-xl bg-white/[.04] text-brand-300 ring-1 ring-inset ring-white/10"
-                  }
-                >
-                  {d === "falha" ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                </span>
-              ))}
-            </div>
-            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm bg-brand-300" /> Dia verificado
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm bg-amber-300" /> Falha avisada
-              </span>
-              <span className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm bg-brand-600" /> Hoje
-              </span>
-            </div>
-          </div>
         </div>
       </Secao>
 

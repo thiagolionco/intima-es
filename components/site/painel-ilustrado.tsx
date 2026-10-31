@@ -50,7 +50,7 @@ const CARTOES = [
 ];
 
 const VISIVEIS = 4;
-const INTERVALO_MS = 3200;
+const INTERVALO_MS = 1600;
 
 /**
  * Ilustração da tela Hoje na página inicial: a cada poucos segundos chega uma intimação nova

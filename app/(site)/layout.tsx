@@ -29,7 +29,7 @@ export default function LayoutSite({ children }: { children: React.ReactNode }) 
       />
       <header className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-8 lg:px-12">
         <Link href="/" className="block w-fit rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-400">
-          <ClepsaMarca legenda="Monitoramento de intimações e prazos" />
+          <ClepsaMarca />
         </Link>
         <nav aria-label="Principal" className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           {NAVEGACAO.map((l) => (
