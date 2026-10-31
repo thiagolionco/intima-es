@@ -47,7 +47,7 @@ export function SecaoSite({ secao }: { secao: Secao }) {
 /** Página de texto do site público (sobre, contato, privacidade, documentação). */
 export function PaginaSite({ pagina }: { pagina: PaginaPublica }) {
   return (
-    <article className="space-y-10">
+    <article className="mx-auto w-full max-w-3xl space-y-10 px-4 py-10 sm:px-8 sm:py-14">
       <header className="space-y-4">
         <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{pagina.h1}</h1>
         {pagina.introducao.map((p, i) => (

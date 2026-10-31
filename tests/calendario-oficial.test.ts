@@ -23,7 +23,7 @@ class IaFalsa implements ServicoIa {
     this.pedidos.push(p);
     const r = this.respostas.shift() ?? { encontrado: false, dias: [] };
     if (r instanceof Error) throw r;
-    return { texto: JSON.stringify(r), fontesWeb: this.fontes.map((url) => ({ titulo: url, url })) };
+    return { texto: JSON.stringify(r), fontesWeb: this.fontes.map((url) => ({ titulo: url, url })), modelo: "teste" };
   }
 }
 
