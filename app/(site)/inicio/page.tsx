@@ -4,8 +4,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { CampoDeLetras } from "@/components/auth/campo-de-letras";
 import { GotaCaindo } from "@/components/auth/gota-caindo";
-import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
 import { metadadosDaPagina } from "@/components/site/pagina-site";
+import { PainelIlustrado } from "@/components/site/painel-ilustrado";
 import { paginaPublicaObrigatoria } from "@/lib/publico/conteudo";
 import { dadosEstruturados, jsonParaScript } from "@/lib/publico/jsonld";
 
@@ -38,14 +38,6 @@ const SEGURANCA = [
   { icone: ShieldCheck, titulo: "IA sob revisão", texto: "A IA sugere e mostra a fonte. Quem decide é sempre uma pessoa." },
 ];
 
-// Ilustração do painel: dados fictícios, só para mostrar como a tela é organizada.
-const LINHAS_EXEMPLO = [
-  { processo: "0801234-56.2026.8.26.0100", tipo: "Intimação", prazo: "Hoje", tom: "bg-rose-400/15 text-rose-200 ring-rose-300/30" },
-  { processo: "5004321-11.2026.4.03.6100", tipo: "Citação", prazo: "Amanhã", tom: "bg-amber-400/15 text-amber-200 ring-amber-300/30" },
-  { processo: "1009876-22.2026.8.26.0224", tipo: "Decisão", prazo: "3 dias", tom: "bg-brand-400/15 text-brand-200 ring-brand-300/30" },
-  { processo: "0012345-67.2026.5.02.0011", tipo: "Despacho", prazo: "5 dias", tom: "bg-brand-400/15 text-brand-200 ring-brand-300/30" },
-];
-
 // Faixa da vigília: 14 dias verificados, um com falha na consulta, para ilustrar a diferença.
 const DIAS_VIGILIA = ["ok", "ok", "ok", "ok", "ok", "ok", "falha", "ok", "ok", "ok", "ok", "ok", "ok", "hoje"] as const;
 
@@ -63,58 +55,6 @@ function Secao({ id, children, className = "" }: { id?: string; children: ReactN
     <section id={id} className={`mx-auto w-full max-w-[1200px] scroll-mt-8 px-4 sm:px-8 lg:px-12 ${className}`}>
       {children}
     </section>
-  );
-}
-
-/** Painel ilustrado do topo: a tela Hoje com dados fictícios, desenhada em HTML (nítida em qualquer tela). */
-function PainelIlustrado() {
-  return (
-    <figure id="painel-inicio" className="relative">
-      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[32px] bg-brand-600/20 blur-3xl" aria-hidden />
-      <div className="overflow-hidden rounded-2xl bg-[#0a1430]/90 shadow-[0_40px_80px_-40px_rgb(0_0_0/.9)] ring-1 ring-white/10 backdrop-blur" aria-hidden>
-        <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
-          <span className="flex items-center gap-2 text-sm font-medium text-white">
-            <ClepsaSimbolo className="h-5 w-5" /> Clepsa
-          </span>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/20 text-[11px] font-semibold text-brand-200">AL</span>
-        </div>
-        <div className="grid grid-cols-[120px_1fr] max-sm:grid-cols-1">
-          <ul className="space-y-1 border-r border-white/5 p-3 text-[12px] text-slate-400 max-sm:hidden">
-            {["Hoje", "Intimações", "Processos", "Clientes", "Equipe", "Relatórios"].map((item, i) => (
-              <li key={item} className={i === 0 ? "rounded-md bg-brand-500/15 px-2 py-1.5 font-medium text-brand-200" : "px-2 py-1.5"}>
-                {item}
-              </li>
-            ))}
-          </ul>
-          <div className="space-y-4 p-4">
-            <p className="text-sm font-medium text-white">Hoje</p>
-            <div className="grid grid-cols-4 gap-2">
-              {[
-                { rotulo: "Vencidos", valor: "0", cor: "text-emerald-300" },
-                { rotulo: "Hoje", valor: "1", cor: "text-rose-300" },
-                { rotulo: "Amanhã", valor: "1", cor: "text-amber-300" },
-                { rotulo: "Novas", valor: "6", cor: "text-brand-300" },
-              ].map((c) => (
-                <div key={c.rotulo} className="rounded-lg bg-white/[.03] p-2.5 ring-1 ring-inset ring-white/5">
-                  <p className="truncate text-[10px] text-slate-400">{c.rotulo}</p>
-                  <p className={`mt-1 text-xl font-semibold ${c.cor}`}>{c.valor}</p>
-                </div>
-              ))}
-            </div>
-            <div className="overflow-hidden rounded-lg ring-1 ring-inset ring-white/5">
-              {LINHAS_EXEMPLO.map((l) => (
-                <div key={l.processo} className="flex items-center gap-3 border-b border-white/5 px-3 py-2.5 text-[11px] last:border-0">
-                  <span className="min-w-0 flex-1 truncate font-mono text-slate-300">{l.processo}</span>
-                  <span className="w-16 text-slate-400 max-sm:hidden">{l.tipo}</span>
-                  <span className={`w-16 rounded-full px-2 py-0.5 text-center ring-1 ring-inset ${l.tom}`}>{l.prazo}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-      <figcaption className="mt-3 text-right text-xs text-slate-500">Ilustração da tela Hoje. Os dados são fictícios.</figcaption>
-    </figure>
   );
 }
 
