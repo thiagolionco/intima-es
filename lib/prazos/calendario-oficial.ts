@@ -8,6 +8,13 @@ import { dataValida, diaDaSemana, somarDias } from "./datas.ts";
  * dia a mais no calendário empurra o vencimento para depois do real.
  */
 
+/**
+ * A leitura pela IA gasta tokens a cada tribunal e ano; fica desligada até haver um jeito mais barato.
+ * Para religar, defina NEXT_PUBLIC_CALENDARIO_OFICIAL_IA=1 na Vercel. Desligada, a tela mostra o
+ * link do calendário oficial e o advogado cadastra os dias à mão.
+ */
+export const LEITURA_PELA_IA = process.env.NEXT_PUBLIC_CALENDARIO_OFICIAL_IA === "1";
+
 export type Abrangencia = "nacional" | "estadual" | "municipal" | "orgao";
 
 export interface DiaOficial {

@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
+import { LEITURA_PELA_IA } from "@/lib/prazos/calendario-oficial";
 import { container } from "@/server/container";
 import { rotaAutenticada } from "@/server/http/rota";
 
@@ -13,7 +14,8 @@ const SEMANA = 7 * 24 * 3600;
 /** Dias sem expediente do calendário publicado pelo tribunal: ?tribunal=TRT9&ano=2026. */
 export const GET = rotaAutenticada(async ({ usuario, req }) => {
   const servico = container().calendarioOficial;
-  if (!servico.disponivel) return NextResponse.json({ disponivel: false });
+  // Desligada para economizar tokens (ver LEITURA_PELA_IA): nenhuma leitura nova é feita.
+  if (!LEITURA_PELA_IA || !servico.disponivel) return NextResponse.json({ disponivel: false });
   const p = new URL(req.url).searchParams;
   const { tribunal, ano } = servico.validar(p.get("tribunal"), p.get("ano"));
   // A chave é só o tribunal e o ano (o usuário fica fora dela): a mesma leitura serve a todos.

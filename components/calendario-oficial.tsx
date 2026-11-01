@@ -11,6 +11,7 @@ import {
   descricaoDoDia,
   filtrarPorLocal,
   jaCadastrados,
+  LEITURA_PELA_IA,
   locaisDoCalendario,
   NOMES_ABRANGENCIA,
   soOQueAcrescenta,
@@ -46,12 +47,13 @@ function lerLocal(tribunal: string): string {
 export function CalendarioDoTribunal({ tribunal, ano }: { tribunal: string; ano: number }) {
   const { suspensoes, salvarSuspensoes } = useStore();
   const { toast } = useToast();
-  const [estado, setEstado] = useState<Estado>({ tipo: "carregando" });
+  const [estado, setEstado] = useState<Estado>(LEITURA_PELA_IA ? { tipo: "carregando" } : { tipo: "desligado" });
   const [tentativa, setTentativa] = useState(0);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [local, setLocal] = useState("");
 
   useEffect(() => {
+    if (!LEITURA_PELA_IA) return;
     const controle = new AbortController();
     setEstado({ tipo: "carregando" });
     api<{ disponivel: boolean; calendario?: Calendario }>(`/api/calendario-oficial?tribunal=${encodeURIComponent(tribunal)}&ano=${ano}`, { signal: controle.signal })
@@ -117,19 +119,26 @@ export function CalendarioDoTribunal({ tribunal, ano }: { tribunal: string; ano:
       </div>
     );
   }
-  if (estado.tipo === "desligado" || estado.tipo === "erro") {
+  if (estado.tipo === "desligado") {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-800">
-        <span className="flex-1">{estado.tipo === "erro" ? estado.mensagem : "A leitura do calendário pela IA não está ligada neste servidor."}</span>
-        {estado.tipo === "erro" && (
-          <button type="button" onClick={() => setTentativa((t) => t + 1)} className="inline-flex items-center gap-1 font-medium text-amber-900 hover:underline">
-            <RotateCw className="h-3 w-3" aria-hidden /> Tentar de novo
-          </button>
-        )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-slate-100 px-5 py-3 text-xs text-slate-600">
+        <span className="flex-1">Confira os feriados e suspensões do {tribunal} no calendário oficial e cadastre ao lado os que valem para os seus processos.</span>
         {link}
       </div>
     );
   }
+  if (estado.tipo === "erro") {
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-800">
+        <span className="flex-1">{estado.mensagem}</span>
+        <button type="button" onClick={() => setTentativa((t) => t + 1)} className="inline-flex items-center gap-1 font-medium text-amber-900 hover:underline">
+          <RotateCw className="h-3 w-3" aria-hidden /> Tentar de novo
+        </button>
+        {link}
+      </div>
+    );
+  }
+
 
   const { calendario } = estado;
   return (
