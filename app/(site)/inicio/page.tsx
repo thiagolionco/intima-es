@@ -1,4 +1,4 @@
-import { ArrowRight, BookMarked, Bot, Check, Database, FolderKanban, KeyRound, MapPin, Radar, ScanSearch, ShieldCheck, Sparkles, UserPlus, UsersRound } from "lucide-react";
+import { ArrowRight, BookMarked, Bot, Check, Database, FolderKanban, KeyRound, Radar, ScanSearch, ShieldCheck, Sparkles, UserPlus, UsersRound } from "lucide-react";
 import { Instrument_Serif } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -14,12 +14,12 @@ const pagina = paginaPublicaObrigatoria("/");
 export const metadata = metadadosDaPagina(pagina);
 
 const FUNCIONALIDADES = [
-  { icone: Radar, titulo: "Intimações e prazos", texto: "Busca automática no Comunica PJe, prazo contado com responsável, avisos por e-mail e a tela Hoje com o que vence agora." },
-  { icone: ScanSearch, titulo: "Análise de processos", texto: "Leitura do PDF, parecer do caso, avaliação de risco pela IA e os andamentos do DataJud no mesmo lugar." },
-  { icone: Bot, titulo: "Agentes de IA", texto: "Fluxos de IA que executam etapas em vários processos de uma vez, pesquisa com fonte e rascunhos para revisar." },
+  { icone: Radar, titulo: "Intimações e prazos", texto: "Busca automática de intimações e avisos para a equipe não perder nenhum prazo." },
+  { icone: ScanSearch, titulo: "Análise de processos", texto: "Parecer, avaliação de risco e andamentos de cada caso." },
+  { icone: Bot, titulo: "Agentes de IA", texto: "Fluxos de IA que trabalham em vários processos de uma vez." },
   { icone: UsersRound, titulo: "Gestão de clientes", texto: "Cadastro de clientes, portal para o cliente acompanhar o caso, pedidos e relatórios do período." },
-  { icone: FolderKanban, titulo: "Gestão de processos", texto: "Quadro por fase, central de casos, protocolados, controle de prescrição e processos particulares da equipe." },
-  { icone: BookMarked, titulo: "Teses e biblioteca", texto: "As principais teses do escritório, modelos, jurisprudência e um monitor de precedentes que pesquisa as novidades sozinho." },
+  { icone: FolderKanban, titulo: "Gestão de processos", texto: "Todos os casos do escritório organizados, do início ao fim." },
+  { icone: BookMarked, titulo: "Teses e biblioteca", texto: "O conhecimento do escritório reunido e sempre atualizado." },
 ];
 
 const PASSOS = [
@@ -30,9 +30,8 @@ const PASSOS = [
 ];
 
 const SEGURANCA = [
-  { icone: Database, titulo: "Separação por escritório", texto: "A separação é feita no próprio banco de dados. Um escritório nunca vê os dados de outro." },
+  { icone: Database, titulo: "Separação por escritório", texto: "Seus dados ficam protegidos no banco, separados dos de qualquer outro escritório." },
   { icone: KeyRound, titulo: "Acesso por papel", texto: "O dono decide quem entra e o que cada pessoa da equipe pode ver e mudar." },
-  { icone: MapPin, titulo: "Dados no Brasil", texto: "O banco de dados e o servidor ficam em São Paulo, com conexão sempre criptografada." },
   { icone: ShieldCheck, titulo: "IA sob revisão", texto: "A IA sugere e mostra a fonte. Quem decide é sempre uma pessoa." },
 ];
 
@@ -84,8 +83,8 @@ export default function InicioPublicoPage() {
 
       <div className="border-t border-white/5" />
 
-      <Secao id="funcionalidades" className="py-20">
-        <Titulo antes="O que o" destaque="Clepsa faz" />
+      <Secao id="servicos" className="py-20">
+        <Titulo antes="Nossos" destaque="serviços" />
         <p className="mt-4 max-w-[52ch] text-[17px] text-slate-300">Da intimação à estratégia do caso, com a equipe inteira trabalhando sobre a mesma informação.</p>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FUNCIONALIDADES.map(({ icone: Icone, titulo, texto }) => (
@@ -141,7 +140,7 @@ export default function InicioPublicoPage() {
               Como protegemos os dados <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </div>
-          <ul className="grid gap-px overflow-hidden rounded-2xl bg-white/[.07] ring-1 ring-inset ring-white/[.07] sm:grid-cols-2">
+          <ul className="grid gap-px overflow-hidden rounded-2xl bg-white/[.07] ring-1 ring-inset ring-white/[.07] sm:grid-cols-3">
             {SEGURANCA.map(({ icone: Icone, titulo, texto }) => (
               <li key={titulo} className="bg-[#060c1d] p-6">
                 <Icone className="h-5 w-5 text-brand-300" aria-hidden />
