@@ -149,3 +149,34 @@ test("pedido inválido, IA desligada ou com falha", async () => {
   const falha = new CalendarioOficialService({ ia: new IaFalsa([new Error("timeout")]), baixar: async () => ({ tipo: "texto", texto: "x" }), clock: relogio });
   await assert.rejects(falha.ler("u1", "TJPR", 2026), erro("indisponivel"));
 });
+
+test("escolha da cidade: locais do calendário e filtro", async () => {
+  const { filtrarPorLocal, locaisDoCalendario } = await import("../lib/prazos/calendario-oficial.ts");
+  const dias = limparDiasOficiais(
+    [
+      dia("2026-09-08", "Padroeira", { abrangencia: "municipal", local: "Curitiba" }),
+      dia("2026-06-10", "Aniversário", { abrangencia: "municipal", local: "Foz do Iguaçu" }),
+      dia("2026-06-05", "Suspensão de expediente"),
+      dia("2026-12-10", "Aniversário", { abrangencia: "municipal", local: "Londrina" }),
+      dia("2026-08-20", "Emancipação", { abrangencia: "orgao", local: "Vara do Trabalho de Assis Chateaubriand" }),
+    ],
+    2026,
+  );
+  assert.deepEqual(locaisDoCalendario(dias), ["Curitiba", "Foz do Iguaçu", "Londrina", "Vara do Trabalho de Assis Chateaubriand"]);
+  assert.deepEqual(
+    filtrarPorLocal(dias, "Curitiba").map((d) => d.inicio),
+    ["2026-06-05", "2026-09-08"],
+  );
+  assert.equal(filtrarPorLocal(dias, "").length, 5);
+});
+
+test("nome e ramo de cada tribunal", async () => {
+  const { nomeTribunal, ramoDoTribunal } = await import("../lib/prazos/tribunais.ts");
+  assert.equal(nomeTribunal("tjpr"), "TJPR · Paraná");
+  assert.equal(nomeTribunal("TRT9"), "TRT9 · Paraná");
+  assert.equal(nomeTribunal("STJ"), "STJ · Superior Tribunal de Justiça");
+  assert.match(nomeTribunal("TRF4"), /RS, SC, PR/);
+  assert.equal(ramoDoTribunal("TJDFT"), "Justiça Estadual");
+  assert.equal(ramoDoTribunal("TRT-9"), "Justiça do Trabalho");
+  assert.equal(ramoDoTribunal("XYZ"), "");
+});

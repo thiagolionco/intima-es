@@ -97,3 +97,41 @@ export function dominioTribunal(tribunal: string): string | undefined {
   const t = siglaTribunal(tribunal);
   return GRUPOS_TRIBUNAIS.some((g) => g.siglas.includes(t)) ? `${t.toLowerCase()}.jus.br` : undefined;
 }
+
+const ESTADOS: Record<string, string> = {
+  AC: "Acre", AL: "Alagoas", AM: "Amazonas", AP: "Amapá", BA: "Bahia", CE: "Ceará", DFT: "Distrito Federal e Territórios", ES: "Espírito Santo",
+  GO: "Goiás", MA: "Maranhão", MG: "Minas Gerais", MS: "Mato Grosso do Sul", MT: "Mato Grosso", PA: "Pará", PB: "Paraíba", PE: "Pernambuco",
+  PI: "Piauí", PR: "Paraná", RJ: "Rio de Janeiro", RN: "Rio Grande do Norte", RO: "Rondônia", RR: "Roraima", RS: "Rio Grande do Sul",
+  SC: "Santa Catarina", SE: "Sergipe", SP: "São Paulo", TO: "Tocantins",
+};
+
+const NOMES: Record<string, string> = {
+  STF: "Supremo Tribunal Federal",
+  STJ: "Superior Tribunal de Justiça",
+  TST: "Tribunal Superior do Trabalho",
+  STM: "Superior Tribunal Militar",
+  TSE: "Tribunal Superior Eleitoral",
+  TRF1: "1ª Região (DF, GO, MT, BA, PI, MA, PA, AM, AC, RR, RO, AP, TO)",
+  TRF2: "2ª Região (RJ, ES)",
+  TRF3: "3ª Região (SP, MS)",
+  TRF4: "4ª Região (RS, SC, PR)",
+  TRF5: "5ª Região (PE, AL, CE, PB, RN, SE)",
+  TRF6: "6ª Região (MG)",
+  TRT1: "Rio de Janeiro", TRT2: "São Paulo (capital e região)", TRT3: "Minas Gerais", TRT4: "Rio Grande do Sul", TRT5: "Bahia", TRT6: "Pernambuco",
+  TRT7: "Ceará", TRT8: "Pará e Amapá", TRT9: "Paraná", TRT10: "Distrito Federal e Tocantins", TRT11: "Amazonas e Roraima", TRT12: "Santa Catarina",
+  TRT13: "Paraíba", TRT14: "Rondônia e Acre", TRT15: "Campinas (interior de SP)", TRT16: "Maranhão", TRT17: "Espírito Santo", TRT18: "Goiás",
+  TRT19: "Alagoas", TRT20: "Sergipe", TRT21: "Rio Grande do Norte", TRT22: "Piauí", TRT23: "Mato Grosso", TRT24: "Mato Grosso do Sul",
+};
+
+/** "TJPR · Paraná", "TRT9 · Paraná", "STJ · Superior Tribunal de Justiça". */
+export function nomeTribunal(tribunal: string): string {
+  const t = siglaTribunal(tribunal);
+  const nome = NOMES[t] ?? (t.startsWith("TJ") ? ESTADOS[t.slice(2)] : undefined);
+  return nome ? `${t} · ${nome}` : t;
+}
+
+/** Ramo da Justiça a que o tribunal pertence (nome do grupo), ou vazio se não estiver na lista. */
+export function ramoDoTribunal(tribunal: string): string {
+  const t = siglaTribunal(tribunal);
+  return GRUPOS_TRIBUNAIS.find((g) => g.siglas.includes(t))?.nome ?? "";
+}
