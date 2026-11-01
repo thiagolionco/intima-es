@@ -5,9 +5,7 @@ import { ClepsaMarca } from "@/components/marca/clepsa-simbolo";
 const sans = Inter({ subsets: ["latin"], display: "swap" });
 
 const NAVEGACAO = [
-  { href: "/#funcionalidades", rotulo: "Funcionalidades" },
-  { href: "/#como-funciona", rotulo: "Como funciona" },
-  { href: "/#seguranca", rotulo: "Segurança" },
+  { href: "/#servicos", rotulo: "Serviços" },
   { href: "/sobre", rotulo: "Sobre" },
 ];
 
