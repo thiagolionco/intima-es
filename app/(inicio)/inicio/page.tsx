@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { metadadosDaPagina } from "@/components/site/pagina-site";
 import { PainelIlustrado } from "@/components/site/painel-ilustrado";
-import { TopoFluido } from "@/components/site/topo-fluido";
+import { TopoTribunal } from "@/components/site/topo-tribunal";
 import { paginaPublicaObrigatoria } from "@/lib/publico/conteudo";
 import { dadosEstruturados, jsonParaScript } from "@/lib/publico/jsonld";
 
@@ -64,7 +64,7 @@ export default function InicioPublicoPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonParaScript(dadosEstruturados()) }} />
 
-      <TopoFluido />
+      <TopoTribunal />
 
       <Secao className="grid items-center gap-14 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-16">
         <div className="space-y-6">
