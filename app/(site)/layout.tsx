@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import Link from "next/link";
 import { ClepsaMarca } from "@/components/marca/clepsa-simbolo";
+import { RodapeSite } from "@/components/site/rodape-site";
 
 const sans = Inter({ subsets: ["latin"], display: "swap" });
 
@@ -9,14 +10,7 @@ const NAVEGACAO = [
   { href: "/sobre", rotulo: "Sobre" },
 ];
 
-const RODAPE = [
-  { href: "/sobre", rotulo: "Sobre" },
-  { href: "/contato", rotulo: "Contato" },
-  { href: "/seguranca", rotulo: "Segurança" },
-  { href: "/privacidade", rotulo: "Privacidade" },
-];
-
-/** Site público (início, sobre, contato, privacidade): renderizado no servidor, legível sem JavaScript. */
+/** Site público (sobre, contato, privacidade; o início tem layout próprio em app/(inicio)): renderizado no servidor, legível sem JavaScript. */
 export default function LayoutSite({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${sans.className} relative isolate flex min-h-screen flex-col bg-[#050a18] text-slate-50`}>
@@ -46,16 +40,7 @@ export default function LayoutSite({ children }: { children: React.ReactNode }) 
 
       <main className="w-full flex-1">{children}</main>
 
-      <footer className="mx-auto w-full max-w-[1200px] px-4 py-6 text-[13px] leading-relaxed text-slate-400 sm:px-8 lg:px-12">
-        <nav aria-label="Rodapé" className="flex flex-wrap gap-x-4 gap-y-1">
-          {RODAPE.map((l) => (
-            <Link key={l.href} href={l.href} className="hover:text-slate-200">
-              {l.rotulo}
-            </Link>
-          ))}
-        </nav>
-        <p className="mt-2">© {new Date().getFullYear()} Clepsa · Fonte: Comunica PJe, Diário de Justiça Eletrônico Nacional</p>
-      </footer>
+      <RodapeSite />
     </div>
   );
 }

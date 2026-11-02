@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { ArrowLeft, ArrowRight, Building2, Check, Copy, UserPlus, WandSparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Aviso, BotaoPrincipal, Cabecalho, ErroCampo, Rotulo } from "@/components/auth/blocos";
 import { CampoSenha, CampoTexto, MedidorSenha } from "@/components/auth/campos";
 import { api, ErroApi } from "@/lib/auth/api";
@@ -44,6 +44,12 @@ export default function CriarConta() {
   const [enviando, setEnviando] = useState(false);
   const [senhaGerada, setSenhaGerada] = useState(false);
   const [copiada, setCopiada] = useState(false);
+
+  // A página inicial manda o e-mail digitado lá (/criar-conta?email=...): já abre preenchido.
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email")?.trim().slice(0, 254);
+    if (email) setDados((d) => (d.email ? d : { ...d, email }));
+  }, []);
 
   const set = (campo: keyof typeof dados) => (e: { target: { value: string } }) => {
     setDados((d) => ({ ...d, [campo]: e.target.value }));

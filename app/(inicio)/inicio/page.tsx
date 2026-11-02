@@ -1,13 +1,11 @@
 import { ArrowRight, BookMarked, Bot, Check, Database, FolderKanban, KeyRound, Radar, ScanSearch, ShieldCheck, Sparkles, UserPlus, UsersRound } from "lucide-react";
-import { Instrument_Serif } from "next/font/google";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { metadadosDaPagina } from "@/components/site/pagina-site";
 import { PainelIlustrado } from "@/components/site/painel-ilustrado";
+import { TopoFluido } from "@/components/site/topo-fluido";
 import { paginaPublicaObrigatoria } from "@/lib/publico/conteudo";
 import { dadosEstruturados, jsonParaScript } from "@/lib/publico/jsonld";
-
-const serifa = Instrument_Serif({ subsets: ["latin"], weight: ["400"], style: ["normal", "italic"], display: "swap" });
 
 const pagina = paginaPublicaObrigatoria("/");
 
@@ -35,10 +33,15 @@ const SEGURANCA = [
   { icone: ShieldCheck, titulo: "IA sob revisão", texto: "A IA sugere e mostra a fonte. Quem decide é sempre uma pessoa." },
 ];
 
+/** Palavra em destaque com a mesma faixa de cor da tinta do topo (ciano → violeta → magenta). */
+function Destaque({ children }: { children: ReactNode }) {
+  return <span className="bg-gradient-to-r from-cyan-300 via-indigo-300 to-fuchsia-300 bg-clip-text text-transparent">{children}</span>;
+}
+
 function Titulo({ antes, destaque, depois, id }: { antes: string; destaque: string; depois?: string; id?: string }) {
   return (
-    <h2 id={id} className={`${serifa.className} text-[36px] leading-[1.05] tracking-tight text-white sm:text-[44px]`}>
-      {antes} <em className="text-brand-300">{destaque}</em>
+    <h2 id={id} className="text-[34px] font-medium leading-[1.08] tracking-[-0.02em] text-[#eef0f6] sm:text-[44px]">
+      {antes} <Destaque>{destaque}</Destaque>
       {depois}
     </h2>
   );
@@ -61,19 +64,17 @@ export default function InicioPublicoPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonParaScript(dadosEstruturados()) }} />
 
-      <Secao className="grid items-center gap-14 pb-20 pt-10 sm:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-16">
-        <div id="texto-inicio" className="space-y-7">
-          <p className={`${serifa.className} w-fit text-[44px] leading-[1.02] tracking-tight text-white sm:text-[60px] xl:text-[68px]`}>
-            Nenhuma intimação <em className="block text-brand-300">passa despercebida.</em>
-          </p>
-          <h1 className="max-w-[34ch] text-lg font-medium leading-snug text-slate-100 sm:text-xl">
-            Intimações, processos, clientes e teses do escritório num só lugar, com agentes de IA que trabalham junto com a equipe.
-          </h1>
+      <TopoFluido />
+
+      <Secao className="grid items-center gap-14 py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,540px)] lg:gap-16">
+        <div className="space-y-6">
+          <Titulo antes="Tudo do escritório" destaque="num só lugar" />
+          <p className="max-w-[44ch] text-[17px] leading-relaxed text-slate-300">Da intimação à estratégia do caso, com a equipe inteira trabalhando sobre a mesma informação.</p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/criar-conta" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-3 font-medium text-white hover:bg-brand-500">
+            <Link href="/criar-conta" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 font-medium text-[#2f2f33] hover:bg-white/85">
               Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <Link href="#como-funciona" className="rounded-lg px-5 py-3 font-medium text-slate-100 ring-1 ring-inset ring-white/20 hover:bg-white/5">
+            <Link href="#como-funciona" className="rounded-full px-5 py-3 font-medium text-slate-100 ring-1 ring-inset ring-white/20 hover:bg-white/5">
               Ver como funciona
             </Link>
           </div>
@@ -85,7 +86,6 @@ export default function InicioPublicoPage() {
 
       <Secao id="servicos" className="py-20">
         <Titulo antes="Nossos" destaque="serviços" />
-        <p className="mt-4 max-w-[52ch] text-[17px] text-slate-300">Da intimação à estratégia do caso, com a equipe inteira trabalhando sobre a mesma informação.</p>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FUNCIONALIDADES.map(({ icone: Icone, titulo, texto }) => (
             <li key={titulo} className="group rounded-2xl bg-white/[.025] p-6 ring-1 ring-inset ring-white/[.07] transition hover:bg-white/[.045] hover:ring-brand-400/30">
@@ -142,7 +142,7 @@ export default function InicioPublicoPage() {
           </div>
           <ul className="grid gap-px overflow-hidden rounded-2xl bg-white/[.07] ring-1 ring-inset ring-white/[.07] sm:grid-cols-3">
             {SEGURANCA.map(({ icone: Icone, titulo, texto }) => (
-              <li key={titulo} className="bg-[#060c1d] p-6">
+              <li key={titulo} className="bg-[#070910] p-6">
                 <Icone className="h-5 w-5 text-brand-300" aria-hidden />
                 <h3 className="mt-4 font-medium text-white">{titulo}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-400">{texto}</p>
@@ -159,17 +159,19 @@ export default function InicioPublicoPage() {
           </svg>
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className={`${serifa.className} text-[34px] leading-[1.1] tracking-tight text-white sm:text-[42px]`}>
+              <p className="text-[32px] font-medium leading-[1.1] tracking-[-0.02em] text-[#eef0f6] sm:text-[40px]">
                 Tempo bem administrado
-                <em className="block text-brand-300">também é justiça.</em>
+                <span className="block">
+                  <Destaque>também é justiça.</Destaque>
+                </span>
               </p>
               <p className="mt-4 max-w-[46ch] text-slate-300">Crie a conta do escritório e cadastre o primeiro cliente em poucos minutos.</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link href="/criar-conta" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-3 font-medium text-white hover:bg-brand-500">
+              <Link href="/criar-conta" className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 font-medium text-[#2f2f33] hover:bg-white/85">
                 Começar agora <ArrowRight className="h-4 w-4" aria-hidden />
               </Link>
-              <Link href="/entrar" className="rounded-lg px-5 py-3 font-medium text-slate-100 ring-1 ring-inset ring-white/20 hover:bg-white/5">
+              <Link href="/entrar" className="rounded-full px-5 py-3 font-medium text-slate-100 ring-1 ring-inset ring-white/20 hover:bg-white/5">
                 Já tenho conta
               </Link>
             </div>

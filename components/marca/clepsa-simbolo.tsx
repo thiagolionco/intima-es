@@ -5,12 +5,12 @@ import { ClepsaSimboloAnimado } from "./clepsa-simbolo-animado";
  * Símbolo da Clepsa: uma gota sobre duas ondas concêntricas.
  * Formas chapadas e poucas, para continuar legível em 16px (favicon) e em avatares.
  */
-export function ClepsaSimbolo({ className }: { className?: string }) {
+export function ClepsaSimbolo({ className, cor = "#5c8dfd" }: { className?: string; cor?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={clsx("shrink-0", className)} aria-hidden focusable="false">
-      <path d="M16 3.5c1.6 3.4 5 5.6 5 9.1a5 5 0 0 1-10 0c0-3.5 3.4-5.7 5-9.1Z" fill="#5c8dfd" />
-      <ellipse cx="16" cy="25" rx="6.5" ry="2" fill="none" stroke="#5c8dfd" strokeWidth="1.8" />
-      <ellipse cx="16" cy="25" rx="13" ry="4.2" fill="none" stroke="#5c8dfd" strokeOpacity=".55" strokeWidth="1.8" />
+      <path d="M16 3.5c1.6 3.4 5 5.6 5 9.1a5 5 0 0 1-10 0c0-3.5 3.4-5.7 5-9.1Z" fill={cor} />
+      <ellipse cx="16" cy="25" rx="6.5" ry="2" fill="none" stroke={cor} strokeWidth="1.8" />
+      <ellipse cx="16" cy="25" rx="13" ry="4.2" fill="none" stroke={cor} strokeOpacity=".55" strokeWidth="1.8" />
     </svg>
   );
 }
