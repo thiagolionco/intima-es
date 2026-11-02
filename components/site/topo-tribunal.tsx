@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import { ClepsaSimbolo } from "@/components/marca/clepsa-simbolo";
-import { FundoFluido } from "./fluido/fundo-fluido";
-import s from "./topo-fluido.module.css";
+import { FundoTribunal } from "./tribunal/fundo-tribunal";
+import s from "./topo-tribunal.module.css";
 
 const NAVEGACAO = [
   { href: "#servicos", rotulo: "Serviços" },
@@ -35,14 +35,14 @@ function PorPalavra({ texto, inicio, intervalo, duracao, deslocamento }: { texto
 }
 
 /**
- * Topo da página inicial em tela cheia: tinta em fluido (WebGL) ao fundo, véu escuro no
+ * Topo da página inicial em tela cheia: tribunal ateniense desenhado em luz ao fundo, véu escuro no
  * centro para o texto ficar legível e o conteúdo entrando em sequência.
  * O formulário leva o e-mail para a criação de conta, que já abre com ele preenchido.
  */
-export function TopoFluido() {
+export function TopoTribunal() {
   return (
     <section className={s.topo} aria-labelledby="titulo-inicio">
-      <FundoFluido className={s.camada} />
+      <FundoTribunal className={s.camada} />
       <div className={s.veu} aria-hidden />
 
       <header className={`${s.barra} ${s.bloco}`} style={atraso(ATRASO.barra)}>

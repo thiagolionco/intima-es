@@ -5,7 +5,7 @@ import { RolagemSuave } from "@/components/site/rolagem-suave";
 const sans = Onest({ subsets: ["latin"], weight: ["400", "500"], display: "swap" });
 
 /**
- * Layout só da página inicial pública: o topo em tela cheia (com a tinta em fluido) traz a
+ * Layout só da página inicial pública: o topo em tela cheia (com o tribunal ateniense ao fundo) traz a
  * própria barra de navegação, por isso aqui não há cabeçalho. As demais páginas do site
  * usam app/(site)/layout.tsx.
  */

@@ -1,5 +1,5 @@
 /*
- * Topo da página inicial: tela cheia escura com tinta em fluido (WebGL) ao fundo.
+ * Topo da página inicial: tela cheia escura com um tribunal ateniense desenhado em luz ao fundo.
  * Medidas na unidade --u, que segue a "grade rem adaptativa" do modelo: 16px até 1920px
  * de largura e, abaixo disso, proporcional à tela (1920, 1440, 1024 e 360 de referência).
  * Assim o topo inteiro cresce e encolhe junto, sem mexer no rem do resto do app.
@@ -49,16 +49,6 @@
   pointer-events: none;
   transition: opacity 600ms var(--ease-entrance);
 }
-/* Fundo parado (sem WebGL ou com "reduzir movimento"): manchas nas mesmas cores da tinta. */
-.camada[data-fundo-estatico] {
-  background:
-    radial-gradient(38% 34% at 30% 38%, rgba(0, 214, 255, 0.75), transparent 70%),
-    radial-gradient(34% 36% at 68% 58%, rgba(196, 0, 255, 0.75), transparent 70%),
-    radial-gradient(30% 28% at 56% 30%, rgba(60, 80, 255, 0.8), transparent 70%),
-    radial-gradient(26% 26% at 38% 70%, rgba(255, 0, 200, 0.6), transparent 70%),
-    var(--hero-base);
-}
-
 .veu {
   position: absolute;
   inset: 0;
