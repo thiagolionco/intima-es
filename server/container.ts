@@ -70,6 +70,7 @@ import { EditorIaService } from "./ia/editor.ts";
 import { PesquisaService } from "./ia/pesquisa.ts";
 import { CalendarioOficialService } from "./prazos/calendario-oficial.ts";
 import { AgenteService } from "./ia/agente.ts";
+import { AgentePrazosService } from "./ia/agente-prazos.ts";
 import { FluxosIaService } from "./ia/fluxos.ts";
 import { PedidosService } from "./ia/pedidos.ts";
 import { PortalService } from "./ia/portal.ts";
@@ -325,6 +326,8 @@ function montar() {
     clock,
     limitar: limiteIa("assistente", 60),
   });
+  // Agente de Prazos (piloto): Haiku lê, o código confere; o Sonnet só relê quando o conferente reprova.
+  const agentePrazos = new AgentePrazosService({ espacos: espacosRepo, ia, clock, limitar: limiteIa("agente-prazos", 100) });
   const fluxosIa = new FluxosIaService({
     repo: registrosRepo,
     processos: processosRepo,
@@ -478,6 +481,7 @@ function montar() {
     pesquisa,
     calendarioOficial,
     agente,
+    agentePrazos,
     fluxosIa,
     pedidos,
     portal,

@@ -164,7 +164,7 @@ const DEFINICOES: Definicao[] = [
     acao: "Peticionar se manifestando sobre o que foi determinado.",
     tom: "acao",
     prazoLegal: { dias: 5, base: "CPC, art. 218, § 3º, quando o juízo não fixa prazo" },
-    padroes: [/\bmanifest(?:e|em|ar|acao)\b/, /\b(?:de-se|abra-se|com)\s+vista\b/, /\bvista\s+(?:as|a|ao|aos)\s+(?:partes?|autor|reu|requerent|requerid|exequent|executad)/, /\bdiga(?:m)?\s+(?:a|o|as|os)\s+(?:parte|autor|reu|requerent|requerid|exequent|executad)/, /\bfale(?:m)?\s+(?:a|o)\s+(?:parte|autor|reu)/, /\b(?:intime|intimem|intima)-?se\s+(?:a|o|as|os)\s+(?:parte|autor|reu|requerent|requerid|exequent|executad)\w*\s+para\b/],
+    padroes: [/\bmanifest(?:e|em|ar|acao)\b/, /\b(?:de-se|abra-se|com)\s+vista\b/, /\bvista\s+(?:as|a|ao|aos)\s+(?:partes?|autor|reu|requerent|requerid|exequent|executad|reclamant|reclamad)/, /\bdiga(?:m)?\s+(?:a|o|as|os)\s+(?:parte|autor|reu|requerent|requerid|exequent|executad)/, /\bfale(?:m)?\s+(?:a|o)\s+(?:parte|autor|reu)/, /\b(?:intime|intimem|intima)-?se\s+(?:a|o|as|os)\s+(?:parte|autor|reu|requerent|requerid|exequent|executad)\w*\s+para\b/],
   },
   {
     tipo: "ciencia",
