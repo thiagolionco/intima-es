@@ -6,3 +6,6 @@ next-env.d.ts
 .env*.local
 # Banco de dados local (usuários, sessões e espaços de trabalho)
 .data
+
+# Resultados das avaliações locais (Ollama)
+resultado-*.json
