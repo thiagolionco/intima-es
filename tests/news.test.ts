@@ -60,3 +60,11 @@ test("feeds e links do guia são todos de domínio oficial e https", () => {
   }
   for (const e of EIXOS) for (const f of e.fontes) assert.ok(f.url.startsWith("https://") && linkOficial(f.url), f.url);
 });
+
+test("feed em ISO-8859-1 (Jurisprudência em Teses do STJ) sai com acentos certos", async () => {
+  const { decodificarFeed } = await import("../lib/news/feeds.ts");
+  const xml = `<?xml version="1.0" encoding="ISO-8859-1"?><feed><entry><title>EDIÇÃO N. 285: DIREITO À EDUCAÇÃO III</title><link href="https://scon.stj.jus.br/SCON/jt/?num=285"/></entry></feed>`;
+  const bytes = Uint8Array.from(Buffer.from(xml, "latin1"));
+  assert.equal(lerFeed(decodificarFeed(bytes, "application/atom+xml"))[0].titulo, "EDIÇÃO N. 285: DIREITO À EDUCAÇÃO III");
+  assert.equal(decodificarFeed(new TextEncoder().encode("<rss>ação</rss>"), "text/xml; charset=UTF-8"), "<rss>ação</rss>");
+});

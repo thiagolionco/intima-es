@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import { lerFeed, type ItemFeed } from "@/lib/news/feeds";
+import { decodificarFeed, lerFeed, type ItemFeed } from "@/lib/news/feeds";
 import { FEEDS, linkOficial, type FonteFeed } from "@/lib/news/fontes";
 
 /** Etiqueta do cache da aba News; a ronda diária a invalida para buscar tudo de novo. */
@@ -22,8 +22,9 @@ async function baixar(fonte: FonteFeed): Promise<LeituraFonte> {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const texto = await res.text();
-  if (texto.length > LIMITE_BYTES) throw new Error("Feed grande demais");
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.length > LIMITE_BYTES) throw new Error("Feed grande demais");
+  const texto = decodificarFeed(bytes, res.headers.get("content-type"));
   if (!/<(rss|feed|rdf:RDF)[\s>]/i.test(texto)) throw new Error("A resposta não é um feed");
   const itens = lerFeed(texto, 15).filter((i) => linkOficial(i.link));
   return { id: fonte.id, ok: true, lidoEm: new Date().toISOString(), itens };
@@ -37,8 +38,14 @@ async function lerFonte(fonte: FonteFeed): Promise<LeituraFonte> {
   try {
     return await unstable_cache(() => baixar(fonte), ["news-v1", fonte.id], { revalidate: DIA, tags: [ETIQUETA_NEWS] })();
   } catch (e) {
-    return { id: fonte.id, ok: false, lidoEm: new Date().toISOString(), itens: [], erro: e instanceof Error ? e.message.slice(0, 120) : "Falha ao ler" };
+    return { id: fonte.id, ok: false, lidoEm: new Date().toISOString(), itens: [], erro: motivo(e) };
   }
+}
+
+function motivo(e: unknown): string {
+  if (!(e instanceof Error)) return "Falha ao ler";
+  const causa = (e as { cause?: { code?: string; message?: string } }).cause;
+  return [e.message, causa?.code ?? causa?.message].filter(Boolean).join(": ").slice(0, 160);
 }
 
 export async function lerNews(): Promise<{ fontes: LeituraFonte[] }> {

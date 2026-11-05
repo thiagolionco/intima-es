@@ -59,15 +59,6 @@ export const FEEDS: FonteFeed[] = [
     pagina: "https://scon.stj.jus.br/SCON/sumstj/",
   },
   {
-    id: "stf-noticias",
-    nome: "Notícias do STF",
-    orgao: "STF",
-    eixo: "stf",
-    natureza: "noticia",
-    url: "https://noticias.stf.jus.br/feed/",
-    pagina: "https://portal.stf.jus.br/textos/verTexto.asp?servico=informativoSTF",
-  },
-  {
     id: "stj-noticias",
     nome: "Notícias do STJ",
     orgao: "STJ",

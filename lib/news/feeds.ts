@@ -108,10 +108,29 @@ export function lerFeed(xml: string, limite = 15): ItemFeed[] {
       link = linkSeguro(campo(b, "link")) ?? linkSeguro(campo(b, "guid"));
     }
     if (!titulo || !link) continue;
-    const data = atom ? lerData(campo(b, "updated") ?? campo(b, "published")) : lerData(campo(b, "pubDate") ?? campo(b, "dc:date"));
+    const data = atom ? lerData(campo(b, "published") ?? campo(b, "updated")) : lerData(campo(b, "pubDate") ?? campo(b, "dc:date"));
     const resumo = resumir(atom ? campo(b, "summary") ?? campo(b, "content") : campo(b, "description"));
     itens.push({ titulo, link, ...(data ? { data } : {}), ...(resumo && resumo !== titulo ? { resumo } : {}) });
     if (itens.length >= limite) break;
   }
   return itens;
+}
+
+/**
+ * Texto do feed no charset certo. Alguns feeds do STJ vêm em ISO-8859-1: o charset vem do
+ * cabeçalho Content-Type ou da declaração <?xml encoding="…"?>; sem nenhum, UTF-8.
+ */
+export function decodificarFeed(bytes: Uint8Array, contentType: string | null): string {
+  const doCabecalho = contentType?.match(/charset=["']?([\w-]+)/i)?.[1];
+  const inicio = new TextDecoder("latin1").decode(bytes.subarray(0, 200));
+  const daDeclaracao = inicio.match(/<\?xml[^>]*encoding=["']([\w-]+)["']/i)?.[1];
+  for (const charset of [daDeclaracao, doCabecalho, "utf-8"]) {
+    if (!charset) continue;
+    try {
+      return new TextDecoder(charset.toLowerCase()).decode(bytes);
+    } catch {
+      // charset desconhecido: tenta o próximo
+    }
+  }
+  return new TextDecoder().decode(bytes);
 }

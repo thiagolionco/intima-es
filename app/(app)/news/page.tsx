@@ -66,7 +66,7 @@ export default function NewsPage() {
     <>
       <PageHeader
         title="News"
-        description="O que saiu nas fontes oficiais do STF, do STJ e do Congresso. O Clepsa lê os feeds uma vez por dia, de madrugada. Nada vem de agregador."
+        description="O que saiu nas fontes oficiais do STJ, nas sessões do STF e do STJ e na Câmara. O Clepsa lê os feeds uma vez por dia, de madrugada. Nada vem de agregador."
         actions={
           <Button variant="secondary" icon={<RefreshCw className="h-4 w-4" />} loading={recarregando} onClick={() => void atualizar()}>
             Recarregar
