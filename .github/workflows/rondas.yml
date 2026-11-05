@@ -11,6 +11,8 @@ on:
     # Busca no Comunica, andamentos no DataJud e monitor de precedentes: a cada 6 horas (horário UTC).
     # Cada tema do monitor só é pesquisado quando vence a frequência escolhida para ele.
     - cron: "17 */6 * * *"
+    # Aba News: lê os feeds oficiais (STF, STJ, Câmara) uma vez por dia, 05:47 em Brasília.
+    - cron: "47 8 * * *"
   workflow_dispatch:
 
 permissions: {}
@@ -29,7 +31,7 @@ jobs:
       VERCEL_BYPASS: ${{ secrets.VERCEL_BYPASS }}
     steps:
       - name: Avisos de prazo
-        if: env.RONDA_TOKEN != ''
+        if: env.RONDA_TOKEN != '' && github.event.schedule != '47 8 * * *'
         run: >-
           curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/avisos"
       - name: Busca no Comunica
@@ -44,6 +46,10 @@ jobs:
         if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '17 */6 * * *' || github.event_name == 'workflow_dispatch') }}
         run: >-
           curl -fsS --max-time 320 -X POST -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/monitores"
+      - name: News (feeds oficiais)
+        if: ${{ !cancelled() && env.RONDA_TOKEN != '' && (github.event.schedule == '47 8 * * *' || github.event_name == 'workflow_dispatch') }}
+        run: >-
+          curl -fsS --max-time 90 -X POST -H "Authorization: Bearer $RONDA_TOKEN" -H "x-vercel-protection-bypass: $VERCEL_BYPASS" "$APP_URL/api/rondas/news"
       - name: Sem RONDA_TOKEN
         if: env.RONDA_TOKEN == ''
         run: echo "::notice::Configure o segredo RONDA_TOKEN no GitHub para ligar as rondas."

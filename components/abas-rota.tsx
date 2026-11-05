@@ -56,3 +56,17 @@ export function AbasClientes({ atual }: { atual: "relatorio" | "portal" }) {
     />
   );
 }
+
+/** As abas da área News: o que saiu hoje nas fontes oficiais e o guia de curadoria. */
+export function AbasNews({ atual }: { atual: "feed" | "guia" }) {
+  return (
+    <AbasDeRota
+      rotulo="News"
+      atual={atual}
+      abas={[
+        { id: "feed", rotulo: "Hoje nas fontes oficiais", href: "/news" },
+        { id: "guia", rotulo: "Guia de curadoria", href: "/news/guia" },
+      ]}
+    />
+  );
+}

@@ -186,6 +186,9 @@ export const FONTES_PESQUISA: FontePesquisa[] = [
   { id: "academico", nome: "Google Acadêmico", descricao: "Doutrina e artigos", url: (b) => `https://scholar.google.com.br/scholar?hl=pt-BR&q=${q(b)}` },
 ];
 
+/** Só as bases oficiais (sem agregadores nem doutrina), para a aba News e o guia de curadoria. */
+export const FONTES_PESQUISA_OFICIAIS = FONTES_PESQUISA.filter((f) => f.id !== "jusbrasil" && f.id !== "academico");
+
 /** Site do tribunal pela sigla (TJSP → tjsp.jus.br, TRT2 → trt2.jus.br). */
 export function siteDoTribunal(sigla: string): string | undefined {
   const s = sigla.trim().toLowerCase();

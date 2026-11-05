@@ -10,14 +10,14 @@ import { useToast } from "./toast";
 import { Button } from "./ui";
 
 /** Guarda uma fonte achada pela IA (pesquisa ou monitor) como item da biblioteca, com o link oficial. */
-export function GuardarNaBiblioteca({ item }: { item: { tipo: TipoItemBiblioteca; titulo: string; referencia?: string; tribunal?: string; texto?: string; link: string; area?: AreaAtuacao } }) {
+export function GuardarNaBiblioteca({ item, etiqueta = "pesquisa IA" }: { etiqueta?: string; item: { tipo: TipoItemBiblioteca; titulo: string; referencia?: string; tribunal?: string; texto?: string; link: string; area?: AreaAtuacao } }) {
   const { toast } = useToast();
   const [estado, setEstado] = useState<"livre" | "salvando" | "salvo">("livre");
   async function guardar() {
     setEstado("salvando");
     try {
       const form = new FormData();
-      form.set("dados", JSON.stringify({ ...item, titulo: item.titulo.slice(0, 200), etiquetas: ["pesquisa IA"] }));
+      form.set("dados", JSON.stringify({ ...item, titulo: item.titulo.slice(0, 200), etiquetas: [etiqueta] }));
       await api("/api/biblioteca", { body: form });
       setEstado("salvo");
       toast("Guardado na biblioteca");
