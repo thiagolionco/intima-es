@@ -64,8 +64,8 @@ export default function GuiaCuradoriaPage() {
                         {f.nome} <ExternalLink className="h-3.5 w-3.5" aria-hidden />
                       </a>
                       {!f.conferido && (
-                        <span title="O site oficial recusa leitura automática: confira o link à mão.">
-                          <Badge className="bg-amber-50 text-amber-800">site bloqueia robôs</Badge>
+                        <span title="O site oficial recusou a conferência automática do link: abra e confira à mão.">
+                          <Badge className="bg-amber-50 text-amber-800">conferir à mão</Badge>
                         </span>
                       )}
                     </div>

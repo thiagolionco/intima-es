@@ -38,7 +38,7 @@ export const FEEDS: FonteFeed[] = [
     eixo: "stj",
     natureza: "jurisprudencia",
     url: "https://processo.stj.jus.br/jurisprudencia/externo/InformativoFeed",
-    pagina: "https://scon.stj.jus.br/SCON/jt/",
+    pagina: "https://www.stj.jus.br/sites/portalp/Paginas/RSS.aspx",
   },
   {
     id: "stj-teses",
@@ -87,7 +87,7 @@ export const FEEDS: FonteFeed[] = [
   },
   {
     id: "camara-justica",
-    nome: "Câmara · Direito e Justiça",
+    nome: "Direito e Justiça",
     orgao: "Câmara dos Deputados",
     eixo: "normativo",
     natureza: "legislativo",
@@ -239,7 +239,7 @@ export const EIXOS: EixoGuia[] = [
         conferido: true,
       },
       {
-        nome: "Informativo de Jurisprudência do STJ",
+        nome: "Informativo de Jurisprudência do STJ (feed oficial; cada edição abre no site do STJ)",
         url: "https://processo.stj.jus.br/jurisprudencia/externo/InformativoFeed",
         serve: "Julgados relevantes da semana, com destaque, ramo do direito e órgão julgador. Principal sinal de overruling e distinguishing.",
         como: [
