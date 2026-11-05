@@ -21,3 +21,12 @@ export async function POST(req: NextRequest) {
   const resumo = fontes.map((f) => ({ id: f.id, ok: f.ok, itens: f.itens.length, ...(f.erro ? { erro: f.erro } : {}) }));
   return NextResponse.json({ lidas: resumo.filter((f) => f.ok).length, total: resumo.length, fontes: resumo }, { headers: { "Cache-Control": "no-store" } });
 }
+
+/**
+ * Só nas prévias da Vercel: mostra quais feeds responderam, sem token, para conferir uma mudança
+ * antes de ir ao ar. Em produção não existe (os feeds são públicos, mas não há motivo para abrir).
+ */
+export async function GET() {
+  if (process.env.VERCEL_ENV !== "preview") return NextResponse.json({ erro: { codigo: "indisponivel", mensagem: "Não disponível." } }, { status: 404 });
+  return NextResponse.json(await lerNews(), { headers: { "Cache-Control": "no-store" } });
+}
