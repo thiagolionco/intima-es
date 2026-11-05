@@ -66,5 +66,8 @@ test("feed em ISO-8859-1 (Jurisprudência em Teses do STJ) sai com acentos certo
   const xml = `<?xml version="1.0" encoding="ISO-8859-1"?><feed><entry><title>EDIÇÃO N. 285: DIREITO À EDUCAÇÃO III</title><link href="https://scon.stj.jus.br/SCON/jt/?num=285"/></entry></feed>`;
   const bytes = Uint8Array.from(Buffer.from(xml, "latin1"));
   assert.equal(lerFeed(decodificarFeed(bytes, "application/atom+xml"))[0].titulo, "EDIÇÃO N. 285: DIREITO À EDUCAÇÃO III");
+  // Diz UTF-8 mas manda Latin-1 (como o STJ faz)
+  const mentiroso = Uint8Array.from(Buffer.from(xml.replace("ISO-8859-1", "UTF-8"), "latin1"));
+  assert.equal(lerFeed(decodificarFeed(mentiroso, "application/atom+xml;charset=UTF-8"))[0].titulo, "EDIÇÃO N. 285: DIREITO À EDUCAÇÃO III");
   assert.equal(decodificarFeed(new TextEncoder().encode("<rss>ação</rss>"), "text/xml; charset=UTF-8"), "<rss>ação</rss>");
 });

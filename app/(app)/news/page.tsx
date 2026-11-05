@@ -19,7 +19,8 @@ interface LeituraFonte {
 }
 
 const POR_ID = new Map(FEEDS.map((f) => [f.id, f]));
-const ORDEM_NATUREZA: Natureza[] = ["jurisprudencia", "noticia", "plenario", "legislativo"];
+/** Só as naturezas que têm algum feed (não mostra filtro vazio). */
+const ORDEM_NATUREZA = (["jurisprudencia", "noticia", "plenario", "legislativo"] as Natureza[]).filter((n) => FEEDS.some((f) => f.natureza === n));
 const COR: Record<Natureza, string> = {
   jurisprudencia: "bg-brand-50 text-brand-700 ring-brand-200",
   noticia: "bg-slate-100 text-slate-700 ring-slate-200",
@@ -66,7 +67,7 @@ export default function NewsPage() {
     <>
       <PageHeader
         title="News"
-        description="O que saiu nas fontes oficiais do STJ, nas sessões do STF e do STJ e na Câmara. O Clepsa lê os feeds uma vez por dia, de madrugada. Nada vem de agregador."
+        description="O que saiu no Informativo e na Jurisprudência em Teses do STJ, nas sessões do STF e do STJ e na Câmara. O Clepsa lê os feeds uma vez por dia, de madrugada. Nada vem de agregador."
         actions={
           <Button variant="secondary" icon={<RefreshCw className="h-4 w-4" />} loading={recarregando} onClick={() => void atualizar()}>
             Recarregar

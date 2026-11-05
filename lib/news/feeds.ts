@@ -117,20 +117,25 @@ export function lerFeed(xml: string, limite = 15): ItemFeed[] {
 }
 
 /**
- * Texto do feed no charset certo. Alguns feeds do STJ vêm em ISO-8859-1: o charset vem do
- * cabeçalho Content-Type ou da declaração <?xml encoding="…"?>; sem nenhum, UTF-8.
+ * Texto do feed no charset certo. O charset vem da declaração <?xml encoding="…"?> ou do
+ * Content-Type; sem nenhum, UTF-8. Alguns feeds do STJ (Jurisprudência em Teses) dizem UTF-8 mas
+ * mandam ISO-8859-1: se os bytes não forem UTF-8 válido, lê como Windows-1252.
  */
 export function decodificarFeed(bytes: Uint8Array, contentType: string | null): string {
   const doCabecalho = contentType?.match(/charset=["']?([\w-]+)/i)?.[1];
   const inicio = new TextDecoder("latin1").decode(bytes.subarray(0, 200));
   const daDeclaracao = inicio.match(/<\?xml[^>]*encoding=["']([\w-]+)["']/i)?.[1];
-  for (const charset of [daDeclaracao, doCabecalho, "utf-8"]) {
-    if (!charset) continue;
+  const declarado = (daDeclaracao ?? doCabecalho ?? "utf-8").toLowerCase();
+  if (declarado !== "utf-8" && declarado !== "utf8") {
     try {
-      return new TextDecoder(charset.toLowerCase()).decode(bytes);
+      return new TextDecoder(declarado).decode(bytes);
     } catch {
-      // charset desconhecido: tenta o próximo
+      // charset desconhecido: segue para UTF-8
     }
   }
-  return new TextDecoder().decode(bytes);
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
 }

@@ -36,7 +36,7 @@ async function baixar(fonte: FonteFeed): Promise<LeituraFonte> {
  */
 async function lerFonte(fonte: FonteFeed): Promise<LeituraFonte> {
   try {
-    return await unstable_cache(() => baixar(fonte), ["news-v2", fonte.id], { revalidate: DIA, tags: [ETIQUETA_NEWS] })();
+    return await unstable_cache(() => baixar(fonte), ["news-v3", fonte.id], { revalidate: DIA, tags: [ETIQUETA_NEWS] })();
   } catch (e) {
     return { id: fonte.id, ok: false, lidoEm: new Date().toISOString(), itens: [], erro: motivo(e) };
   }
