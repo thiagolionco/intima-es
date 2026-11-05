@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { BookOpen, Calculator, CalendarDays, Database, Sun, FileSearch, History, Inbox, LayoutDashboard, ListChecks, Menu, X, UsersRound, FileText, FolderOpen, ShieldCheck, Workflow } from "lucide-react";
+import { BookOpen, Calculator, CalendarDays, Database, Sun, FileSearch, History, Inbox, LayoutDashboard, ListChecks, Menu, Newspaper, X, UsersRound, FileText, FolderOpen, ShieldCheck, Workflow } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -27,6 +27,7 @@ const NAV = [
   { href: "/processos", label: "Processos", icon: FolderOpen },
   { href: "/pedidos", label: "Pedidos", icon: Inbox },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
+  { href: "/news", label: "News", icon: Newspaper },
   { href: "/fluxos", label: "Fluxos de IA", icon: Workflow },
   { href: "/comunica", label: "Comunica PJe", icon: FileSearch },
   { href: "/prazos", label: "Prazos e avisos", icon: CalendarDays },

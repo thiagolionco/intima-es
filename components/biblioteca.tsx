@@ -8,6 +8,7 @@ import {
   type DadosItemBiblioteca,
   type ErrosItemBiblioteca,
   FONTES_PESQUISA,
+  type FontePesquisa,
   type ItemBiblioteca,
   LIMITES_BIBLIOTECA,
   pesquisaNoTribunal,
@@ -308,7 +309,7 @@ export function CartaoItem({ item, onEditar, onExcluir }: { item: ItemBiblioteca
 }
 
 /** Atalhos para pesquisar o mesmo termo nos sites públicos de jurisprudência e legislação. */
-export function PesquisaExterna({ busca }: { busca: string }) {
+export function PesquisaExterna({ busca, fontes = FONTES_PESQUISA }: { busca: string; fontes?: FontePesquisa[] }) {
   const [tribunal, setTribunal] = useState("");
   const termo = busca.trim();
   const noTribunal = termo && tribunal ? pesquisaNoTribunal(tribunal, termo) : undefined;
@@ -316,7 +317,7 @@ export function PesquisaExterna({ busca }: { busca: string }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {FONTES_PESQUISA.map((f) =>
+        {fontes.map((f) =>
           termo ? (
             <a key={f.id} href={f.url(termo)} target="_blank" rel="noreferrer noopener" className={classeLink} title={f.descricao}>
               {f.nome}
