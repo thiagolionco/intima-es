@@ -70,3 +70,38 @@ test("suspeitos: expressão que se repete em 4+ textos é fórmula do Diário, n
   assert.match(r[0][0], /Carlos Alberto Pereira/);
   assert.deepEqual(r[1], []);
 });
+
+test("cpj: só validadas, sem duplicadas, com apólice, sinistro, placa e nomes escondidos", async () => {
+  const { limpar, anonimizarSeguros, leituraDaDecisao, conversaPrazos, conversaEventos, dividirPorGrupo } = await import("../scripts/treino/dados-cpj.mts");
+  const pub = (texto: string) => ({ texto, tribunal: "TJPR", classe: "Procedimento Comum Cível", orgao: "3ª Vara Cível de Curitiba", tipoDocumento: "Despacho", tipoComunicacao: "Intimação", dataDisponibilizacao: "2026-11-03" });
+  const dec = { evento: "Intimação para manifestar", tarefa: "manifestar", dias: 15, contagem: "uteis", dobro: false };
+  const t1 = "Manifeste-se a Seguradora Exemplo sobre o sinistro nº 2024/123456, apólice 98765-43 e o veículo placa ABC1D23, no prazo de 15 dias.";
+  const { limpos, fora } = limpar([
+    { id: "1", processo: "p1", publicacao: pub(t1), cliente: { lado: "Réu" }, nomes: ["Seguradora Exemplo"], decisao: dec, situacao: "validada" },
+    { id: "2", processo: "p2", publicacao: pub(t1), cliente: { lado: "reu" }, nomes: ["Seguradora Exemplo"], decisao: dec, situacao: "validada" },
+    { id: "3", publicacao: pub(t1 + " Outro."), decisao: dec, situacao: "descartada" },
+    { id: "4", publicacao: pub("Texto qualquer com mais de trinta caracteres aqui."), situacao: "validada" },
+  ] as never);
+  assert.equal(limpos.length, 1);
+  assert.deepEqual(fora, { duplicada: 1, "situação: descartada": 1, "sem decisão": 1 });
+  const t = limpos[0].publicacao.texto;
+  for (const sobra of ["Exemplo", "123456", "98765", "ABC1D23"]) assert.ok(!t.includes(sobra), `sobrou ${sobra}: ${t}`);
+  assert.equal(limpos[0].cliente?.lado, "reu");
+  assert.ok(!("nomes" in limpos[0]));
+  assert.match(anonimizarSeguros("Chassi 9BWZZZ377VT004251 e RENAVAM 123456789012", []), /\[CHASSI\]/);
+
+  const { leitura } = leituraDaDecisao(limpos[0]);
+  assert.equal(leitura?.tarefa, "manifestar");
+  assert.equal(leitura?.prazoFixado, true);
+  const c = conversaPrazos(limpos[0], leitura!);
+  assert.match(c.messages[1].content, /Lado do nosso cliente: réu/);
+  assert.equal(JSON.parse(conversaEventos(limpos[0]).messages[2].content).evento, "Intimação para manifestar");
+  assert.equal(leituraDaDecisao({ ...limpos[0], decisao: { tarefa: "inventada", dias: 3, contagem: "uteis" } }).motivo, "tarefa desconhecida: inventada");
+
+  const itens = Array.from({ length: 300 }, (_, k) => ({ grupo: `proc${k % 100}`, k }));
+  const d = dividirPorGrupo(itens);
+  const onde = new Map<string, Set<string>>();
+  for (const [nome, l] of Object.entries(d)) for (const i of l) onde.set(i.grupo, (onde.get(i.grupo) ?? new Set()).add(nome));
+  assert.ok([...onde.values()].every((s) => s.size === 1), "um processo caiu em dois conjuntos");
+  assert.equal(d.treino.length + d.validacao.length + d.teste.length, 300);
+});
