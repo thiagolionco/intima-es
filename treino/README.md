@@ -42,7 +42,42 @@ Cobre: réplica, contestação, pagamento, emenda, custas, perícia, provas, jun
 manifestação (com e sem prazo escrito), contrarrazões, embargos, sentenças e decisões (cível, trabalho,
 penal e juizado), acórdão, audiência, só ciência e prazo em dobro (Fazenda, Defensoria, Ministério Público).
 
-## Limites que você precisa conhecer
+
+## Usando as intimações reais do Clepsa (recomendado)
+
+Os exemplos inventados são limpos demais. Com as suas intimações reais o modelo aprende o texto de verdade.
+**Os dados não saem do seu PC**: a pasta `treino\reais` é ignorada pelo git e nunca vai para o GitHub.
+
+1. **Exportar:** no Clepsa, Dados e backup > Exportar backup. Guarde o arquivo `.json` (por exemplo em Downloads).
+2. **Preparar** (um comando por vez no PowerShell, na pasta do projeto):
+   ```
+   node --experimental-strip-types scripts/treino/dados-reais-prazos.mts preparar --backup "C:\Users\Thiago\Downloads\backup-intimacoes-AAAA-MM-DD.json"
+   ```
+   - Tira nomes, CPF, CNPJ, número do processo, OAB, e-mail e telefone (troca por `[AUTOR]`, `[RÉU]`, `[ADVOGADO]`, `[PROCESSO]` etc.).
+   - Deixa de fora segredo de justiça, textos repetidos e textos curtos demais.
+   - Sem `--ia`, a proposta de resposta vem das regras do Clepsa (grátis, mas erra mais).
+   - Com `--ia`, vem do Claude Haiku (uns 20 centavos de dólar para 500), e só o texto **já sem nomes** é enviado:
+     ```
+     node --env-file=.env --experimental-strip-types scripts/treino/dados-reais-prazos.mts preparar --backup "..." --ia
+     ```
+3. **Conferir:** abra `treino\reais\revisao.csv` no Excel e siga `treino\reais\legenda.txt`.
+   - Se a proposta está certa, escreva `S`. Se errada, preencha só o que está errado.
+   - Se sobrou algum nome na coluna do texto, apague ou troque ali mesmo. A coluna "Nomes que sobraram?" ajuda.
+   - Pode fazer em partes: linhas que você não mexer ficam de fora. Salve como CSV, não como `.xlsx`.
+4. **Montar:**
+   ```
+   node --experimental-strip-types scripts/treino/dados-reais-prazos.mts montar
+   ```
+   Cria `reais-treino.jsonl`, `reais-validacao.jsonl` e `reais-teste.jsonl`. Cada exemplo passa pelo conferente do Clepsa;
+   o que contradiz o texto (por exemplo, dias diferentes dos escritos) fica de fora e aparece na lista.
+
+O `reais-teste.jsonl` é o melhor teste que teremos: publicações de verdade, com a resposta que **você** conferiu, que o modelo nunca viu.
+
+**Limites:** a anonimização acha o que é conhecido (partes, advogados, cliente, números). Nome de testemunha ou perito
+digitado no meio do texto pode escapar; por isso a conferência no Excel. Quem confere é você, e a responsabilidade
+pelo sigilo dos seus clientes continua sendo sua.
+
+## Limites dos exemplos inventados
 
 1. **Os exemplos são mais "limpos" que as publicações reais.** São cerca de 25 moldes com variações.
    Um modelo treinado só neles tende a ir bem nos moldes e mal em textos bagunçados.

@@ -13,3 +13,4 @@ resultado-*.json
 # Exemplos de treino gerados (reproduzíveis com o script) e modelos treinados
 treino/dados/
 treino/saida/
+treino/reais/
