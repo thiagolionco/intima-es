@@ -84,6 +84,17 @@ export function nomesQueSobraram(texto: string): string[] {
   return [...achados].slice(0, 6);
 }
 
+/**
+ * Para cada texto, os possíveis nomes que sobraram. Expressão que aparece em 4 ou mais textos diferentes
+ * é nome de órgão, de lei ou fórmula do Diário (nome de pessoa quase nunca se repete tanto), então não conta.
+ */
+export function suspeitosPorTexto(textos: string[], minimo = 4): string[][] {
+  const candidatos = textos.map((t) => nomesQueSobraram(t));
+  const contagem = new Map<string, number>();
+  for (const l of candidatos) for (const c of new Set(l)) contagem.set(c, (contagem.get(c) ?? 0) + 1);
+  return candidatos.map((l) => l.filter((c) => (contagem.get(c) ?? 0) < minimo));
+}
+
 // ---------- planilha (CSV com ; e BOM, como o Excel em português) ----------
 const celula = (v: unknown) => {
   const s = String(v ?? "").replace(/\r?\n/g, " ⏎ ");
@@ -206,10 +217,11 @@ async function preparar(args: string[]) {
       const c = conferir(dados, proposta, [], dados.dataDisponibilizacao);
       situacao = c.situacao; alertas = c.alertas.map((a) => a.texto);
     }
-    registros.push({ id: i.id, dados, proposta, propostaPor: por, situacao, alertas, sobraram: nomesQueSobraram(dados.texto) });
+    registros.push({ id: i.id, dados, proposta, propostaPor: por, situacao, alertas, sobraram: [] });
     if (ia) process.stdout.write(`  ${n + 1}/${lote.length}\r`);
   }
 
+  suspeitosPorTexto(registros.map((r) => r.dados.texto)).forEach((l, k) => (registros[k].sobraram = l));
   mkdirSync(saida, { recursive: true });
   writeFileSync(`${saida}/reais.json`, JSON.stringify(registros, null, 2));
   // Quem precisa de mais atenção vem primeiro.
@@ -293,14 +305,16 @@ function montar(args: string[]) {
   const col = (l: string[]): Record<string, string> => Object.fromEntries(cab.map((c, k) => [c, l[k] ?? ""]));
   const exemplos: Exemplo[] = [];
   const fora: Record<string, number> = {};
-  for (const linha of corpo) {
+  const textosDaPlanilha = corpo.map((l) => (col(l)["Texto (sem nomes)"] ?? "").replace(/ ⏎ /g, "\n"));
+  const suspeitos = suspeitosPorTexto(textosDaPlanilha);
+  for (const [k, linha] of corpo.entries()) {
     const c = col(linha);
     const r = porId.get(c["id"]);
     if (!r) { fora["id desconhecido"] = (fora["id desconhecido"] ?? 0) + 1; continue; }
     const texto = (c["Texto (sem nomes)"] ?? "").replace(/ ⏎ /g, "\n").trim() || r.dados.texto;
     const { leitura, motivo } = corrigir(r, texto, c);
     if (!leitura) { fora[motivo!] = (fora[motivo!] ?? 0) + 1; continue; }
-    if (!ignorarNomes && nomesQueSobraram(texto).length) { fora["ainda tem nome no texto"] = (fora["ainda tem nome no texto"] ?? 0) + 1; continue; }
+    if (!ignorarNomes && suspeitos[k].length) { fora["ainda tem nome no texto"] = (fora["ainda tem nome no texto"] ?? 0) + 1; continue; }
     const dados = { ...r.dados, texto };
     const g = conferir(dados, leitura, [], dados.dataDisponibilizacao).alertas.find((a) => a.gravidade === "grave" && a.codigo !== "vencido");
     if (g) { fora[`conferente: ${g.codigo}`] = (fora[`conferente: ${g.codigo}`] ?? 0) + 1; continue; }

@@ -61,3 +61,12 @@ test("corrigir: S aceita a proposta; correções trocam só o que foi preenchido
   assert.match(l.trecho, /10 dias/);
   assert.match(corrigir(r, texto, { "Tarefa certa": "inventada" }).motivo ?? "", /desconhecida/);
 });
+
+test("suspeitos: expressão que se repete em 4+ textos é fórmula do Diário, não nome de pessoa", async () => {
+  const { suspeitosPorTexto } = await import("../scripts/treino/dados-reais-prazos.mts");
+  const textos = ["Publicado no Diário Eletrônico Nacional. Perito Carlos Alberto Pereira.", "Publicado no Diário Eletrônico Nacional.", "Publicado no Diário Eletrônico Nacional.", "Publicado no Diário Eletrônico Nacional."];
+  const r = suspeitosPorTexto(textos);
+  assert.equal(r[0].length, 1);
+  assert.match(r[0][0], /Carlos Alberto Pereira/);
+  assert.deepEqual(r[1], []);
+});
