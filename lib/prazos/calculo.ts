@@ -34,13 +34,21 @@ export const DIAS_MAXIMOS = 365;
  * - Dias corridos (CPP, art. 798): conta todos os dias, menos os de suspensão (recesso,
  *   portarias); se o último cair sem expediente, vence no dia útil seguinte.
  */
-export function calcularPrazo(disponibilizacao: string, regra: Pick<RegraPrazo, "dias" | "contagem" | "dobro">, calendario: Calendario): ResultadoPrazo | null {
+export function calcularPrazo(
+  disponibilizacao: string,
+  regra: Pick<RegraPrazo, "dias" | "contagem" | "dobro">,
+  calendario: Calendario,
+  /** "intimacao": a data já é a da intimação ou ciência (sem o dia da publicação no DJEN). */
+  marco: "disponibilizacao" | "intimacao" = "disponibilizacao",
+): ResultadoPrazo | null {
   if (!dataValida(disponibilizacao)) return null;
   const base = Math.floor(regra.dias);
   if (!(base >= 1 && base <= DIAS_MAXIMOS)) return null;
   const dias = regra.dobro ? base * 2 : base;
 
-  const publicacao = calendario.proximoUtil(disponibilizacao);
+  // Intimação em dia sem expediente considera-se feita no primeiro dia útil seguinte (Lei 11.419/2006, art. 5º, § 2º; Súmula 310 do STF).
+  const publicacao =
+    marco === "intimacao" ? (calendario.ehUtil(disponibilizacao) ? disponibilizacao : calendario.proximoUtil(disponibilizacao)) : calendario.proximoUtil(disponibilizacao);
   const inicio = calendario.proximoUtil(publicacao);
   const pulados: DiaPulado[] = [];
   let finsDeSemana = 0;
