@@ -6,3 +6,12 @@ next-env.d.ts
 .env*.local
 # Banco de dados local (usuários, sessões e espaços de trabalho)
 .data
+
+# Resultados das avaliações locais (Ollama)
+resultado-*.json
+
+# Exemplos de treino gerados (reproduzíveis com o script) e modelos treinados
+treino/dados/
+treino/saida/
+treino/reais/
+treino/cpj/
