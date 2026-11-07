@@ -105,3 +105,19 @@ test("cpj: só validadas, sem duplicadas, com apólice, sinistro, placa e nomes 
   assert.ok([...onde.values()].every((s) => s.size === 1), "um processo caiu em dois conjuntos");
   assert.equal(d.treino.length + d.validacao.length + d.teste.length, 300);
 });
+
+test("cpj: extrato do CPJ (Concluído vale, rotina sai, passivo vira réu, DJN some)", async () => {
+  const { limpar } = await import("../scripts/treino/dados-cpj.mts");
+  const base = { texto: "Intimem-se as partes para ciência da decisão proferida nos autos do processo em epígrafe.", tribunal: "TJSCDJN", classe: "Apelação", orgao: "2ª Câmara", dataDisponibilizacao: "2026-11-03" };
+  const { limpos, fora } = limpar([
+    { id: "a", publicacao: base, cliente: { lado: "passivo" }, decisao: { evento: "RESP", tarefa: "RESP", dias: 15 }, situacao: "Concluído" },
+    { id: "b", publicacao: { ...base, texto: base.texto + " Outra." }, cliente: { lado: "Terceiro Interessado" }, decisao: { evento: "CIEN", tarefa: "CIEN" }, situacao: "Concluído" },
+    { id: "c", publicacao: { ...base, texto: base.texto + " Mais uma." }, cliente: { lado: "autor" }, decisao: { evento: "RESP", tarefa: "RESP" }, situacao: "Pendente" },
+  ] as never);
+  assert.equal(limpos.length, 1);
+  assert.equal(limpos[0].cliente?.lado, "reu");
+  assert.equal(limpos[0].publicacao.tribunal, "TJSC");
+  assert.deepEqual(fora, { "evento de rotina": 1, "situação: Pendente": 1 });
+  const r2 = limpar([{ id: "d", publicacao: base, cliente: { lado: "autor" }, decisao: { evento: "RESP", tarefa: "RESP", eventos_lancados: [{ sigla: "RESP", situacao: "Cancelado" }] }, situacao: "Concluído" }] as never);
+  assert.deepEqual(r2.fora, { "evento cancelado": 1 });
+});

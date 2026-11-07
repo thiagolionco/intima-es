@@ -69,3 +69,14 @@ simples de correspondência que você mesmo monta (uma vez só).
 - O treino de prazos traz a linha **"Lado do nosso cliente"** no pedido. O Agente de Prazos em produção ainda não manda essa linha.
   Antes de usar um modelo treinado assim, o Clepsa precisa descobrir o lado do cliente (autor/réu) e informá-lo.
 - Na dúvida, o robô deve preferir **deixar de fora** (`situacao` diferente de `validada`) a mandar um dado incerto.
+
+## Extrato real do CPJ3 (07/11/2026)
+
+O importador também lê direto o extrato do robô, sem converter:
+
+- `situacao`: `Concluído` vale como validada; `Pendente` e `Cancelado` ficam de fora.
+- `decisao.eventos_lancados[]`: se o evento escolhido só aparece como `Cancelado`, o registro sai (lançamento desfeito).
+- Eventos de rotina (`CI`, `CIEN`, `CNP`, `ATC`, `PMG`, `PMGC`, `CAJU`) saem.
+- `cliente.lado`: `passivo` vira réu; `Terceiro Interessado` e `Terceiro Garantidor` viram terceiro.
+- `tribunal`: o sufixo `DJN` é cortado (`TJSCDJN` = `TJSC`).
+- Neste extrato `tarefa` é a própria sigla do evento e `contagem`/`dobro` vêm vazios, então ele serve ao treino de **eventos**; o de prazos fica sem exemplos até existir uma tabela evento → tarefa do Clepsa.

@@ -29,11 +29,25 @@ export interface RegistroCpj {
   cliente?: { lado?: string; tipo?: string };
   /** Nomes a esconder (partes, advogados, segurado). Existem só neste arquivo de entrada; a saída não os guarda. */
   nomes?: string[];
-  decisao?: { evento?: string; tarefa?: string; dias?: number; contagem?: string; dobro?: boolean; audiencia?: { data?: string; hora?: string } };
+  decisao?: { evento?: string; tarefa?: string; dias?: number; contagem?: string; dobro?: boolean; audiencia?: { data?: string; hora?: string }; eventos_lancados?: { sigla?: string; situacao?: string }[] };
   situacao?: string;
 }
 
-const LADOS: Record<string, Lado> = { autor: "autor", reu: "reu", réu: "reu", terceiro: "terceiro", desconhecido: "desconhecido" };
+const LADOS: Record<string, Lado> = {
+  autor: "autor", ativo: "autor",
+  reu: "reu", réu: "reu", passivo: "reu",
+  terceiro: "terceiro", "terceiro interessado": "terceiro", "terceiro garantidor": "terceiro",
+  desconhecido: "desconhecido",
+};
+
+/** Eventos de rotina do CPJ (ciência, andamento etc.): não são uma decisão sobre a publicação. */
+export const EVENTOS_ROTINA = new Set(["CI", "CIEN", "CNP", "ATC", "PMG", "PMGC", "CAJU"]);
+
+/** TJSCDJN e TJSC são o mesmo tribunal: tira o sufixo do diário. */
+export const normalizarTribunal = (t?: string) => (t ?? "").trim().toUpperCase().replace(/DJN$/, "");
+
+/** No extrato do CPJ, "Concluído" (tarefa cumprida) vale como decisão validada; "Pendente" e "Cancelado" ficam de fora. */
+const SITUACOES_VALIDAS = new Set(["validada", "concluido"]);
 export const rotuloLado = (l: Lado) => ({ autor: "autor", reu: "réu", terceiro: "terceiro interessado", desconhecido: "não identificado" })[l];
 
 /** Anonimização reforçada para o ramo de seguros: apólice, sinistro, placa, proposta, endosso, RENAVAM, chassi. */
@@ -61,9 +75,13 @@ export function limpar(entrada: RegistroCpj[]): { limpos: RegistroCpj[]; fora: R
   for (const r of entrada) {
     const texto0 = r?.publicacao?.texto ?? "";
     if (!r?.id || texto0.trim().length < 30) { nota("sem id ou texto"); continue; }
-    if (normalizarTexto(r.situacao ?? "") !== "validada") { nota(`situação: ${r.situacao || "vazia"}`); continue; }
+    if (!SITUACOES_VALIDAS.has(normalizarTexto(r.situacao ?? ""))) { nota(`situação: ${r.situacao || "vazia"}`); continue; }
     if (!r.publicacao.dataDisponibilizacao || !/^\d{4}-\d{2}-\d{2}$/.test(r.publicacao.dataDisponibilizacao)) { nota("data inválida"); continue; }
     if (!r.decisao || (!r.decisao.evento && !r.decisao.tarefa)) { nota("sem decisão"); continue; }
+    if (r.decisao.evento && EVENTOS_ROTINA.has(r.decisao.evento.trim().toUpperCase())) { nota("evento de rotina"); continue; }
+    // Evento escolhido e depois cancelado = lançamento desfeito: não serve de gabarito.
+    const lancados = (r.decisao.eventos_lancados ?? []).filter((e) => e.sigla === r.decisao!.evento);
+    if (lancados.length && lancados.every((e) => normalizarTexto(e.situacao ?? "") === "cancelado")) { nota("evento cancelado"); continue; }
     const texto = anonimizarSeguros(texto0, r.nomes ?? []);
     const lado = LADOS[normalizarTexto(r.cliente?.lado ?? "")] ?? "desconhecido";
     const chave = normalizarTexto(texto).replace(/\d+/g, "#") + "|" + lado;
@@ -73,9 +91,9 @@ export function limpar(entrada: RegistroCpj[]): { limpos: RegistroCpj[]; fora: R
     limpos.push({
       id: r.id,
       processo: r.processo,
-      publicacao: { ...r.publicacao, texto, orgao: limpa(r.publicacao.orgao), classe: limpa(r.publicacao.classe) },
+      publicacao: { ...r.publicacao, texto, tribunal: normalizarTribunal(r.publicacao.tribunal), orgao: limpa(r.publicacao.orgao), classe: limpa(r.publicacao.classe) },
       cliente: { lado, tipo: r.cliente?.tipo },
-      decisao: r.decisao,
+      decisao: { ...r.decisao, eventos_lancados: undefined },
       situacao: "validada",
     });
   }
