@@ -9,3 +9,7 @@ next-env.d.ts
 
 # Resultados das avaliações locais (Ollama)
 resultado-*.json
+
+# Exemplos de treino gerados (reproduzíveis com o script) e modelos treinados
+treino/dados/
+treino/saida/
